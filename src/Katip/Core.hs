@@ -7,7 +7,7 @@
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE TemplateHaskell            #-}
 
-module Soothsayer.Core where
+module Katip.Core where
 
 -------------------------------------------------------------------------------
 import           Control.Applicative
@@ -15,7 +15,6 @@ import           Control.AutoUpdate
 import           Control.Concurrent
 import           Control.Lens
 import           Control.Monad.Reader
-
 import           Data.Aeson           (ToJSON)
 import qualified Data.Aeson           as A
 import qualified Data.Map.Strict      as M

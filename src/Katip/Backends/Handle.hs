@@ -1,5 +1,5 @@
 {-# LANGUAGE RecordWildCards #-}
-module Soothsayer.Backends.Handle where
+module Katip.Backends.Handle where
 
 -------------------------------------------------------------------------------
 import           Blaze.ByteString.Builder
@@ -15,7 +15,7 @@ import           Data.Time
 import           System.IO
 import           System.Locale
 -------------------------------------------------------------------------------
-import           Soothsayer.Core
+import           Katip.Core
 -------------------------------------------------------------------------------
 
 
