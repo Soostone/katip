@@ -16,6 +16,7 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:     
+    Katip
     Katip.Core
     Katip.Scribes.Handle
 
