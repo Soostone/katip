@@ -17,17 +17,18 @@ cabal-version:       >=1.10
 library
   exposed-modules:     
     Katip.Core
-    Katip.Backends.Handle
+    Katip.Scribes.Handle
 
   -- other-modules:       
-  other-extensions:    
-    DeriveGeneric, 
-    FlexibleContexts, 
-    GeneralizedNewtypeDeriving, 
-    MultiParamTypeClasses, 
-    RankNTypes, 
-    RecordWildCards, 
+  default-extensions:    
+    DeriveGeneric
+    FlexibleContexts
+    GeneralizedNewtypeDeriving
+    MultiParamTypeClasses
+    RankNTypes
+    RecordWildCards
     TemplateHaskell
+    OverloadedStrings
 
   build-depends:       
       base >=4.6 && <4.7

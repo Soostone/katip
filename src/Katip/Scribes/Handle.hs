@@ -1,5 +1,8 @@
 {-# LANGUAGE RecordWildCards #-}
-module Katip.Backends.Handle where
+
+module Katip.Scribes.Handle
+    ( mkHandleScribe
+    ) where
 
 -------------------------------------------------------------------------------
 import           Blaze.ByteString.Builder
@@ -13,6 +16,7 @@ import           Data.Monoid
 import           Data.Text                          (Text)
 import           Data.Time
 import           System.IO
+import           System.IO.Unsafe                   (unsafePerformIO)
 import           System.Locale
 -------------------------------------------------------------------------------
 import           Katip.Core
@@ -40,10 +44,10 @@ renderPrim NullPrim = fromByteString "null"
 
 
 -------------------------------------------------------------------------------
-mkHandleHandler :: Handle -> [Text] -> IO LogHandler
-mkHandleHandler h keys = do
+mkHandleScribe :: Handle -> [Text] -> Severity -> IO Scribe
+mkHandleScribe h keys sev = do
     hSetBuffering h LineBuffering
-    return $ LogHandler $ \ Item{..} -> do
+    return $ Scribe $ \ Item{..} -> do
       let nowStr = fromString $ formatTime defaultTimeLocale "%Y-%m-%d %H:%M:%S" itemTime
           ks = map brackets $ getKeys itemPayload keys
           msg = brackets nowStr <>
@@ -52,5 +56,24 @@ mkHandleHandler h keys = do
                 brackets (fromString (show itemThread)) <>
                 mconcat ks <>
                 fromText " " <> fromText itemMessage
-      B.putStrLn $ toByteString msg
+      if itemSeverity >= sev
+        then B.putStrLn $ toByteString msg
+        else return ()
+
+
+
+-------------------------------------------------------------------------------
+-- | An implicit environment to enable logging directly ouf of the IO monad.
+_ioLogEnv :: LogEnv
+_ioLogEnv = unsafePerformIO $ do
+    le <- initLogEnv "io" "io"
+    lh <- mkHandleScribe stdout [] Debug
+    return $ registerHandler "stdout" lh le
+{-# NOINLINE _ioLogEnv #-}
+
+
+-------------------------------------------------------------------------------
+-- | A default IO instance to make prototype development easy. User
+-- your own 'Monad' for production.
+instance Katip IO where getLogEnv = return _ioLogEnv
 

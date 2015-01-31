@@ -19,6 +19,7 @@ import           Data.Aeson           (ToJSON)
 import qualified Data.Aeson           as A
 import qualified Data.Map.Strict      as M
 import           Data.Monoid
+import           Data.String
 import           Data.Text            (Text)
 import           Data.Time
 import           GHC.Generics         hiding (to)
@@ -27,10 +28,10 @@ import           Network.HostName
 
 
 newtype AppName = AppName { getAppName :: Text }
-  deriving (Eq,Show,Read,Ord,Generic,ToJSON)
+  deriving (Eq,Show,Read,Ord,Generic,ToJSON,IsString)
 
 newtype Environment = Environment { getEnvironment :: Text }
-  deriving (Eq,Show,Read,Ord,Generic,ToJSON)
+  deriving (Eq,Show,Read,Ord,Generic,ToJSON,IsString)
 
 
 -------------------------------------------------------------------------------
@@ -63,7 +64,9 @@ renderSeverity s = case s of
 instance ToJSON Severity where
     toJSON s = A.String (renderSeverity s)
 
+
 -------------------------------------------------------------------------------
+-- | This has everything each log message will contain.
 data Item a = Item {
       itemApp      :: AppName
     , itemEnv      :: Environment
@@ -91,7 +94,9 @@ instance ToJSON a => ToJSON (Item a) where
 
 
 -------------------------------------------------------------------------------
-data LogHandler = LogHandler {
+-- | Scribes are handlers of incoming items. Each registered scribe
+-- knows how to push a log item somewhere.
+data Scribe = Scribe {
       lhPush :: forall a. ToJSON a => Item a -> IO ()
     }
 
@@ -102,7 +107,7 @@ data LogEnv = LogEnv {
     , _logEnvApp      :: AppName
     , _logEnvEnv      :: Environment
     , _logEnvTimer    :: IO UTCTime
-    , _logEnvHandlers :: M.Map Text LogHandler
+    , _logEnvHandlers :: M.Map Text Scribe
     }
 makeLenses ''LogEnv
 
@@ -121,7 +126,7 @@ initLogEnv an env = LogEnv
 registerHandler
     :: Text
     -- ^ Name the handler
-    -> LogHandler
+    -> Scribe
     -> LogEnv
     -> LogEnv
 registerHandler nm h = logEnvHandlers . at nm .~ Just h
@@ -136,24 +141,38 @@ unregisterHandler
 unregisterHandler nm = logEnvHandlers . at nm .~ Nothing
 
 
+
+class Katip m where
+    getLogEnv :: m LogEnv
+
+
+
 -------------------------------------------------------------------------------
-logM
-  :: (Applicative m, MonadIO m, ToJSON a, MonadReader LogEnv m)
+-- | The generic *full* logging function.
+logF
+  :: (Applicative m, MonadIO m, ToJSON a, Katip m)
   => Severity
   -> a
+  -- ^ Contextual payload for the log
   -> Text
+  -- ^ The log message
   -> m ()
-logM sev a msg = do
+logF sev a msg = do
+    LogEnv{..} <- getLogEnv
     item <- Item
-      <$> view logEnvApp
-      <*> view logEnvEnv
+      <$> pure _logEnvApp
+      <*> pure _logEnvEnv
       <*> pure sev
       <*> liftIO myThreadId
-      <*> view logEnvHost
+      <*> pure _logEnvHost
       <*> pure a
       <*> pure msg
-      <*> (view logEnvTimer >>= liftIO)
-    hs <- view $ logEnvHandlers . to M.elems
-    liftIO $ forM_ hs $ \ (LogHandler h) -> h item
+      <*> liftIO _logEnvTimer
+    liftIO $ forM_ (M.elems _logEnvHandlers) $ \ (Scribe h) -> h item
 
+
+-------------------------------------------------------------------------------
+-- | Log a message without any context.
+logM :: (Applicative m, MonadIO m, Katip m) => Severity -> Text -> m ()
+logM sev msg = logF sev () msg
 
