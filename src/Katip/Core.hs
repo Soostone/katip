@@ -101,6 +101,12 @@ data Scribe = Scribe {
     }
 
 
+instance Monoid Scribe where
+    mempty = Scribe $ const $ return ()
+    mappend (Scribe a) (Scribe b) = Scribe $ \ item -> do
+      a item
+      b item
+
 -------------------------------------------------------------------------------
 data LogEnv = LogEnv {
       _logEnvHost     :: HostName
