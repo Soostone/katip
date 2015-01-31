@@ -94,10 +94,22 @@ instance ToJSON a => ToJSON (Item a) where
 
 
 -------------------------------------------------------------------------------
+-- | Payload objects need instances of this class.
+class ToJSON a => LogContext a where
+
+    -- | List of keys in the JSON object that should be printed in
+    -- summarizing human-readable output.
+    importantKeys :: a -> [Text]
+
+
+instance LogContext () where importantKeys _ = []
+
+
+-------------------------------------------------------------------------------
 -- | Scribes are handlers of incoming items. Each registered scribe
 -- knows how to push a log item somewhere.
 data Scribe = Scribe {
-      lhPush :: forall a. ToJSON a => Item a -> IO ()
+      lhPush :: forall a. LogContext a => Item a -> IO ()
     }
 
 
@@ -156,7 +168,7 @@ class Katip m where
 -------------------------------------------------------------------------------
 -- | The generic *full* logging function.
 logF
-  :: (Applicative m, MonadIO m, ToJSON a, Katip m)
+  :: (Applicative m, MonadIO m, LogContext a, Katip m)
   => Severity
   -> a
   -- ^ Contextual payload for the log

@@ -29,8 +29,8 @@ brackets m = fromByteString "[" <> m <> fromByteString "]"
 
 
 -------------------------------------------------------------------------------
-getKeys :: ToJSON s => s -> [Text] -> [Builder]
-getKeys a keys = flip mapMaybe keys $ \ k ->
+getKeys :: LogContext s => s -> [Builder]
+getKeys a = flip mapMaybe (importantKeys a) $ \ k ->
     a' ^? key k . _Primitive . to renderPrim
   where
     a' = toJSON a
@@ -44,12 +44,12 @@ renderPrim NullPrim = fromByteString "null"
 
 
 -------------------------------------------------------------------------------
-mkHandleScribe :: Handle -> [Text] -> Severity -> IO Scribe
-mkHandleScribe h keys sev = do
+mkHandleScribe :: Handle -> Severity -> IO Scribe
+mkHandleScribe h sev = do
     hSetBuffering h LineBuffering
     return $ Scribe $ \ Item{..} -> do
       let nowStr = fromString $ formatTime defaultTimeLocale "%Y-%m-%d %H:%M:%S" itemTime
-          ks = map brackets $ getKeys itemPayload keys
+          ks = map brackets $ getKeys itemPayload
           msg = brackets nowStr <>
                 brackets (fromText (renderSeverity itemSeverity)) <>
                 brackets (fromString itemHost) <>
@@ -67,7 +67,7 @@ mkHandleScribe h keys sev = do
 _ioLogEnv :: LogEnv
 _ioLogEnv = unsafePerformIO $ do
     le <- initLogEnv "io" "io"
-    lh <- mkHandleScribe stdout [] Debug
+    lh <- mkHandleScribe stdout Debug
     return $ registerHandler "stdout" lh le
 {-# NOINLINE _ioLogEnv #-}
 
