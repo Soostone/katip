@@ -51,7 +51,7 @@ data Severity
 renderSeverity :: Severity -> Text
 renderSeverity s = case s of
       Debug -> "Debug"
-      Info -> "Debug"
+      Info -> "Info"
       Notice -> "Notice"
       Warning -> "Warning"
       Error -> "Error"
