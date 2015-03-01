@@ -59,7 +59,7 @@ mkHandleScribe h sev verb = do
                 maybe mempty (brackets . fromString . locationToString) itemLoc <>
                 fromText " " <> fromText itemMessage
       if itemSeverity >= sev
-        then B.putStrLn $ toByteString msg
+        then B.hPutStrLn h $ toByteString msg
         else return ()
 
 
