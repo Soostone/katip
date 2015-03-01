@@ -2,6 +2,8 @@
 
 * TODOs
 
+** TODO Should we remove orphan IO instance and add a LoggingT?
+
 ** DONE Add a "Maybe LocInfo" using a TH version of logF
    CLOSED: [2015-02-28 Sat 21:23]
 ** DONE Log current PID in Item

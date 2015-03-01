@@ -138,8 +138,8 @@ instance ToJSON LocJs where
     toJSON (LocJs (Loc fn p m (l, c) _)) = A.object
       [ "loc_fn" A..= fn
       , "loc_pkg" A..= p
-      , "loc_mod" A..= l
-      , "loc_ln" A..= c
+      , "loc_mod" A..= m
+      , "loc_ln" A..= l
       , "loc_col" A..= c
       ]
 
@@ -164,10 +164,10 @@ instance LogContext () where payloadKeys _ _ = SomeKeys []
 -------------------------------------------------------------------------------
 -- | Constrain payload based on verbosity. To be used by backends.
 payloadJson :: LogContext a => Verbosity -> a -> A.Value
-payloadJson v a = case payloadKeys v a of
+payloadJson verb a = case payloadKeys verb a of
     AllKeys -> toJSON a
     SomeKeys ks -> toJSON a
-      & _Object %~ HM.filterWithKey (\ k v -> k `elem` ks)
+      & _Object %~ HM.filterWithKey (\ k _ -> k `elem` ks)
 
 
 -------------------------------------------------------------------------------

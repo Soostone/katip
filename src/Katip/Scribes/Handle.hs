@@ -8,13 +8,10 @@ module Katip.Scribes.Handle
 import           Blaze.ByteString.Builder
 import           Blaze.ByteString.Builder.Char.Utf8
 import           Control.Lens
-import           Data.Aeson                         (ToJSON (..))
 import           Data.Aeson.Lens
 import qualified Data.ByteString.Char8              as B
 import qualified Data.HashMap.Strict                as HM
-import           Data.Maybe
 import           Data.Monoid
-import           Data.Text                          (Text)
 import           Data.Time
 import           System.IO
 import           System.IO.Unsafe                   (unsafePerformIO)
@@ -31,14 +28,14 @@ brackets m = fromByteString "[" <> m <> fromByteString "]"
 
 -------------------------------------------------------------------------------
 getKeys :: LogContext s => Verbosity -> s -> [Builder]
-getKeys v a =  payloadJson v a ^..
+getKeys verb a =  payloadJson verb a ^..
               _Object . to HM.toList . traverse . to rendPair
   where
     rendPair (k,v) = fromText k <> fromText ":" <> (v ^. _Primitive . to renderPrim)
-    a' = toJSON a
 
 
 -------------------------------------------------------------------------------
+renderPrim :: Primitive -> Builder
 renderPrim (StringPrim t) = fromText t
 renderPrim (NumberPrim s) = fromString (show s)
 renderPrim (BoolPrim b) = fromString (show b)
