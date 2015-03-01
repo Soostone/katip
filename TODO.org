@@ -1,0 +1,26 @@
+
+
+* TODOs
+
+** DONE Add a "Maybe LocInfo" using a TH version of logF
+   CLOSED: [2015-02-28 Sat 21:23]
+** DONE Log current PID in Item
+   CLOSED: [2015-02-28 Sat 20:01]
+** DONE Rethink important fields
+   CLOSED: [2015-02-28 Sat 20:01]
+
+*** Maybe add a logF variant that uses the class, but it's not
+    mandatory
+
+*** Another variant that explicitly passes the fields of interest
+
+** DONE Add Verbosity to the mix
+   CLOSED: [2015-02-28 Sat 20:01]
+
+** DONE AppName -> [Text]
+   CLOSED: [2015-02-28 Sat 20:21]
+
+- LogEnv defines the base name-space
+- logF gets a [Text] argument for AppName namespace
+- Whe two are concatted for each message
+

@@ -11,6 +11,7 @@ import           Control.Lens
 import           Data.Aeson                         (ToJSON (..))
 import           Data.Aeson.Lens
 import qualified Data.ByteString.Char8              as B
+import qualified Data.HashMap.Strict                as HM
 import           Data.Maybe
 import           Data.Monoid
 import           Data.Text                          (Text)
@@ -29,10 +30,11 @@ brackets m = fromByteString "[" <> m <> fromByteString "]"
 
 
 -------------------------------------------------------------------------------
-getKeys :: LogContext s => s -> [Builder]
-getKeys a = flip mapMaybe (importantKeys a) $ \ k ->
-    a' ^? key k . _Primitive . to renderPrim
+getKeys :: LogContext s => Verbosity -> s -> [Builder]
+getKeys v a =  payloadJson v a ^..
+              _Object . to HM.toList . traverse . to rendPair
   where
+    rendPair (k,v) = fromText k <> fromText ":" <> (v ^. _Primitive . to renderPrim)
     a' = toJSON a
 
 
@@ -44,17 +46,20 @@ renderPrim NullPrim = fromByteString "null"
 
 
 -------------------------------------------------------------------------------
-mkHandleScribe :: Handle -> Severity -> IO Scribe
-mkHandleScribe h sev = do
+mkHandleScribe :: Handle -> Severity -> Verbosity -> IO Scribe
+mkHandleScribe h sev verb = do
     hSetBuffering h LineBuffering
     return $ Scribe $ \ Item{..} -> do
       let nowStr = fromString $ formatTime defaultTimeLocale "%Y-%m-%d %H:%M:%S" itemTime
-          ks = map brackets $ getKeys itemPayload
+          ks = map brackets $ getKeys verb itemPayload
           msg = brackets nowStr <>
+                brackets (mconcat $ map fromText $ intercalateNs itemNamespace) <>
                 brackets (fromText (renderSeverity itemSeverity)) <>
                 brackets (fromString itemHost) <>
+                brackets (fromString (show itemProcess)) <>
                 brackets (fromString (show itemThread)) <>
                 mconcat ks <>
+                maybe mempty (brackets . fromString . locationToString) itemLoc <>
                 fromText " " <> fromText itemMessage
       if itemSeverity >= sev
         then B.putStrLn $ toByteString msg
@@ -67,7 +72,7 @@ mkHandleScribe h sev = do
 _ioLogEnv :: LogEnv
 _ioLogEnv = unsafePerformIO $ do
     le <- initLogEnv "io" "io"
-    lh <- mkHandleScribe stdout Debug
+    lh <- mkHandleScribe stdout Debug V3
     return $ registerHandler "stdout" lh le
 {-# NOINLINE _ioLogEnv #-}
 
