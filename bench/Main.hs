@@ -34,6 +34,12 @@ handleScribeBench = standoff "Katip.Scribes.Handle" $ do
     tid <- liftIO myThreadId
     continue
     whnfIO $ push $ exItem tid
+  subject "Colored" $ do
+    pause
+    (Scribe push) <- liftIO setupColor
+    tid <- liftIO myThreadId
+    continue
+    whnfIO $ push $ exItem tid
 
 
 -------------------------------------------------------------------------------
@@ -41,7 +47,7 @@ exItem :: ThreadId -> Item ExPayload
 exItem tid = Item {
       itemApp = Namespace ["app"]
     , itemEnv = Environment "production"
-    , itemSeverity = Info
+    , itemSeverity = Warning
     , itemThread = tid
     , itemHost = "example"
     , itemProcess = CPid 123
@@ -75,4 +81,11 @@ mkUTCTime y mt d h mn s = UTCTime day dt
 setupBB :: IO Scribe
 setupBB = do
   h <- openFile "/dev/null" WriteMode
-  mkHandleScribe h Debug V0
+  mkHandleScribe' bbFormat h Debug V0
+
+
+-------------------------------------------------------------------------------
+setupColor :: IO Scribe
+setupColor = do
+  h <- openFile "/dev/null" WriteMode
+  mkHandleScribe' colorFormat h Debug V0
