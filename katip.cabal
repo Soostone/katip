@@ -12,13 +12,13 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 library
-  exposed-modules:     
+  exposed-modules:
     Katip
     Katip.Core
     Katip.Scribes.Handle
 
-  -- other-modules:       
-  default-extensions:    
+  -- other-modules:
+  default-extensions:
     DeriveGeneric
     FlexibleContexts
     GeneralizedNewtypeDeriving
@@ -28,7 +28,7 @@ library
     TemplateHaskell
     OverloadedStrings
 
-  build-depends:       
+  build-depends:
       base >=4.6 && <4.7
     , aeson >=0.7 && <0.8
     , auto-update >= 0.1 && < 0.2
@@ -49,4 +49,22 @@ library
 
   hs-source-dirs:      src
   default-language:    Haskell2010
-  ghc-optoions:        -Wall
+  ghc-options:        -Wall
+
+
+benchmark bench
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  hs-source-dirs: bench
+  default-language:    Haskell2010
+  ghc-options: -O2
+  build-depends:
+      base
+    , aeson
+    , katip
+    , criterion >= 0.8 && < 1.0
+    , criterion-plus
+    , unix
+    , text
+    , time
+    , transformers
