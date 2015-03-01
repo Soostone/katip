@@ -73,7 +73,7 @@ _ioLogEnv :: LogEnv
 _ioLogEnv = unsafePerformIO $ do
     le <- initLogEnv "io" "io"
     lh <- mkHandleScribe stdout Debug V3
-    return $ registerHandler "stdout" lh le
+    return $ registerScribe "stdout" lh le
 {-# NOINLINE _ioLogEnv #-}
 
 

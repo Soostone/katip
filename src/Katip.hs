@@ -1,6 +1,24 @@
 module Katip
-    ( module Katip.Core
-    , module Katip.Scribes.Handle
+    ( module Katip.Scribes.Handle
+    , Namespace (..)
+    , Environment (..)
+    , Severity (..), renderSeverity
+    , Verbosity (..)
+    , LogContext (..)
+    , PayloadSelection (..)
+    , Scribe (..)
+    , LogEnv (..)
+
+    -- * Initializing Loggers
+    , initLogEnv
+    , registerScribe
+    , unregisterScribe
+
+    -- * Logging Functions
+    , logF
+    , logM
+    , logT
+    , logI
     ) where
 
 -------------------------------------------------------------------------------

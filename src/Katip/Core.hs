@@ -128,6 +128,19 @@ instance ToJSON a => ToJSON (Item a) where
       , "msg" A..= itemMessage
       , "at" A..= itemTime
       , "ns" A..= itemNamespace
+      , "loc" A..= fmap LocJs itemLoc
+      ]
+
+newtype LocJs = LocJs { getLocJs :: Loc }
+
+
+instance ToJSON LocJs where
+    toJSON (LocJs (Loc fn p m (l, c) _)) = A.object
+      [ "loc_fn" A..= fn
+      , "loc_pkg" A..= p
+      , "loc_mod" A..= l
+      , "loc_ln" A..= c
+      , "loc_col" A..= c
       ]
 
 
@@ -173,12 +186,12 @@ instance Monoid Scribe where
 
 -------------------------------------------------------------------------------
 data LogEnv = LogEnv {
-      _logEnvHost     :: HostName
-    , _logEnvPid      :: ProcessID
-    , _logEnvApp      :: Namespace
-    , _logEnvEnv      :: Environment
-    , _logEnvTimer    :: IO UTCTime
-    , _logEnvHandlers :: M.Map Text Scribe
+      _logEnvHost    :: HostName
+    , _logEnvPid     :: ProcessID
+    , _logEnvNs      :: Namespace
+    , _logEnvEnv     :: Environment
+    , _logEnvTimer   :: IO UTCTime
+    , _logEnvScribes :: M.Map Text Scribe
     }
 makeLenses ''LogEnv
 
@@ -200,22 +213,22 @@ initLogEnv an env = LogEnv
 
 
 -------------------------------------------------------------------------------
-registerHandler
+registerScribe
     :: Text
-    -- ^ Name the handler
+    -- ^ Name the scribe
     -> Scribe
     -> LogEnv
     -> LogEnv
-registerHandler nm h = logEnvHandlers . at nm .~ Just h
+registerScribe nm h = logEnvScribes . at nm .~ Just h
 
 
 -------------------------------------------------------------------------------
-unregisterHandler
+unregisterScribe
     :: Text
-    -- ^ Name of the handler
+    -- ^ Name of the scribe
     -> LogEnv
     -> LogEnv
-unregisterHandler nm = logEnvHandlers . at nm .~ Nothing
+unregisterScribe nm = logEnvScribes . at nm .~ Nothing
 
 
 
@@ -224,7 +237,8 @@ class Katip m where
 
 
 -------------------------------------------------------------------------------
--- | Log with everything, including a source code location.
+-- | Log with everything, including a source code location. This is
+-- very low level and you typically can use 'logT' in its place.
 logI
     :: (Applicative m, MonadIO m, LogContext a, Katip m)
     => a
@@ -236,7 +250,7 @@ logI
 logI a ns loc sev msg = do
     LogEnv{..} <- getLogEnv
     item <- Item
-      <$> pure _logEnvApp
+      <$> pure _logEnvNs
       <*> pure _logEnvEnv
       <*> pure sev
       <*> liftIO myThreadId
@@ -245,13 +259,13 @@ logI a ns loc sev msg = do
       <*> pure a
       <*> pure msg
       <*> liftIO _logEnvTimer
-      <*> pure (_logEnvApp <> ns)
+      <*> pure (_logEnvNs <> ns)
       <*> pure loc
-    liftIO $ forM_ (M.elems _logEnvHandlers) $ \ (Scribe h) -> h item
+    liftIO $ forM_ (M.elems _logEnvScribes) $ \ (Scribe h) -> h item
 
 
 -------------------------------------------------------------------------------
--- | Log with full context.
+-- | Log with full context, but without any code location.
 logF
   :: (Applicative m, MonadIO m, LogContext a, Katip m)
   => a
@@ -267,7 +281,7 @@ logF a ns sev msg = logI a ns Nothing sev msg
 
 
 -------------------------------------------------------------------------------
--- | Log a message without any payload/context.
+-- | Log a message without any payload/context or code location.
 logM
     :: (Applicative m, MonadIO m, Katip m)
     => Namespace
@@ -321,8 +335,10 @@ getLoc = [| $(location >>= liftLoc) |]
 
 -------------------------------------------------------------------------------
 -- | 'Loc'-tagged logging when using template-haskell is OK.
+--
+-- @$(logT) obj mempty Info "Hello world"@
 logT :: ExpQ
-logT = [| \ a ns sev msg -> logI a ns (Just $(location >>= liftLoc)) sev msg |]
+logT = [| \ a ns sev msg -> logI a ns (Just $(getLoc)) sev msg |]
 
 
 -- taken from the file-location package
