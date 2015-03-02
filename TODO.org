@@ -1,6 +1,6 @@
 
 
-* TODOs
+* katip
 
 ** TODO Should we remove orphan IO instance and add a LoggingT?
 
@@ -26,3 +26,16 @@
 - logF gets a [Text] argument for AppName namespace
 - Whe two are concatted for each message
 
+
+
+* katip-elasticsearch
+
+** Efficient UUID generation (don't use system rng)
+
+** Async size-capped buffer for incoming items
+   Don't block log requests for server connection, add to buffer and
+   move on. If buffer fills up, drop further logs until there's space.
+
+** Connection pooling (bloodhound)
+
+** Stop using Strings everywhere (bloodhound)
