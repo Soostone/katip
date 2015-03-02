@@ -2,6 +2,7 @@
 
 module Katip.Scribes.Handle
     ( mkHandleScribe
+    , ColorStrategy (..)
     ) where
 
 -------------------------------------------------------------------------------
@@ -44,10 +45,20 @@ renderPrim NullPrim = fromByteString "null"
 
 
 -------------------------------------------------------------------------------
-mkHandleScribe :: Handle -> Severity -> Verbosity -> IO Scribe
-mkHandleScribe h sev verb = do
+data ColorStrategy
+    = ColorLog Bool
+    -- ^ Whether to use color control chars in log output
+    | ColorIfTerminal
+    -- ^ Color if output is a terminal
+
+
+-------------------------------------------------------------------------------
+mkHandleScribe :: ColorStrategy -> Handle -> Severity -> Verbosity -> IO Scribe
+mkHandleScribe cs h sev verb = do
     hSetBuffering h LineBuffering
-    colorize <- hIsTerminalDevice h
+    colorize <- case cs of
+      ColorIfTerminal -> hIsTerminalDevice h
+      ColorLog b -> return b
     return $ Scribe $ \ i@Item{..} -> do
       when (itemSeverity >= sev) $
         B.hPutStrLn h $ toByteString $ formatItem colorize verb i
@@ -87,7 +98,7 @@ formatItem withColor verb Item{..} =
 _ioLogEnv :: LogEnv
 _ioLogEnv = unsafePerformIO $ do
     le <- initLogEnv "io" "io"
-    lh <- mkHandleScribe stdout Debug V3
+    lh <- mkHandleScribe ColorIfTerminal stdout Debug V3
     return $ registerScribe "stdout" lh le
 {-# NOINLINE _ioLogEnv #-}
 
