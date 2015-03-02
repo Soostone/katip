@@ -1,10 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
 module Main
     ( main
     ) where
 
 
 -------------------------------------------------------------------------------
+import           Blaze.ByteString.Builder
 import           Control.Concurrent
 import           Control.Monad.IO.Class
 import           CriterionPlus
@@ -30,13 +32,19 @@ handleScribeBench :: Benchmark ()
 handleScribeBench = standoff "Katip.Scribes.Handle" $ do
   subject "Bytestring Builder" $ do
     pause
-    (Scribe push) <- liftIO setupBB
+    (Scribe push) <- liftIO $ setup bbFormat
     tid <- liftIO myThreadId
     continue
     whnfIO $ push $ exItem tid
-  subject "Colored" $ do
+  subject "Bytestring Builder + Colored" $ do
     pause
-    (Scribe push) <- liftIO setupColor
+    (Scribe push) <- liftIO $ setup bbFormatColor
+    tid <- liftIO myThreadId
+    continue
+    whnfIO $ push $ exItem tid
+  subject "WL + Colored" $ do
+    pause
+    (Scribe push) <- liftIO $ setup colorFormat
     tid <- liftIO myThreadId
     continue
     whnfIO $ push $ exItem tid
@@ -78,14 +86,7 @@ mkUTCTime y mt d h mn s = UTCTime day dt
 
 
 -------------------------------------------------------------------------------
-setupBB :: IO Scribe
-setupBB = do
+setup :: (forall a. LogContext a => Verbosity -> Item a -> Builder) -> IO Scribe
+setup format = do
   h <- openFile "/dev/null" WriteMode
-  mkHandleScribe' bbFormat h Debug V0
-
-
--------------------------------------------------------------------------------
-setupColor :: IO Scribe
-setupColor = do
-  h <- openFile "/dev/null" WriteMode
-  mkHandleScribe' colorFormat h Debug V0
+  mkHandleScribe' format h Debug V0

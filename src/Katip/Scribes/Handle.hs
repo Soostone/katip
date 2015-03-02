@@ -5,6 +5,7 @@ module Katip.Scribes.Handle
     -- * exported for benchmarking
     , mkHandleScribe'
     , bbFormat
+    , bbFormatColor
     , colorFormat
     ) where
 
@@ -67,6 +68,7 @@ mkHandleScribe' fmt h sev verb = do
 
 
 -------------------------------------------------------------------------------
+bbFormat :: LogContext a => Verbosity -> Item a -> Builder
 bbFormat verb Item{..} =
     brackets nowStr <>
     brackets (mconcat $ map fromText $ intercalateNs itemNamespace) <>
@@ -83,6 +85,33 @@ bbFormat verb Item{..} =
 
 
 -------------------------------------------------------------------------------
+bbFormatColor :: LogContext a => Verbosity -> Item a -> Builder
+bbFormatColor verb Item{..} =
+    brackets nowStr <>
+    brackets (mconcat $ map fromText $ intercalateNs itemNamespace) <>
+    brackets (fromText (renderSeverity' itemSeverity)) <>
+    brackets (fromString itemHost) <>
+    brackets (fromString (show itemProcess)) <>
+    brackets (fromString (show itemThread)) <>
+    mconcat ks <>
+    maybe mempty (brackets . fromString . locationToString) itemLoc <>
+    fromText " " <> fromText itemMessage
+  where
+    nowStr = fromString $ formatTime defaultTimeLocale "%Y-%m-%d %H:%M:%S" itemTime
+    ks = map brackets $ getKeys verb itemPayload
+    renderSeverity' s = case s of
+      Emergency -> red $ renderSeverity s
+      Alert     -> red $ renderSeverity s
+      Critical  -> red $ renderSeverity s
+      Error     -> red $ renderSeverity s
+      Warning   -> yellow $ renderSeverity s
+      _         -> renderSeverity s
+    red = colorize "31"
+    yellow = colorize "33"
+    colorize c s = "\ESC["<> c <> "m" <> s <> "\ESC[0m"
+
+-------------------------------------------------------------------------------
+colorFormat :: LogContext a => Verbosity -> Item a -> Builder
 colorFormat verb Item{..} = disp $
     PP.brackets (PP.string nowStr) <>
     PP.brackets (PP.string $ fromChunks $ intercalateNs itemNamespace) <>
