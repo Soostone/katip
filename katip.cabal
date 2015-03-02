@@ -31,7 +31,6 @@ library
   build-depends:
       base >=4.6 && <4.7
     , aeson >=0.7 && <0.8
-    , wl-pprint-text >= 1.1.0.3 && < 1.2
     , auto-update >= 0.1 && < 0.2
     , blaze-builder >= 0.3 && < 0.4
     , bytestring >= 0.9 && < 0.11

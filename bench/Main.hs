@@ -1,5 +1,4 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RankNTypes #-}
 module Main
     ( main
     ) where
@@ -29,22 +28,10 @@ main = benchmark $
 
 -------------------------------------------------------------------------------
 handleScribeBench :: Benchmark ()
-handleScribeBench = standoff "Katip.Scribes.Handle" $ do
+handleScribeBench = standoff "Katip.Scribes.Handle" $
   subject "Bytestring Builder" $ do
     pause
-    (Scribe push) <- liftIO $ setup bbFormat
-    tid <- liftIO myThreadId
-    continue
-    whnfIO $ push $ exItem tid
-  subject "Bytestring Builder + Colored" $ do
-    pause
-    (Scribe push) <- liftIO $ setup bbFormatColor
-    tid <- liftIO myThreadId
-    continue
-    whnfIO $ push $ exItem tid
-  subject "WL + Colored" $ do
-    pause
-    (Scribe push) <- liftIO $ setup colorFormat
+    (Scribe push) <- liftIO setup
     tid <- liftIO myThreadId
     continue
     whnfIO $ push $ exItem tid
@@ -86,7 +73,7 @@ mkUTCTime y mt d h mn s = UTCTime day dt
 
 
 -------------------------------------------------------------------------------
-setup :: (forall a. LogContext a => Verbosity -> Item a -> Builder) -> IO Scribe
-setup format = do
+setup :: IO Scribe
+setup = do
   h <- openFile "/dev/null" WriteMode
-  mkHandleScribe' format h Debug V0
+  mkHandleScribe h Debug V0
