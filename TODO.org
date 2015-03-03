@@ -3,7 +3,6 @@
 * katip
 
 ** TODO Should we remove orphan IO instance and add a LoggingT?
-
 ** DONE Add a "Maybe LocInfo" using a TH version of logF
    CLOSED: [2015-02-28 Sat 21:23]
 ** DONE Log current PID in Item
@@ -30,12 +29,24 @@
 
 * katip-elasticsearch
 
-** Efficient UUID generation (don't use system rng)
+** TODO Efficient UUID generation (don't use system rng)
 
-** Async size-capped buffer for incoming items
+   Make RNG once, store it behind an mvar and use it in all uuid
+   generation.
+
+** TODO Async size-capped buffer for incoming items
    Don't block log requests for server connection, add to buffer and
    move on. If buffer fills up, drop further logs until there's space.
 
-** Connection pooling (bloodhound)
+   We can use a limited chan with a pre-check to make sure that if
+   the size limit is reached, we drop the request instead of blocking
+   until limit is reached.
 
-** Stop using Strings everywhere (bloodhound)
+** TODO Connection pooling (bloodhound)
+
+   Exposing Manager would solve this, as it does internal pooling.
+
+** TODO Stop using Strings everywhere (bloodhound)
+
+   Seems to be a limitation of http-client that we'll have to live
+   with for now.
