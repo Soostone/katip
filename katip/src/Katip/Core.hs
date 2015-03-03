@@ -14,6 +14,7 @@ import           Control.Applicative
 import           Control.AutoUpdate
 import           Control.Concurrent
 import           Control.Lens
+import           Control.Monad.Catch
 import           Control.Monad.Reader
 import           Data.Aeson                 (ToJSON (..))
 import qualified Data.Aeson                 as A
@@ -26,6 +27,7 @@ import           Data.String
 import           Data.String.Conv
 import           Data.Text                  (Text)
 import qualified Data.Text                  as T
+import qualified Data.Text.Lazy.Builder     as B
 import           Data.Time
 import           GHC.Generics               hiding (to)
 import           Language.Haskell.TH
@@ -99,6 +101,29 @@ instance ToJSON Severity where
 
 
 -------------------------------------------------------------------------------
+-- | Log message with Builder unerneath; use '<>' to concat in O(1).
+newtype LogStr = LogStr { unLogStr :: B.Builder }
+    deriving (Generic)
+
+instance IsString LogStr where
+    fromString = LogStr . B.fromString
+
+
+-------------------------------------------------------------------------------
+-- | Pack any string-like thing into a 'LogMsg'. This will
+-- automatically work on 'String', 'ByteString, 'Text' and any of the
+-- lazy variants.
+logStr :: StringConv a Text => a -> LogStr
+logStr t = LogStr (B.fromText $ toS t)
+
+
+-------------------------------------------------------------------------------
+-- | Shorthand for 'logMsg'
+ls :: StringConv a Text => a -> LogStr
+ls = logStr
+
+
+-------------------------------------------------------------------------------
 -- | This has everything each log message will contain.
 data Item a = Item {
       itemApp       :: Namespace
@@ -108,7 +133,7 @@ data Item a = Item {
     , itemHost      :: HostName
     , itemProcess   :: ProcessID
     , itemPayload   :: a
-    , itemMessage   :: Text
+    , itemMessage   :: LogStr
     , itemTime      :: UTCTime
     , itemNamespace :: Namespace
     , itemLoc       :: Maybe Loc
@@ -125,7 +150,7 @@ instance ToJSON a => ToJSON (Item a) where
       , "host" A..= itemHost
       , "pid" A..= A.String (toS (show itemProcess))
       , "data" A..= itemPayload
-      , "msg" A..= itemMessage
+      , "msg" A..= (B.toLazyText $ unLogStr itemMessage)
       , "at" A..= itemTime
       , "ns" A..= itemNamespace
       , "loc" A..= fmap LocJs itemLoc
@@ -237,6 +262,19 @@ class Katip m where
 
 
 -------------------------------------------------------------------------------
+-- | A concrete monad you can use to run logging actions.
+newtype KatipT m a = KatipT { unKatipT :: ReaderT LogEnv m a }
+  deriving ( Monad, MonadIO, MonadMask, MonadCatch, MonadThrow
+           , MonadReader LogEnv)
+
+
+-------------------------------------------------------------------------------
+-- | Execute 'KatipT' on a log env.
+runKatipT :: LogEnv -> KatipT m a -> m a
+runKatipT le (KatipT f) = runReaderT f le
+
+
+-------------------------------------------------------------------------------
 -- | Log with everything, including a source code location. This is
 -- very low level and you typically can use 'logT' in its place.
 logI
@@ -245,7 +283,7 @@ logI
     -> Namespace
     -> Maybe Loc
     -> Severity
-    -> Text
+    -> LogStr
     -> m ()
 logI a ns loc sev msg = do
     LogEnv{..} <- getLogEnv
@@ -274,7 +312,7 @@ logF
   -- ^ Specific namespace of the message.
   -> Severity
   -- ^ Severity of the message
-  -> Text
+  -> LogStr
   -- ^ The log message
   -> m ()
 logF a ns sev msg = logI a ns Nothing sev msg
@@ -286,7 +324,7 @@ logM
     :: (Applicative m, MonadIO m, Katip m)
     => Namespace
     -> Severity
-    -> Text
+    -> LogStr
     -> m ()
 logM ns sev msg = logF () ns sev msg
 

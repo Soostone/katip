@@ -6,17 +6,16 @@ module Katip.Scribes.Handle
     ) where
 
 -------------------------------------------------------------------------------
-import           Blaze.ByteString.Builder
-import           Blaze.ByteString.Builder.Char.Utf8
 import           Control.Lens
 import           Control.Monad
 import           Data.Aeson.Lens
-import qualified Data.ByteString.Char8              as B
-import qualified Data.HashMap.Strict                as HM
+import qualified Data.HashMap.Strict    as HM
 import           Data.Monoid
+import           Data.Text.Lazy.Builder
+import           Data.Text.Lazy.IO      as T
 import           Data.Time
 import           System.IO
-import           System.IO.Unsafe                   (unsafePerformIO)
+import           System.IO.Unsafe       (unsafePerformIO)
 import           System.Locale
 -------------------------------------------------------------------------------
 import           Katip.Core
@@ -25,7 +24,7 @@ import           Katip.Core
 
 -------------------------------------------------------------------------------
 brackets :: Builder -> Builder
-brackets m = fromByteString "[" <> m <> fromByteString "]"
+brackets m = fromText "[" <> m <> fromText "]"
 
 
 -------------------------------------------------------------------------------
@@ -41,7 +40,7 @@ renderPrim :: Primitive -> Builder
 renderPrim (StringPrim t) = fromText t
 renderPrim (NumberPrim s) = fromString (show s)
 renderPrim (BoolPrim b) = fromString (show b)
-renderPrim NullPrim = fromByteString "null"
+renderPrim NullPrim = fromText "null"
 
 
 -------------------------------------------------------------------------------
@@ -61,7 +60,7 @@ mkHandleScribe cs h sev verb = do
       ColorLog b -> return b
     return $ Scribe $ \ i@Item{..} -> do
       when (itemSeverity >= sev) $
-        B.hPutStrLn h $ toByteString $ formatItem colorize verb i
+        T.hPutStrLn h $ toLazyText $ formatItem colorize verb i
 
 
 -------------------------------------------------------------------------------
@@ -75,7 +74,7 @@ formatItem withColor verb Item{..} =
     brackets (fromString (show itemThread)) <>
     mconcat ks <>
     maybe mempty (brackets . fromString . locationToString) itemLoc <>
-    fromText " " <> fromText itemMessage
+    fromText " " <> (unLogStr itemMessage)
   where
     nowStr = fromString $ formatTime defaultTimeLocale "%Y-%m-%d %H:%M:%S" itemTime
     ks = map brackets $ getKeys verb itemPayload

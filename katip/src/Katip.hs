@@ -8,6 +8,8 @@ module Katip
     , PayloadSelection (..)
     , Scribe (..)
     , LogEnv (..)
+    , KatipT (..)
+    , runKatipT
 
     -- * Initializing Loggers
     , initLogEnv
@@ -15,6 +17,9 @@ module Katip
     , unregisterScribe
 
     -- * Logging Functions
+    , LogStr (..)
+    , logStr, ls
+
     , logF
     , logM
     , logT
