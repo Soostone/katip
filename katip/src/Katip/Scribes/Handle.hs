@@ -1,9 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module Katip.Scribes.Handle
-    ( mkHandleScribe
-    , ColorStrategy (..)
-    ) where
+module Katip.Scribes.Handle where
 
 -------------------------------------------------------------------------------
 import           Control.Lens

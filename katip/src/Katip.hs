@@ -24,6 +24,10 @@ module Katip
     , logM
     , logT
     , logI
+
+    -- * Included Scribes
+    , mkHandleScribe
+    , ColorStrategy (..)
     ) where
 
 -------------------------------------------------------------------------------
