@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE OverloadedStrings          #-}
@@ -14,8 +15,15 @@ import           Control.Applicative
 import           Control.AutoUpdate
 import           Control.Concurrent
 import           Control.Lens
+import           Control.Monad
 import           Control.Monad.Catch
-import           Control.Monad.Reader
+import           Control.Monad.IO.Class
+import           Control.Monad.Trans.Class
+import           Control.Monad.Trans.Either
+import           Control.Monad.Trans.Maybe
+import           Control.Monad.Trans.Reader
+import           Control.Monad.Trans.State
+import           Control.Monad.Trans.Writer
 import           Data.Aeson                 (ToJSON (..))
 import qualified Data.Aeson                 as A
 import           Data.Aeson.Lens
@@ -59,14 +67,14 @@ newtype Environment = Environment { getEnvironment :: Text }
 
 -------------------------------------------------------------------------------
 data Severity
-    = Debug                   -- ^ Debug messages
-    | Info                    -- ^ Information
-    | Notice                  -- ^ Normal runtime Conditions
-    | Warning                 -- ^ General Warnings
-    | Error                   -- ^ General Errors
-    | Critical                -- ^ Severe situations
-    | Alert                   -- ^ Take immediate action
-    | Emergency               -- ^ System is unusable
+    = DebugS                   -- ^ Debug messages
+    | InfoS                    -- ^ Information
+    | NoticeS                  -- ^ Normal runtime Conditions
+    | WarningS                 -- ^ General Warnings
+    | ErrorS                   -- ^ General Errors
+    | CriticalS                -- ^ Severe situations
+    | AlertS                   -- ^ Take immediate action
+    | EmergencyS               -- ^ System is unusable
   deriving (Eq, Ord, Show, Read, Generic)
 
 
@@ -85,14 +93,14 @@ data Verbosity = V0 | V1 | V2 | V3
 -------------------------------------------------------------------------------
 renderSeverity :: Severity -> Text
 renderSeverity s = case s of
-      Debug -> "Debug"
-      Info -> "Info"
-      Notice -> "Notice"
-      Warning -> "Warning"
-      Error -> "Error"
-      Critical -> "Critical"
-      Alert -> "Alert"
-      Emergency -> "Emergency"
+      DebugS -> "Debug"
+      InfoS -> "Info"
+      NoticeS -> "Notice"
+      WarningS -> "Warning"
+      ErrorS -> "Error"
+      CriticalS -> "Critical"
+      AlertS -> "Alert"
+      EmergencyS -> "Emergency"
 
 
 -------------------------------------------------------------------------------
@@ -108,6 +116,9 @@ newtype LogStr = LogStr { unLogStr :: B.Builder }
 instance IsString LogStr where
     fromString = LogStr . B.fromString
 
+instance Monoid LogStr where
+    mappend (LogStr a) (LogStr b) = LogStr (a `mappend` b)
+    mempty = LogStr mempty
 
 -------------------------------------------------------------------------------
 -- | Pack any string-like thing into a 'LogMsg'. This will
@@ -121,6 +132,11 @@ logStr t = LogStr (B.fromText $ toS t)
 -- | Shorthand for 'logMsg'
 ls :: StringConv a Text => a -> LogStr
 ls = logStr
+
+
+-------------------------------------------------------------------------------
+showLS :: Show a => a -> LogStr
+showLS = ls . show
 
 
 -------------------------------------------------------------------------------
@@ -263,11 +279,35 @@ class MonadIO m =>  Katip m where
     getLogEnv :: m LogEnv
 
 
+instance Katip m => Katip (ReaderT s m) where
+    getLogEnv = lift getLogEnv
+
+
+instance Katip m => Katip (EitherT s m) where
+    getLogEnv = lift getLogEnv
+
+
+instance Katip m => Katip (MaybeT m) where
+    getLogEnv = lift getLogEnv
+
+
+instance Katip m => Katip (StateT s m) where
+    getLogEnv = lift getLogEnv
+
+
+instance (Katip m, Monoid s) => Katip (WriterT s m) where
+    getLogEnv = lift getLogEnv
+
+
 -------------------------------------------------------------------------------
 -- | A concrete monad you can use to run logging actions.
 newtype KatipT m a = KatipT { unKatipT :: ReaderT LogEnv m a }
-  deriving ( Monad, MonadIO, MonadMask, MonadCatch, MonadThrow
-           , MonadReader LogEnv)
+  deriving ( Functor, Applicative, Monad, MonadIO
+           , MonadMask, MonadCatch, MonadThrow )
+
+
+instance MonadIO m => Katip (KatipT m) where
+    getLogEnv = KatipT ask
 
 
 -------------------------------------------------------------------------------
@@ -345,14 +385,14 @@ instance TH.Lift Verbosity where
 
 
 instance TH.Lift Severity where
-    lift Debug = [| Debug |]
-    lift Info  = [| Info |]
-    lift Notice  = [| Notice |]
-    lift Warning  = [| Warning |]
-    lift Error  = [| Error |]
-    lift Critical  = [| Critical |]
-    lift Alert  = [| Alert |]
-    lift Emergency  = [| Emergency |]
+    lift DebugS = [| DebugS |]
+    lift InfoS  = [| InfoS |]
+    lift NoticeS  = [| NoticeS |]
+    lift WarningS  = [| WarningS |]
+    lift ErrorS  = [| ErrorS |]
+    lift CriticalS  = [| CriticalS |]
+    lift AlertS  = [| AlertS |]
+    lift EmergencyS  = [| EmergencyS |]
 
 
 -- | Lift a location into an Exp.

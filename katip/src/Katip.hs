@@ -1,5 +1,9 @@
 module Katip
-    ( module Katip.Scribes.Handle
+    (
+
+    -- * Framework Types
+
+      Katip (..)
     , Namespace (..)
     , Environment (..)
     , Severity (..), renderSeverity
@@ -8,6 +12,8 @@ module Katip
     , PayloadSelection (..)
     , Scribe (..)
     , LogEnv (..)
+
+    -- * A Built-in Monad For Logging
     , KatipT (..)
     , runKatipT
 
@@ -18,7 +24,7 @@ module Katip
 
     -- * Logging Functions
     , LogStr (..)
-    , logStr, ls
+    , logStr, ls, showLS
 
     , logF
     , logM

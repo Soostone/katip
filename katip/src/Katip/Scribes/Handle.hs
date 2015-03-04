@@ -76,11 +76,11 @@ formatItem withColor verb Item{..} =
     nowStr = fromString $ formatTime defaultTimeLocale "%Y-%m-%d %H:%M:%S" itemTime
     ks = map brackets $ getKeys verb itemPayload
     renderSeverity' s = case s of
-      Emergency -> red $ renderSeverity s
-      Alert     -> red $ renderSeverity s
-      Critical  -> red $ renderSeverity s
-      Error     -> red $ renderSeverity s
-      Warning   -> yellow $ renderSeverity s
+      EmergencyS -> red $ renderSeverity s
+      AlertS     -> red $ renderSeverity s
+      CriticalS  -> red $ renderSeverity s
+      ErrorS     -> red $ renderSeverity s
+      WarningS   -> yellow $ renderSeverity s
       _         -> renderSeverity s
     red = colorize "31"
     yellow = colorize "33"
@@ -94,12 +94,12 @@ formatItem withColor verb Item{..} =
 _ioLogEnv :: LogEnv
 _ioLogEnv = unsafePerformIO $ do
     le <- initLogEnv "io" "io"
-    lh <- mkHandleScribe ColorIfTerminal stdout Debug V3
+    lh <- mkHandleScribe ColorIfTerminal stdout DebugS V3
     return $ registerScribe "stdout" lh le
 {-# NOINLINE _ioLogEnv #-}
 
 
--------------------------------------------------------------------------------
--- | A default IO instance to make prototype development easy. User
--- your own 'Monad' for production.
-instance Katip IO where getLogEnv = return _ioLogEnv
+-- -------------------------------------------------------------------------------
+-- -- | A default IO instance to make prototype development easy. User
+-- -- your own 'Monad' for production.
+-- instance Katip IO where getLogEnv = return _ioLogEnv

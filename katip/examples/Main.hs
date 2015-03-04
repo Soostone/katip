@@ -4,19 +4,19 @@ module Main where
 
 -------------------------------------------------------------------------------
 import           Data.Aeson
-
 import           Data.Text
 -------------------------------------------------------------------------------
 import           Katip
+import           Katip.Scribes.Handle
 -------------------------------------------------------------------------------
 
 
 
 main :: IO ()
-main = do
-    logM "example" Info "Easy to emit from IO directly!"
-    logF myContext "example" Info "Here's a more stateful item."
-    $(logT) myContext "example" Info "Here's one with code location."
+main = runKatipT _ioLogEnv $ do
+    logM "example" InfoS "Easy to emit from IO directly!"
+    logF myContext "example" InfoS "Here's a more stateful item."
+    $(logT) myContext "example" InfoS "Here's one with code location."
 
 
 

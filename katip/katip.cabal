@@ -28,24 +28,24 @@ library
     TemplateHaskell
     OverloadedStrings
 
-  build-depends:
-      base >=4.6 && <4.7
-    , aeson >=0.7 && <0.8
-    , auto-update >= 0.1 && < 0.2
-    , bytestring >= 0.9 && < 0.11
-    , containers >=0.5 && <0.6
-    , exceptions >= 0.5 && < 0.7
-    , hostname >=1.0 && <1.1
-    , lens >=4.2 && <4.7
-    , lens-aeson >= 1.0 && < 1.1
-    , mtl >=2.1 && <2.2
-    , old-locale >= 1.0 && < 1.1
-    , string-conv >= 0.1 && < 0.2
-    , template-haskell >= 2.8 && < 2.10
-    , text >=1.2 && <1.3
-    , time >= 1.2 && < 1.5
-    , unix >= 2.5 && < 2.8
-    , unordered-containers >= 0.2 && < 0.3
+  build-depends: base >=4.5 && <4.7
+               , aeson >=0.6 && <0.9
+               , auto-update >= 0.1 && < 0.2
+               , bytestring >= 0.9 && < 0.11
+               , containers >=0.4 && <0.6
+               , either >= 4 && < 4.4
+               , exceptions >= 0.5 && < 0.7
+               , hostname >=1.0 && <1.1
+               , lens >= 4.4 && <4.8
+               , lens-aeson < 1.1
+               , old-locale >= 1.0 && < 1.1
+               , string-conv >= 0.1 && < 0.2
+               , template-haskell >= 2.8 && < 2.10
+               , text >= 0.11 && <1.3
+               , time >= 1 && < 1.6
+               , transformers >= 0.3 && < 0.5
+               , unix >= 2.5 && < 2.8
+               , unordered-containers >= 0.2 && < 0.3
 
   hs-source-dirs:      src
   default-language:    Haskell2010
@@ -58,14 +58,14 @@ benchmark bench
   hs-source-dirs: bench
   default-language:    Haskell2010
   ghc-options: -O2
-  build-depends:
-      base
-    , aeson
-    , blaze-builder
-    , katip
-    , criterion >= 0.8 && < 1.0
-    , criterion-plus
-    , unix
-    , text
-    , time
-    , transformers
+  build-depends: 
+                 base
+               , aeson
+               , blaze-builder
+               , katip
+               , criterion >= 0.8 && < 1.0
+               , criterion-plus
+               , unix
+               , text
+               , time
+               , transformers
