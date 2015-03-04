@@ -257,7 +257,9 @@ unregisterScribe nm = logEnvScribes . at nm .~ Nothing
 
 
 
-class Katip m where
+-------------------------------------------------------------------------------
+-- | Monads where katip logging actions can be performed
+class MonadIO m =>  Katip m where
     getLogEnv :: m LogEnv
 
 
@@ -278,7 +280,7 @@ runKatipT le (KatipT f) = runReaderT f le
 -- | Log with everything, including a source code location. This is
 -- very low level and you typically can use 'logT' in its place.
 logI
-    :: (Applicative m, MonadIO m, LogContext a, Katip m)
+    :: (Applicative m, LogContext a, Katip m)
     => a
     -> Namespace
     -> Maybe Loc
@@ -305,7 +307,7 @@ logI a ns loc sev msg = do
 -------------------------------------------------------------------------------
 -- | Log with full context, but without any code location.
 logF
-  :: (Applicative m, MonadIO m, LogContext a, Katip m)
+  :: (Applicative m, LogContext a, Katip m)
   => a
   -- ^ Contextual payload for the log
   -> Namespace
@@ -321,7 +323,7 @@ logF a ns sev msg = logI a ns Nothing sev msg
 -------------------------------------------------------------------------------
 -- | Log a message without any payload/context or code location.
 logM
-    :: (Applicative m, MonadIO m, Katip m)
+    :: (Applicative m, Katip m)
     => Namespace
     -> Severity
     -> LogStr
