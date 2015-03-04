@@ -27,6 +27,7 @@ import           Control.Monad.Trans.Writer
 import           Data.Aeson                 (ToJSON (..))
 import qualified Data.Aeson                 as A
 import           Data.Aeson.Lens
+import           Data.Foldable              (foldMap)
 import qualified Data.HashMap.Strict        as HM
 import           Data.List
 import qualified Data.Map.Strict            as M
@@ -87,7 +88,7 @@ data Severity
 -- - 'V3' implies the maximum amount of payload information.
 -- - Anything in between is left to the discretion of the developer.
 data Verbosity = V0 | V1 | V2 | V3
-  deriving (Eq, Ord, Show, Read, Generic)
+  deriving (Eq, Ord, Show, Read, Generic, Enum)
 
 
 -------------------------------------------------------------------------------
@@ -191,8 +192,19 @@ data PayloadSelection
     = AllKeys
     | SomeKeys [Text]
 
+instance Monoid PayloadSelection where
+    mempty = SomeKeys []
+    mappend AllKeys _ = AllKeys
+    mappend _ AllKeys = AllKeys
+    mappend (SomeKeys as) (SomeKeys bs) = SomeKeys (as++bs)
+
 -------------------------------------------------------------------------------
 -- | Payload objects need instances of this class.
+--
+-- When defining 'payloadKeys', don't redundantly declare the same
+-- keys for higher levels of verbosity. Each level of verbosity
+-- automatically and recursively contains all keys from the level
+-- before it.
 class ToJSON a => LogContext a where
 
     -- | List of keys in the JSON object that should be included in message.
@@ -203,9 +215,10 @@ instance LogContext () where payloadKeys _ _ = SomeKeys []
 
 
 -------------------------------------------------------------------------------
--- | Constrain payload based on verbosity. To be used by backends.
+-- | Constrain payload based on verbosity. Backends should use this to
+-- automatically bubble higher verbosity levels to lower ones.
 payloadJson :: LogContext a => Verbosity -> a -> A.Value
-payloadJson verb a = case payloadKeys verb a of
+payloadJson verb a = case foldMap (flip payloadKeys a) [(V0)..verb] of
     AllKeys -> toJSON a
     SomeKeys ks -> toJSON a
       & _Object %~ HM.filterWithKey (\ k _ -> k `elem` ks)
