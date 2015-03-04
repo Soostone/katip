@@ -26,7 +26,7 @@ brackets m = fromText "[" <> m <> fromText "]"
 
 -------------------------------------------------------------------------------
 getKeys :: LogContext s => Verbosity -> s -> [Builder]
-getKeys verb a =  payloadJson verb a ^..
+getKeys verb a = payloadJson verb a ^..
               _Object . to HM.toList . traverse . to rendPair
   where
     rendPair (k,v) = fromText k <> fromText ":" <> (v ^. _Primitive . to renderPrim)
@@ -56,7 +56,7 @@ mkHandleScribe cs h sev verb = do
       ColorIfTerminal -> hIsTerminalDevice h
       ColorLog b -> return b
     return $ Scribe $ \ i@Item{..} -> do
-      when (itemSeverity >= sev) $
+      when (_itemSeverity >= sev) $
         T.hPutStrLn h $ toLazyText $ formatItem colorize verb i
 
 
@@ -64,17 +64,17 @@ mkHandleScribe cs h sev verb = do
 formatItem :: LogContext a => Bool -> Verbosity -> Item a -> Builder
 formatItem withColor verb Item{..} =
     brackets nowStr <>
-    brackets (mconcat $ map fromText $ intercalateNs itemNamespace) <>
-    brackets (fromText (renderSeverity' itemSeverity)) <>
-    brackets (fromString itemHost) <>
-    brackets (fromString (show itemProcess)) <>
-    brackets (fromString (show itemThread)) <>
+    brackets (mconcat $ map fromText $ intercalateNs _itemNamespace) <>
+    brackets (fromText (renderSeverity' _itemSeverity)) <>
+    brackets (fromString _itemHost) <>
+    brackets (fromString (show _itemProcess)) <>
+    brackets (fromString (show _itemThread)) <>
     mconcat ks <>
-    maybe mempty (brackets . fromString . locationToString) itemLoc <>
-    fromText " " <> (unLogStr itemMessage)
+    maybe mempty (brackets . fromString . locationToString) _itemLoc <>
+    fromText " " <> (unLogStr _itemMessage)
   where
-    nowStr = fromString $ formatTime defaultTimeLocale "%Y-%m-%d %H:%M:%S" itemTime
-    ks = map brackets $ getKeys verb itemPayload
+    nowStr = fromString $ formatTime defaultTimeLocale "%Y-%m-%d %H:%M:%S" _itemTime
+    ks = map brackets $ getKeys verb _itemPayload
     renderSeverity' s = case s of
       EmergencyS -> red $ renderSeverity s
       AlertS     -> red $ renderSeverity s

@@ -143,34 +143,34 @@ showLS = ls . show
 -------------------------------------------------------------------------------
 -- | This has everything each log message will contain.
 data Item a = Item {
-      itemApp       :: Namespace
-    , itemEnv       :: Environment
-    , itemSeverity  :: Severity
-    , itemThread    :: ThreadId
-    , itemHost      :: HostName
-    , itemProcess   :: ProcessID
-    , itemPayload   :: a
-    , itemMessage   :: LogStr
-    , itemTime      :: UTCTime
-    , itemNamespace :: Namespace
-    , itemLoc       :: Maybe Loc
+      _itemApp       :: Namespace
+    , _itemEnv       :: Environment
+    , _itemSeverity  :: Severity
+    , _itemThread    :: ThreadId
+    , _itemHost      :: HostName
+    , _itemProcess   :: ProcessID
+    , _itemPayload   :: a
+    , _itemMessage   :: LogStr
+    , _itemTime      :: UTCTime
+    , _itemNamespace :: Namespace
+    , _itemLoc       :: Maybe Loc
     } deriving (Generic)
-
+makeLenses ''Item
 
 
 instance ToJSON a => ToJSON (Item a) where
     toJSON Item{..} = A.object
-      [ "app" A..= itemApp
-      , "env" A..= itemEnv
-      , "sev" A..= itemSeverity
-      , "thread" A..= show itemThread
-      , "host" A..= itemHost
-      , "pid" A..= A.String (toS (show itemProcess))
-      , "data" A..= itemPayload
-      , "msg" A..= (B.toLazyText $ unLogStr itemMessage)
-      , "at" A..= itemTime
-      , "ns" A..= itemNamespace
-      , "loc" A..= fmap LocJs itemLoc
+      [ "app" A..= _itemApp
+      , "env" A..= _itemEnv
+      , "sev" A..= _itemSeverity
+      , "thread" A..= show _itemThread
+      , "host" A..= _itemHost
+      , "pid" A..= A.String (toS (show _itemProcess))
+      , "data" A..= _itemPayload
+      , "msg" A..= (B.toLazyText $ unLogStr _itemMessage)
+      , "at" A..= _itemTime
+      , "ns" A..= _itemNamespace
+      , "loc" A..= fmap LocJs _itemLoc
       ]
 
 newtype LocJs = LocJs { getLocJs :: Loc }
@@ -222,6 +222,14 @@ payloadJson verb a = case foldMap (flip payloadKeys a) [(V0)..verb] of
     AllKeys -> toJSON a
     SomeKeys ks -> toJSON a
       & _Object %~ HM.filterWithKey (\ k _ -> k `elem` ks)
+
+
+-------------------------------------------------------------------------------
+-- | Convert log item to its JSON representation while trimming its
+-- payload based on the desired verbosity. Backends that push JSON
+-- messages should use this to obtain their payload.
+itemJson :: LogContext a => Verbosity -> Item a -> A.Value
+itemJson verb a = toJSON $ a & itemPayload %~ payloadJson verb
 
 
 -------------------------------------------------------------------------------

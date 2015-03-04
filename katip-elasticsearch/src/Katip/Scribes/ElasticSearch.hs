@@ -21,7 +21,8 @@ mkEsScribe
     -> IO Scribe
 mkEsScribe server ix mapping sev verb = return $ Scribe $ \ i -> do
   did <- mkDocId
-  void $ indexDocument server ix mapping i did
+  when (_itemSeverity i >= sev) $
+    void $ indexDocument server ix mapping (itemJson verb i) did
 
 
 -------------------------------------------------------------------------------
