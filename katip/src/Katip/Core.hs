@@ -76,7 +76,7 @@ data Severity
     | CriticalS                -- ^ Severe situations
     | AlertS                   -- ^ Take immediate action
     | EmergencyS               -- ^ System is unusable
-  deriving (Eq, Ord, Show, Read, Generic)
+  deriving (Eq, Ord, Show, Read, Generic, Enum, Bounded)
 
 
 -------------------------------------------------------------------------------
@@ -324,7 +324,7 @@ instance (Katip m, Monoid s) => Katip (WriterT s m) where
 -- | A concrete monad you can use to run logging actions.
 newtype KatipT m a = KatipT { unKatipT :: ReaderT LogEnv m a }
   deriving ( Functor, Applicative, Monad, MonadIO
-           , MonadMask, MonadCatch, MonadThrow )
+           , MonadMask, MonadCatch, MonadThrow, MonadTrans )
 
 
 instance MonadIO m => Katip (KatipT m) where
