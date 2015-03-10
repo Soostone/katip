@@ -32,7 +32,7 @@
 ** TODO Efficient UUID generation (don't use system rng)
 
    Make RNG once, store it behind an mvar and use it in all uuid
-   generation.
+   generation. Use the rng-utils module for this.
 
 ** TODO Async size-capped buffer for incoming items
    Don't block log requests for server connection, add to buffer and
