@@ -121,7 +121,7 @@ instance Monoid LogStr where
     mempty = LogStr mempty
 
 -------------------------------------------------------------------------------
--- | Pack any string-like thing into a 'LogMsg'. This will
+-- | Pack any string-like thing into a 'LogStr'. This will
 -- automatically work on 'String', 'ByteString, 'Text' and any of the
 -- lazy variants.
 logStr :: StringConv a Text => a -> LogStr
@@ -129,7 +129,7 @@ logStr t = LogStr (B.fromText $ toS t)
 
 
 -------------------------------------------------------------------------------
--- | Shorthand for 'logMsg'
+-- | Shorthand for 'logm'
 ls :: StringConv a Text => a -> LogStr
 ls = logStr
 
@@ -357,8 +357,8 @@ runKatipT le (KatipT f) = runReaderT f le
 
 -------------------------------------------------------------------------------
 -- | Log with everything, including a source code location. This is
--- very low level and you typically can use 'logT' in its place.
-logI
+-- very low level and you typically can use 'logt' in its place.
+logi
     :: (Applicative m, LogContext a, Katip m)
     => a
     -> Namespace
@@ -366,7 +366,7 @@ logI
     -> Severity
     -> LogStr
     -> m ()
-logI a ns loc sev msg = do
+logi a ns loc sev msg = do
     LogEnv{..} <- getLogEnv
     item <- Item
       <$> pure _logEnvNs
@@ -385,7 +385,7 @@ logI a ns loc sev msg = do
 
 -------------------------------------------------------------------------------
 -- | Log with full context, but without any code location.
-logF
+logf
   :: (Applicative m, LogContext a, Katip m)
   => a
   -- ^ Contextual payload for the log
@@ -396,18 +396,18 @@ logF
   -> LogStr
   -- ^ The log message
   -> m ()
-logF a ns sev msg = logI a ns Nothing sev msg
+logf a ns sev msg = logi a ns Nothing sev msg
 
 
 -------------------------------------------------------------------------------
 -- | Log a message without any payload/context or code location.
-logM
+logm
     :: (Applicative m, Katip m)
     => Namespace
     -> Severity
     -> LogStr
     -> m ()
-logM ns sev msg = logF () ns sev msg
+logm ns sev msg = logf () ns sev msg
 
 
 instance TH.Lift Namespace where
@@ -447,7 +447,7 @@ liftLoc (Loc a b c (d1, d2) (e1, e2)) = [|Loc
 
 -------------------------------------------------------------------------------
 -- | For use when you want to include location in your logs. This will
--- fill the 'Maybe Loc' gap in 'logF' of this module.
+-- fill the 'Maybe Loc' gap in 'logf' of this module.
 getLoc :: Q Exp
 getLoc = [| $(location >>= liftLoc) |]
 
@@ -455,9 +455,9 @@ getLoc = [| $(location >>= liftLoc) |]
 -------------------------------------------------------------------------------
 -- | 'Loc'-tagged logging when using template-haskell is OK.
 --
--- @$(logT) obj mempty Info "Hello world"@
-logT :: ExpQ
-logT = [| \ a ns sev msg -> logI a ns (Just $(getLoc)) sev msg |]
+-- @$(logt) obj mempty Info "Hello world"@
+logt :: ExpQ
+logt = [| \ a ns sev msg -> logi a ns (Just $(getLoc)) sev msg |]
 
 
 -- taken from the file-location package

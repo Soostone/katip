@@ -14,9 +14,9 @@ import           Katip.Scribes.Handle
 
 main :: IO ()
 main = runKatipT _ioLogEnv $ do
-    logM "example" InfoS "Easy to emit from IO directly!"
-    logF myContext "example" InfoS "Here's a more stateful item."
-    $(logT) myContext "example" InfoS "Here's one with code location."
+    logm "example" InfoS "Easy to emit from IO directly!"
+    logf myContext "example" InfoS "Here's a more stateful item."
+    $(logt) myContext "example" InfoS "Here's one with code location."
 
 
 

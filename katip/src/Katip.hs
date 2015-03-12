@@ -26,10 +26,10 @@ module Katip
     , LogStr (..)
     , logStr, ls, showLS
 
-    , logF
-    , logM
-    , logT
-    , logI
+    , logf
+    , logm
+    , logt
+    , logi
 
     -- * Included Scribes
     , mkHandleScribe
