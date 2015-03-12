@@ -26,8 +26,8 @@ brackets m = fromText "[" <> m <> fromText "]"
 
 -------------------------------------------------------------------------------
 getKeys :: LogContext s => Verbosity -> s -> [Builder]
-getKeys verb a = payloadJson verb a ^..
-              _Object . to HM.toList . traverse . to rendPair
+getKeys verb a = payloadObject verb a ^..
+              to HM.toList . traverse . to rendPair
   where
     rendPair (k,v) = fromText k <> fromText ":" <> (v ^. _Primitive . to renderPrim)
 

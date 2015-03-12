@@ -26,7 +26,6 @@ import           Control.Monad.Trans.State
 import           Control.Monad.Trans.Writer
 import           Data.Aeson                 (ToJSON (..))
 import qualified Data.Aeson                 as A
-import           Data.Aeson.Lens
 import           Data.Foldable              (foldMap)
 import qualified Data.HashMap.Strict        as HM
 import           Data.List
@@ -198,6 +197,26 @@ instance Monoid PayloadSelection where
     mappend _ AllKeys = AllKeys
     mappend (SomeKeys as) (SomeKeys bs) = SomeKeys (as++bs)
 
+
+-------------------------------------------------------------------------------
+-- | Katip requires JSON objects to be logged as context. This
+-- typeclass provides a default instance which uses ToJSON and
+-- produces an empty object if 'toJSON' results in any type other than
+-- object. If you have a type you want to log that produces an Array
+-- or Number for example, you'll want to write an explicit instance
+-- here. You can trivially add a ToObject instance for something with
+-- a ToJSON instance like:
+--
+-- > instance ToObject Foo
+class ToJSON a => ToObject a where
+    toObject :: a -> A.Object
+    toObject v = case toJSON v of
+      A.Object o -> o
+      _        -> mempty
+
+instance ToObject ()
+instance ToObject A.Object
+
 -------------------------------------------------------------------------------
 -- | Payload objects need instances of this class.
 --
@@ -205,7 +224,7 @@ instance Monoid PayloadSelection where
 -- keys for higher levels of verbosity. Each level of verbosity
 -- automatically and recursively contains all keys from the level
 -- before it.
-class ToJSON a => LogContext a where
+class ToObject a => LogContext a where
 
     -- | List of keys in the JSON object that should be included in message.
     payloadKeys :: Verbosity -> a -> PayloadSelection
@@ -217,11 +236,10 @@ instance LogContext () where payloadKeys _ _ = SomeKeys []
 -------------------------------------------------------------------------------
 -- | Constrain payload based on verbosity. Backends should use this to
 -- automatically bubble higher verbosity levels to lower ones.
-payloadJson :: LogContext a => Verbosity -> a -> A.Value
-payloadJson verb a = case foldMap (flip payloadKeys a) [(V0)..verb] of
-    AllKeys -> toJSON a
-    SomeKeys ks -> toJSON a
-      & _Object %~ HM.filterWithKey (\ k _ -> k `elem` ks)
+payloadObject :: LogContext a => Verbosity -> a -> A.Object
+payloadObject verb a = case foldMap (flip payloadKeys a) [(V0)..verb] of
+    AllKeys -> toObject a
+    SomeKeys ks -> HM.filterWithKey (\ k _ -> k `elem` ks) $ toObject a
 
 
 -------------------------------------------------------------------------------
@@ -229,7 +247,7 @@ payloadJson verb a = case foldMap (flip payloadKeys a) [(V0)..verb] of
 -- payload based on the desired verbosity. Backends that push JSON
 -- messages should use this to obtain their payload.
 itemJson :: LogContext a => Verbosity -> Item a -> A.Value
-itemJson verb a = toJSON $ a & itemPayload %~ payloadJson verb
+itemJson verb a = toJSON $ a & itemPayload %~ payloadObject verb
 
 
 -------------------------------------------------------------------------------
