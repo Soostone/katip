@@ -10,30 +10,30 @@
 
 -- | Provides support for treating payloads and namespaces as
 -- composable contexts. The common pattern would be to provide a
--- 'ContextualLog' instance for your base monad. When your program
+-- 'KatipContext' instance for your base monad. When your program
 -- changes to a more detailed context, say to the database, you can
--- use 'ContextualLogT' to tack on a typed context and a namespace
+-- use 'LogT' to tack on a typed context and a namespace
 -- which will be merged into the enclosing monad's context and
 -- namespace.
 module Katip.Monadic
     (
     -- * Monadic variants of logging functions from "Katip.Core"
-      logfM
-    , logtM
+      logFM
+    , logTM
     , logItemM
 
     -- * Machinery for merging typed log payloads/contexts
-    , ContextualLog(..)
+    , KatipContext(..)
     , AnyLogContext
     , LogContexts
     , liftPayload
 
     -- * Transformer for appending to a log context
-    , ContextualLogT'
-    , ContextualLogT
-    , runContextualLogT
-    , BlankLogContextT
-    , runBlankLogContextT
+    , LogT'
+    , LogT
+    , runLogT
+    , BlankLogT
+    , runBlankLogT
     ) where
 
 
@@ -71,7 +71,7 @@ import           Katip.Core
 -- | A wrapper around a log context that erases type information so
 -- that contexts from multiple layers can be combined intelligently.
 data AnyLogContext where
-    AnyLogContext :: (LogContext a) => a -> AnyLogContext
+    AnyLogContext :: (LogItem a) => a -> AnyLogContext
 
 
 -------------------------------------------------------------------------------
@@ -85,7 +85,7 @@ instance ToJSON LogContexts where
 
 instance ToObject LogContexts
 
-instance LogContext LogContexts where
+instance LogItem LogContexts where
     payloadKeys verb (LogContexts vs) = mconcat $ map payloadKeys' vs
       where
         -- To ensure AllKeys doesn't leak keys from other values when
@@ -98,28 +98,28 @@ instance LogContext LogContexts where
 
 -------------------------------------------------------------------------------
 -- | Lift a log context into the generic wrapper
-liftPayload :: (LogContext a) => a -> LogContexts
+liftPayload :: (LogItem a) => a -> LogContexts
 liftPayload = LogContexts . (:[]) . AnyLogContext
 
 
 -------------------------------------------------------------------------------
 -- | A monadic context that has an inherant way to get logging
 -- context and namespace. Examples include a web application monad or
--- database monad. Combine with 'ContextualLogT' to nest.
-class ContextualLog m where
-  getLogContexts :: m LogContexts
-  getNamespace   :: m Namespace
+-- database monad. Combine with 'LogT' to nest.
+class Katip m => KatipContext m where
+  getKatipContext :: m LogContexts
+  getKatipNamespace   :: m Namespace
 
 --TODO: is this INLINABLE?
 #define TRANS(T) \
-  instance (ContextualLog m, Monad m) => ContextualLog (T m) where \
-    getLogContexts = lift getLogContexts; \
-    getNamespace = lift getNamespace
+  instance (KatipContext m, Katip (T m)) => KatipContext (T m) where \
+    getKatipContext = lift getKatipContext; \
+    getKatipNamespace = lift getKatipNamespace
 
 #define TRANS_CTX(CTX, T) \
-  instance (CTX, ContextualLog m, Monad m) => ContextualLog (T m) where \
-    getLogContexts = lift getLogContexts; \
-    getNamespace = lift getNamespace
+  instance (CTX, KatipContext m, Katip (T m)) => KatipContext (T m) where \
+    getKatipContext = lift getKatipContext; \
+    getKatipNamespace = lift getKatipNamespace
 
 TRANS(IdentityT)
 TRANS(MaybeT)
@@ -134,21 +134,21 @@ TRANS_CTX(Monoid w,        WriterT w)
 TRANS_CTX(Monoid w, Strict.RWST r w s)
 TRANS_CTX(Monoid w,        RWST r w s)
 
-deriving instance (Monad m, ContextualLog m) => ContextualLog (KatipT m)
+deriving instance (Monad m, KatipContext m) => KatipContext (KatipT m)
 
 -------------------------------------------------------------------------------
 -- | Log with everything, including a source code location. This is
--- very low level and you typically can use 'logtM' in its
+-- very low level and you typically can use 'logTM' in its
 -- place. Automaticallysupplies payload and namespace.
 logItemM
-    :: (Applicative m, ContextualLog m, Katip m)
+    :: (Applicative m, KatipContext m, Katip m)
     => Maybe Loc
     -> Severity
     -> LogStr
     -> m ()
 logItemM loc sev msg = do
-    ctx <- getLogContexts
-    ns <- getNamespace
+    ctx <- getKatipContext
+    ns <- getKatipNamespace
     logItem ctx ns loc sev msg
 
 
@@ -156,39 +156,39 @@ logItemM loc sev msg = do
 -------------------------------------------------------------------------------
 -- | Log with full context, but without any code
 -- location. Automatically supplies payload and namespace.
-logfM
-  :: (Applicative m, ContextualLog m, Katip m)
+logFM
+  :: (Applicative m, KatipContext m, Katip m)
   => Severity
   -- ^ Severity of the message
   -> LogStr
   -- ^ The log message
   -> m ()
-logfM sev msg = do
-  ctx <- getLogContexts
-  ns <- getNamespace
-  logf ctx ns sev msg
+logFM sev msg = do
+  ctx <- getKatipContext
+  ns <- getKatipNamespace
+  logF ctx ns sev msg
 
 
 -------------------------------------------------------------------------------
 -- | 'Loc'-tagged logging when using template-haskell is OK. Automatically supplies payload and namespace.
 --
 -- @$(logt) InfoS "Hello world"@
-logtM :: ExpQ
-logtM = [| logItemM (Just $(getLoc)) |]
+logTM :: ExpQ
+logTM = [| logItemM (Just $(getLoc)) |]
 
 
 -------------------------------------------------------------------------------
 -- | Wrapper over 'ReaderT' that provides a passthrough instance for
 -- 'MonadReader' so your stack will not be affected. Also provides a
--- 'ContextualLog' instance which combines with the inner monad's
+-- 'KatipContext' instance which combines with the inner monad's
 -- instance.
 --
 -- @
---   instance ContextualLog m WebMonad where
---     getLogContexts = ...
---     getNamespace = Namespace ["web"]
+--   instance KatipContext m WebMonad where
+--     getKatipContext = ...
+--     getKatipNamespace = Namespace ["web"]
 --
---   dbCallInWeb = runContextualLogT getDBContext (Namespace ["db"]) $ do
+--   dbCallInWeb = runLogT getDBContext (Namespace ["db"]) $ do
 --     someStuff
 -- @
 --
@@ -196,10 +196,10 @@ logtM = [| logItemM (Just $(getLoc)) |]
 -- the (optionally) monadic log context for the db, combine it with
 -- the web server's and will use the namespace @Namespace ["web","db"]@.
 --
--- 'ContextualLogT' is exported which fixes @n ~ m@. The two type
+-- 'LogT' is exported which fixes @n ~ m@. The two type
 -- variables must be present for defining a 'MonadTransControl' instance.
-newtype ContextualLogT' n m a = ContextualLogT {
-      unContextualLogT :: ReaderT (n LogContexts, n Namespace) m a
+newtype LogT' n m a = LogT {
+      unLogT :: ReaderT (n LogContexts, n Namespace) m a
     } deriving ( Functor
                , Applicative
                , Monad
@@ -216,53 +216,53 @@ newtype ContextualLogT' n m a = ContextualLogT {
                , Katip
                )
 
-type ContextualLogT m a = ContextualLogT' m m a
+type LogT m a = LogT' m m a
 
-instance MonadTrans (ContextualLogT' n) where
-    lift = ContextualLogT . lift
+instance MonadTrans (LogT' n) where
+    lift = LogT . lift
 
 -- Reader is a passthrough. We don't expose our internal reader so as not to conflict
-instance (MonadReader r m) => MonadReader r (ContextualLogT' n m) where
+instance (MonadReader r m) => MonadReader r (LogT' n m) where
     ask = lift ask
-    local f (ContextualLogT (ReaderT m)) = ContextualLogT $ ReaderT $ \r ->
+    local f (LogT (ReaderT m)) = LogT $ ReaderT $ \r ->
       local f (m r)
 
-instance MonadTransControl (ContextualLogT' n) where
-    type StT (ContextualLogT' n) a = StT (ReaderT (n LogContexts)) a
-    liftWith = defaultLiftWith ContextualLogT unContextualLogT
-    restoreT = defaultRestoreT ContextualLogT
+instance MonadTransControl (LogT' n) where
+    type StT (LogT' n) a = StT (ReaderT (n LogContexts)) a
+    liftWith = defaultLiftWith LogT unLogT
+    restoreT = defaultRestoreT LogT
     {-# INLINE liftWith #-}
     {-# INLINE restoreT #-}
 
-instance (MonadBaseControl b m) => MonadBaseControl b (ContextualLogT' n m) where
-  type StM ((ContextualLogT' n) m) a = ComposeSt (ContextualLogT' n) m a
+instance (MonadBaseControl b m) => MonadBaseControl b (LogT' n m) where
+  type StM ((LogT' n) m) a = ComposeSt (LogT' n) m a
   liftBaseWith = defaultLiftBaseWith
   restoreM = defaultRestoreM
 
-instance (ContextualLog m, Monad m) => ContextualLog (ContextualLogT' m m) where
-    getLogContexts = ContextualLogT $ ReaderT $ \(gctxs, _) -> do
+instance (KatipContext m, Monad m) => KatipContext (LogT' m m) where
+    getKatipContext = LogT $ ReaderT $ \(gctxs, _) -> do
       ctxs <- gctxs
-      ctxs' <- getLogContexts
+      ctxs' <- getKatipContext
       return $ ctxs <> ctxs'
-    getNamespace = ContextualLogT $ ReaderT $ \(_, getNsInner) -> do
-      nsOuter <- getNamespace
+    getKatipNamespace = LogT $ ReaderT $ \(_, getNsInner) -> do
+      nsOuter <- getKatipNamespace
       nsInner <- getNsInner
       return $ nsOuter <> nsInner
 
-runContextualLogT
-    :: (Functor m, LogContext a)
+runLogT
+    :: (Functor m, LogItem a)
     => m a
     -> m Namespace
-    -> ContextualLogT m b
+    -> LogT m b
     -> m b
-runContextualLogT lgtr nsgtr m = runReaderT (unContextualLogT m) (liftPayload <$> lgtr, nsgtr)
+runLogT lgtr nsgtr m = runReaderT (unLogT m) (liftPayload <$> lgtr, nsgtr)
 
 
 -------------------------------------------------------------------------------
 -- | Type analogous to IdentityT that provides an empty log
 -- context. Use this if your root monad doesn't have a LogContext instance.
-newtype BlankLogContextT m a = BlankLogContextT {
-      runBlankLogContextT :: m a
+newtype BlankLogT m a = BlankLogT {
+      runBlankLogT :: m a
     } deriving ( Functor
                , Applicative
                , Monad
@@ -280,21 +280,21 @@ newtype BlankLogContextT m a = BlankLogContextT {
                , Katip
                )
 
-instance Monad m => ContextualLog (BlankLogContextT m) where
-    getLogContexts = return mempty
-    getNamespace = return mempty
+instance Katip m => KatipContext (BlankLogT m) where
+    getKatipContext = return mempty
+    getKatipNamespace = return mempty
 
-instance MonadTrans BlankLogContextT where
-    lift = BlankLogContextT
+instance MonadTrans BlankLogT where
+    lift = BlankLogT
 
-instance MonadTransControl BlankLogContextT where
-    type StT BlankLogContextT a = a
-    liftWith f = BlankLogContextT $ f runBlankLogContextT
-    restoreT = BlankLogContextT
+instance MonadTransControl BlankLogT where
+    type StT BlankLogT a = a
+    liftWith f = BlankLogT $ f runBlankLogT
+    restoreT = BlankLogT
     {-# INLINABLE liftWith #-}
     {-# INLINABLE restoreT #-}
 
-instance (MonadBaseControl b m) => MonadBaseControl b (BlankLogContextT m) where
-  type StM (BlankLogContextT m) a = ComposeSt BlankLogContextT m a
+instance (MonadBaseControl b m) => MonadBaseControl b (BlankLogT m) where
+  type StM (BlankLogT m) a = ComposeSt BlankLogT m a
   liftBaseWith = defaultLiftBaseWith
   restoreM = defaultRestoreM

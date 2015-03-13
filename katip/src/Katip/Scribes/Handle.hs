@@ -25,7 +25,7 @@ brackets m = fromText "[" <> m <> fromText "]"
 
 
 -------------------------------------------------------------------------------
-getKeys :: LogContext s => Verbosity -> s -> [Builder]
+getKeys :: LogItem s => Verbosity -> s -> [Builder]
 getKeys verb a = payloadObject verb a ^..
               to HM.toList . traverse . to rendPair
   where
@@ -61,7 +61,7 @@ mkHandleScribe cs h sev verb = do
 
 
 -------------------------------------------------------------------------------
-formatItem :: LogContext a => Bool -> Verbosity -> Item a -> Builder
+formatItem :: LogItem a => Bool -> Verbosity -> Item a -> Builder
 formatItem withColor verb Item{..} =
     brackets nowStr <>
     brackets (mconcat $ map fromText $ intercalateNs _itemNamespace) <>

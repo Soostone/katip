@@ -129,7 +129,7 @@ logStr t = LogStr (B.fromText $ toS t)
 
 
 -------------------------------------------------------------------------------
--- | Shorthand for 'logm'
+-- | Shorthand for 'logMsg'
 ls :: StringConv a Text => a -> LogStr
 ls = logStr
 
@@ -224,19 +224,19 @@ instance ToObject A.Object
 -- keys for higher levels of verbosity. Each level of verbosity
 -- automatically and recursively contains all keys from the level
 -- before it.
-class ToObject a => LogContext a where
+class ToObject a => LogItem a where
 
     -- | List of keys in the JSON object that should be included in message.
     payloadKeys :: Verbosity -> a -> PayloadSelection
 
 
-instance LogContext () where payloadKeys _ _ = SomeKeys []
+instance LogItem () where payloadKeys _ _ = SomeKeys []
 
 
 -------------------------------------------------------------------------------
 -- | Constrain payload based on verbosity. Backends should use this to
 -- automatically bubble higher verbosity levels to lower ones.
-payloadObject :: LogContext a => Verbosity -> a -> A.Object
+payloadObject :: LogItem a => Verbosity -> a -> A.Object
 payloadObject verb a = case foldMap (flip payloadKeys a) [(V0)..verb] of
     AllKeys -> toObject a
     SomeKeys ks -> HM.filterWithKey (\ k _ -> k `elem` ks) $ toObject a
@@ -246,7 +246,7 @@ payloadObject verb a = case foldMap (flip payloadKeys a) [(V0)..verb] of
 -- | Convert log item to its JSON representation while trimming its
 -- payload based on the desired verbosity. Backends that push JSON
 -- messages should use this to obtain their payload.
-itemJson :: LogContext a => Verbosity -> Item a -> A.Value
+itemJson :: LogItem a => Verbosity -> Item a -> A.Value
 itemJson verb a = toJSON $ a & itemPayload %~ payloadObject verb
 
 
@@ -254,7 +254,7 @@ itemJson verb a = toJSON $ a & itemPayload %~ payloadObject verb
 -- | Scribes are handlers of incoming items. Each registered scribe
 -- knows how to push a log item somewhere.
 data Scribe = Scribe {
-      lhPush :: forall a. LogContext a => Item a -> IO ()
+      lhPush :: forall a. LogItem a => Item a -> IO ()
     }
 
 
@@ -357,9 +357,9 @@ runKatipT le (KatipT f) = runReaderT f le
 
 -------------------------------------------------------------------------------
 -- | Log with everything, including a source code location. This is
--- very low level and you typically can use 'logt' in its place.
+-- very low level and you typically can use 'logT' in its place.
 logItem
-    :: (Applicative m, LogContext a, Katip m)
+    :: (Applicative m, LogItem a, Katip m)
     => a
     -> Namespace
     -> Maybe Loc
@@ -385,8 +385,8 @@ logItem a ns loc sev msg = do
 
 -------------------------------------------------------------------------------
 -- | Log with full context, but without any code location.
-logf
-  :: (Applicative m, LogContext a, Katip m)
+logF
+  :: (Applicative m, LogItem a, Katip m)
   => a
   -- ^ Contextual payload for the log
   -> Namespace
@@ -396,18 +396,18 @@ logf
   -> LogStr
   -- ^ The log message
   -> m ()
-logf a ns sev msg = logItem a ns Nothing sev msg
+logF a ns sev msg = logItem a ns Nothing sev msg
 
 
 -------------------------------------------------------------------------------
 -- | Log a message without any payload/context or code location.
-logm
+logMsg
     :: (Applicative m, Katip m)
     => Namespace
     -> Severity
     -> LogStr
     -> m ()
-logm ns sev msg = logf () ns sev msg
+logMsg ns sev msg = logF () ns sev msg
 
 
 instance TH.Lift Namespace where
@@ -447,7 +447,7 @@ liftLoc (Loc a b c (d1, d2) (e1, e2)) = [|Loc
 
 -------------------------------------------------------------------------------
 -- | For use when you want to include location in your logs. This will
--- fill the 'Maybe Loc' gap in 'logf' of this module.
+-- fill the 'Maybe Loc' gap in 'logF' of this module.
 getLoc :: Q Exp
 getLoc = [| $(location >>= liftLoc) |]
 
@@ -455,9 +455,9 @@ getLoc = [| $(location >>= liftLoc) |]
 -------------------------------------------------------------------------------
 -- | 'Loc'-tagged logging when using template-haskell is OK.
 --
--- @$(logt) obj mempty InfoS "Hello world"@
-logt :: ExpQ
-logt = [| \ a ns sev msg -> logItem a ns (Just $(getLoc)) sev msg |]
+-- @$(logT) obj mempty InfoS "Hello world"@
+logT :: ExpQ
+logT = [| \ a ns sev msg -> logItem a ns (Just $(getLoc)) sev msg |]
 
 
 -- taken from the file-location package

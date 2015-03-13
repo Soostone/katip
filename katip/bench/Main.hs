@@ -60,7 +60,7 @@ data ExPayload = ExPayload
 instance ToJSON ExPayload where
   toJSON _ = Object mempty
 
-instance LogContext ExPayload where
+instance LogItem ExPayload where
   payloadKeys _ _ = AllKeys
 
 

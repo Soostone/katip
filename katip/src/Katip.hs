@@ -9,11 +9,11 @@ module Katip
     , Severity (..), renderSeverity
     , Verbosity (..)
     , ToObject (..)
-    , LogContext (..)
+    , LogItem (..)
     , PayloadSelection (..)
     , Scribe (..)
     , LogEnv (..)
-    , ContextualLog(..)
+    , KatipContext(..)
     , AnyLogContext
     , LogContexts, liftPayload
 
@@ -30,19 +30,19 @@ module Katip
     , LogStr (..)
     , logStr, ls, showLS
 
-    , logf
-    , logm
-    , logt
+    , logF
+    , logMsg
+    , logT
     , logItem
-    , logfM
-    , logtM
+    , logFM
+    , logTM
     , logItemM
 
     -- * Transformer for appending to a log context
-    , ContextualLogT
-    , runContextualLogT
-    , BlankLogContextT
-    , runBlankLogContextT
+    , LogT
+    , runLogT
+    , BlankLogT
+    , runBlankLogT
 
     -- * Included Scribes
     , mkHandleScribe

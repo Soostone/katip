@@ -21,9 +21,9 @@ import           Katip.Scribes.Handle
 
 main :: IO ()
 main = runKatipT _ioLogEnv $ do
-    logm "example" InfoS "Easy to emit from IO directly!"
-    logf myContext "example" InfoS "Here's a more stateful item."
-    $(logt) myContext "example" InfoS "Here's one with code location."
+    logMsg "example" InfoS "Easy to emit from IO directly!"
+    logF myContext "example" InfoS "Here's a more stateful item."
+    $(logT) myContext "example" InfoS "Here's one with code location."
     runHandler handler
 
 
@@ -41,7 +41,7 @@ instance ToJSON MyContext where
 
 instance ToObject MyContext
 
-instance LogContext MyContext where
+instance LogItem MyContext where
     payloadKeys _ _ = AllKeys
 
 -------------------------------------------------------------------------------
@@ -59,13 +59,13 @@ withDB f = f $ ConnInfo "1234" "exampledb" ()
 
 handler :: Handler ()
 handler = do
-  $(logtM) InfoS "got request"
+  $(logTM) InfoS "got request"
   withDB $ \ci -> do
     let dbctx = DBLog (ciConnId ci)
     let ns = Namespace ["db", ciConnDB ci]
-    runContextualLogT (return dbctx) (return ns) $ do
+    runLogT (return dbctx) (return ns) $ do
       liftIO $ putStrLn "DB things!"
-      $(logtM) InfoS "calling db"
+      $(logTM) InfoS "calling db"
 
 -------------------------------------------------------------------------------
 data Request = Request {
@@ -82,7 +82,7 @@ instance ToJSON Request where
 
 instance ToObject Request
 
-instance LogContext Request where
+instance LogItem Request where
   payloadKeys V3 _ = AllKeys
   payloadKeys _ _  = SomeKeys ["method", "path"]
 
@@ -97,9 +97,9 @@ newtype WebT m a = WebT {
                , Katip
                )
 
-instance Monad m => ContextualLog (WebT m) where
-    getLogContexts = liftM liftPayload ask
-    getNamespace = return $ Namespace ["myApp"]
+instance Katip m => KatipContext (WebT m) where
+    getKatipContext = liftM liftPayload ask
+    getKatipNamespace = return $ Namespace ["myApp"]
 
 
 -------------------------------------------------------------------------------
@@ -118,5 +118,5 @@ instance ToJSON DBLog where
 
 instance ToObject DBLog
 
-instance LogContext DBLog where
+instance LogItem DBLog where
     payloadKeys _ _ = AllKeys
