@@ -48,6 +48,7 @@ import           Control.Monad.IO.Class
 import           Control.Monad.RWS.Class
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Control
+import           Control.Monad.Trans.Either        (EitherT)
 import           Control.Monad.Trans.Error         (ErrorT)
 import           Control.Monad.Trans.Identity      (IdentityT)
 import           Control.Monad.Trans.List          (ListT)
@@ -122,6 +123,7 @@ class ContextualLog m where
 
 TRANS(IdentityT)
 TRANS(MaybeT)
+TRANS(EitherT e)
 TRANS(ListT)
 TRANS(ReaderT r)
 TRANS(Strict.StateT s)
