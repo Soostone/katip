@@ -8,10 +8,14 @@ module Katip
     , Environment (..)
     , Severity (..), renderSeverity
     , Verbosity (..)
+    , ToObject (..)
     , LogContext (..)
     , PayloadSelection (..)
     , Scribe (..)
     , LogEnv (..)
+    , ContextualLog(..)
+    , AnyLogContext
+    , LogContexts, liftPayload
 
     -- * A Built-in Monad For Logging
     , KatipT (..)
@@ -29,7 +33,14 @@ module Katip
     , logf
     , logm
     , logt
-    , logi
+    , logItem
+    , logfM
+    , logtM
+    , logItemM
+
+    -- * Transformer for appending to a log context
+    , ContextualLogT
+    , runContextualLogT
 
     -- * Included Scribes
     , mkHandleScribe
@@ -38,5 +49,6 @@ module Katip
 
 -------------------------------------------------------------------------------
 import           Katip.Core
+import           Katip.Monadic
 import           Katip.Scribes.Handle
 -------------------------------------------------------------------------------

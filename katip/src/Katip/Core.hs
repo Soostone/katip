@@ -46,7 +46,7 @@ import           System.Posix
 
 
 -------------------------------------------------------------------------------
-newtype Namespace = Namespace { getNamespace :: [Text] }
+newtype Namespace = Namespace { unNamespace :: [Text] }
   deriving (Eq,Show,Read,Ord,Generic,ToJSON,Monoid)
 
 instance IsString Namespace where
@@ -358,7 +358,7 @@ runKatipT le (KatipT f) = runReaderT f le
 -------------------------------------------------------------------------------
 -- | Log with everything, including a source code location. This is
 -- very low level and you typically can use 'logt' in its place.
-logi
+logItem
     :: (Applicative m, LogContext a, Katip m)
     => a
     -> Namespace
@@ -366,7 +366,7 @@ logi
     -> Severity
     -> LogStr
     -> m ()
-logi a ns loc sev msg = do
+logItem a ns loc sev msg = do
     LogEnv{..} <- getLogEnv
     item <- Item
       <$> pure _logEnvNs
@@ -396,7 +396,7 @@ logf
   -> LogStr
   -- ^ The log message
   -> m ()
-logf a ns sev msg = logi a ns Nothing sev msg
+logf a ns sev msg = logItem a ns Nothing sev msg
 
 
 -------------------------------------------------------------------------------
@@ -455,9 +455,9 @@ getLoc = [| $(location >>= liftLoc) |]
 -------------------------------------------------------------------------------
 -- | 'Loc'-tagged logging when using template-haskell is OK.
 --
--- @$(logt) obj mempty Info "Hello world"@
+-- @$(logt) obj mempty InfoS "Hello world"@
 logt :: ExpQ
-logt = [| \ a ns sev msg -> logi a ns (Just $(getLoc)) sev msg |]
+logt = [| \ a ns sev msg -> logItem a ns (Just $(getLoc)) sev msg |]
 
 
 -- taken from the file-location package
