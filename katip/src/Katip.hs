@@ -41,6 +41,8 @@ module Katip
     -- * Transformer for appending to a log context
     , ContextualLogT
     , runContextualLogT
+    , BlankLogContextT
+    , runBlankLogContextT
 
     -- * Included Scribes
     , mkHandleScribe

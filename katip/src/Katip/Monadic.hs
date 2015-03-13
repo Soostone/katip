@@ -32,6 +32,8 @@ module Katip.Monadic
     , ContextualLogT'
     , ContextualLogT
     , runContextualLogT
+    , BlankLogContextT
+    , runBlankLogContextT
     ) where
 
 
@@ -202,6 +204,7 @@ newtype ContextualLogT' n m a = ContextualLogT {
                , MonadIO
                , MonadThrow
                , MonadCatch
+               , MonadMask
                , MonadBase b
                , MonadState s
                , MonadWriter w
@@ -244,7 +247,6 @@ instance (ContextualLog m, Monad m) => ContextualLog (ContextualLogT' m m) where
       nsInner <- getNsInner
       return $ nsOuter <> nsInner
 
-
 runContextualLogT
     :: (Functor m, LogContext a)
     => m a
@@ -253,3 +255,44 @@ runContextualLogT
     -> m b
 runContextualLogT lgtr nsgtr m = runReaderT (unContextualLogT m) (liftPayload <$> lgtr, nsgtr)
 
+
+-------------------------------------------------------------------------------
+-- | Type analogous to IdentityT that provides an empty log
+-- context. Use this if your root monad doesn't have a LogContext instance.
+newtype BlankLogContextT m a = BlankLogContextT {
+      runBlankLogContextT :: m a
+    } deriving ( Functor
+               , Applicative
+               , Monad
+               , MonadIO
+               , MonadThrow
+               , MonadCatch
+               , MonadMask
+               , MonadBase b
+               , MonadReader r
+               , MonadState s
+               , MonadWriter w
+               , MonadError e
+               , MonadPlus
+               , MonadFix
+               , Katip
+               )
+
+instance Monad m => ContextualLog (BlankLogContextT m) where
+    getLogContexts = return mempty
+    getNamespace = return mempty
+
+instance MonadTrans BlankLogContextT where
+    lift = BlankLogContextT
+
+instance MonadTransControl BlankLogContextT where
+    type StT BlankLogContextT a = a
+    liftWith f = BlankLogContextT $ f runBlankLogContextT
+    restoreT = BlankLogContextT
+    {-# INLINABLE liftWith #-}
+    {-# INLINABLE restoreT #-}
+
+instance (MonadBaseControl b m) => MonadBaseControl b (BlankLogContextT m) where
+  type StM (BlankLogContextT m) a = ComposeSt BlankLogContextT m a
+  liftBaseWith = defaultLiftBaseWith
+  restoreM = defaultRestoreM
