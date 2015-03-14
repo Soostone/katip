@@ -42,6 +42,19 @@
    the size limit is reached, we drop the request instead of blocking
    until limit is reached.
 
+** TODO Be resilient to server disconnects and crashes
+   The async buffer method described above certainly helps with this.
+   In addition, make sure that nothing out of the ordinary happens if
+   the server is unreachable. Logging should not be an element in any
+   stack that can potentially induce a crash - that would defeat the
+   purpose!
+
+   This means:
+   - No slowdowns, no crashes even if server is unreachable
+   - No file descriptor hogging (tight loop retries, etc.)
+   - Gently try once in a while to see if the server has become
+     reachable again
+
 ** TODO Connection pooling (bloodhound)
 
    Exposing Manager would solve this, as it does internal pooling.
