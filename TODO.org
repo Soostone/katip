@@ -63,3 +63,27 @@
 
    Seems to be a limitation of http-client that we'll have to live
    with for now.
+
+
+* katip-rotated-log
+
+** TODO Create a rotated-log scribe
+
+   This works just like the built-in Handle scribe, but pushes the log
+   through the rotated-log packages and therefore rotates files when
+   they get too large
+
+
+* katip-retry
+  
+** TODO Implement combinator for creating exception Handler that log to katip
+
+   Along the lines of the built-in 'logRetries' in retry, but instead
+   captures structured information through katip. 
+
+   Explicitly capture fields to aid in filtering:
+   
+   - Retry number
+   - The exception
+   - The exception type - maybe via Typeable's typeOf?
+   - Decision result: Crashing vs. Retrying
