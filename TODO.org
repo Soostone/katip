@@ -29,10 +29,15 @@
 
 * katip-elasticsearch
 
-** TODO Efficient UUID generation (don't use system rng)
+** DONE Efficient UUID generation (don't use system rng)
+   CLOSED: [2015-03-16 Mon 10:03]
 
    Make RNG once, store it behind an mvar and use it in all uuid
    generation. Use the rng-utils module for this.
+
+   Turns out =uuid= is already doing some clever stuff in their random
+   instance to make this plenty fast. Benchmarks show we can generate
+   > 1M ids/sec.
 
 ** TODO Async size-capped buffer for incoming items
    Don't block log requests for server connection, add to buffer and
