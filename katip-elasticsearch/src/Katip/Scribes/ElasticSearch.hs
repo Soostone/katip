@@ -28,10 +28,3 @@ mkEsScribe server ix mapping sev verb = return $ Scribe $ \ i -> do
 -------------------------------------------------------------------------------
 mkDocId :: IO DocId
 mkDocId = (DocId . toString) `fmap` randomIO
-
-
-
-
-
-
-
