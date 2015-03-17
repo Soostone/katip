@@ -29,7 +29,8 @@
 
 * katip-elasticsearch
 
-** TODO Efficient UUID generation (don't use system rng)
+** DONE Efficient UUID generation (don't use system rng)
+   CLOSED: [2015-03-17 Tue 10:27]
 
    Make RNG once, store it behind an mvar and use it in all uuid
    generation. Use the rng-utils module for this.
