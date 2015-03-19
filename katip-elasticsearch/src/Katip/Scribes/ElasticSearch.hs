@@ -3,6 +3,7 @@ module Katip.Scribes.ElasticSearch where
 
 -------------------------------------------------------------------------------
 import           Control.Monad
+import qualified Data.Text.Encoding  as T
 import           Data.UUID
 import           Database.Bloodhound
 import           Network.HTTP.Client
@@ -34,4 +35,4 @@ mkEsScribe ms server ix mapping sev verb =
 
 -------------------------------------------------------------------------------
 mkDocId :: IO DocId
-mkDocId = (DocId . toString) `fmap` randomIO
+mkDocId = (DocId . T.decodeUtf8 . toASCIIBytes) `fmap` randomIO
