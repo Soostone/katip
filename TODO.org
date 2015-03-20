@@ -30,7 +30,7 @@
 * katip-elasticsearch
 
 ** DONE Efficient UUID generation (don't use system rng)
-   CLOSED: [2015-03-16 Mon 10:03]
+   CLOSED: [2015-03-17 Tue 10:27]
 
    Make RNG once, store it behind an mvar and use it in all uuid
    generation. Use the rng-utils module for this.
@@ -47,6 +47,19 @@
    the size limit is reached, we drop the request instead of blocking
    until limit is reached.
 
+** TODO Be resilient to server disconnects and crashes
+   The async buffer method described above certainly helps with this.
+   In addition, make sure that nothing out of the ordinary happens if
+   the server is unreachable. Logging should not be an element in any
+   stack that can potentially induce a crash - that would defeat the
+   purpose!
+
+   This means:
+   - No slowdowns, no crashes even if server is unreachable
+   - No file descriptor hogging (tight loop retries, etc.)
+   - Gently try once in a while to see if the server has become
+     reachable again
+
 ** TODO Connection pooling (bloodhound)
 
    Exposing Manager would solve this, as it does internal pooling.
@@ -55,3 +68,27 @@
 
    Seems to be a limitation of http-client that we'll have to live
    with for now.
+
+
+* katip-rotated-log
+
+** TODO Create a rotated-log scribe
+
+   This works just like the built-in Handle scribe, but pushes the log
+   through the rotated-log packages and therefore rotates files when
+   they get too large
+
+
+* katip-retry
+  
+** TODO Implement combinator for creating exception Handler that log to katip
+
+   Along the lines of the built-in 'logRetries' in retry, but instead
+   captures structured information through katip. 
+
+   Explicitly capture fields to aid in filtering:
+   
+   - Retry number
+   - The exception
+   - The exception type - maybe via Typeable's typeOf?
+   - Decision result: Crashing vs. Retrying

@@ -22,24 +22,25 @@ import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Either
 import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.Reader
+import           Control.Monad.Trans.Resource
 import           Control.Monad.Trans.State
 import           Control.Monad.Trans.Writer
-import           Data.Aeson                 (ToJSON (..))
-import qualified Data.Aeson                 as A
-import           Data.Foldable              (foldMap)
-import qualified Data.HashMap.Strict        as HM
+import           Data.Aeson                   (ToJSON (..))
+import qualified Data.Aeson                   as A
+import           Data.Foldable                (foldMap)
+import qualified Data.HashMap.Strict          as HM
 import           Data.List
-import qualified Data.Map.Strict            as M
+import qualified Data.Map.Strict              as M
 import           Data.Monoid
 import           Data.String
 import           Data.String.Conv
-import           Data.Text                  (Text)
-import qualified Data.Text                  as T
-import qualified Data.Text.Lazy.Builder     as B
+import           Data.Text                    (Text)
+import qualified Data.Text                    as T
+import qualified Data.Text.Lazy.Builder       as B
 import           Data.Time
-import           GHC.Generics               hiding (to)
+import           GHC.Generics                 hiding (to)
 import           Language.Haskell.TH
-import qualified Language.Haskell.TH.Syntax as TH
+import qualified Language.Haskell.TH.Syntax   as TH
 import           Network.HostName
 import           System.Posix
 -------------------------------------------------------------------------------
@@ -335,6 +336,9 @@ instance Katip m => Katip (StateT s m) where
 
 
 instance (Katip m, Monoid s) => Katip (WriterT s m) where
+    getLogEnv = lift getLogEnv
+
+instance (Katip m) => Katip (ResourceT m) where
     getLogEnv = lift getLogEnv
 
 

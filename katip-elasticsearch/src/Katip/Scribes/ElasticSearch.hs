@@ -12,8 +12,10 @@ import           Control.Concurrent.Async
 import           Control.Concurrent.STM
 import           Control.Monad
 import           Data.Aeson
+import qualified Data.Text.Encoding  as T
 import           Data.UUID
 import           Database.Bloodhound
+import           Network.HTTP.Client
 import           System.Random
 -------------------------------------------------------------------------------
 import           Katip.Core
@@ -22,26 +24,31 @@ import           Katip.Core
 
 -------------------------------------------------------------------------------
 mkEsScribe
-    :: Server
+    :: ManagerSettings
+    -> Server
     -> IndexName
     -> MappingName
     -> EsQueueSize
     -> Severity
     -> Verbosity
     -> IO Scribe
-mkEsScribe server ix mapping qs sev verb = do
-    q <- newTBQueueIO $ unEsQueueSize qs
-    worker <- startWorker server ix mapping q
+mkEsScribe ms server ix mapping qs sev verb = do
+  q <- newTBQueueIO $ unEsQueueSize qs
+  withManager ms $ \mgr -> do
+    let env = BHEnv { bhServer = server
+                    , bhManager = mgr
+                    }
+    worker <- startWorker env ix mapping q
     link worker
-
-    return $ Scribe $ \ i ->
+    return $ Scribe $ \ i -> do
+      did <- mkDocId
       when (_itemSeverity i >= sev) $
         void $ atomically $ tryWriteTBQueue q (itemJson verb i)
 
 
 -------------------------------------------------------------------------------
 mkDocId :: IO DocId
-mkDocId = (DocId . toString) `fmap` randomIO
+mkDocId = (DocId . T.decodeUtf8 . toASCIIBytes) `fmap` randomIO
 
 
 -------------------------------------------------------------------------------
@@ -58,17 +65,19 @@ mkEsQueueSize n
 
 -------------------------------------------------------------------------------
 startWorker
-    :: Server
+    :: BHEnv
     -> IndexName
     -> MappingName
     -> TBQueue Value
     -> IO (Async ())
-startWorker server ix mapping q = async $ forever $ do
+startWorker env ix mapping q = async $ forever $ do
     v <- atomically $ readTBQueue q
     res <- waitCatch =<< async (sendLog v)
-    when (isLeft res) $ inCaseOfEmergency
+    when (isLeft res) inCaseOfEmergency
   where
-    sendLog v = void $ indexDocument server ix mapping v =<< mkDocId
+    sendLog v = void $ do
+      did <- mkDocId
+      runBH env $ indexDocument ix mapping v did
     --TODO reenqueue? drop? would be nice to log but we don't have that context
     inCaseOfEmergency = return ()
 
