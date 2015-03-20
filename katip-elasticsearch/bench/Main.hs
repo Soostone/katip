@@ -1,12 +1,12 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE StandaloneDeriving         #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Main
     ( main
     ) where
 
 -------------------------------------------------------------------------------
-import           Control.Applicative
 import           Control.DeepSeq
 import           Control.Monad
 import           Criterion.Main
@@ -34,7 +34,7 @@ mkDocIdBenchmark rng = bgroup "mkDocId"
 mkDocId' :: RNG -> IO DocId
 mkDocId' rng = do
     is <- withRNG rng $ \gen -> replicateM len $ mk gen
-    return . DocId . T.pack . concatMap (flip showHex "") $ is
+    return . DocId . T.pack . concatMap (`showHex` "") $ is
   where
     len = 32
     mk :: GenIO -> IO Int
