@@ -39,7 +39,8 @@
    instance to make this plenty fast. Benchmarks show we can generate
    > 1M ids/sec.
 
-** TODO Async size-capped buffer for incoming items
+** DONE Async size-capped buffer for incoming items
+   CLOSED: [2015-03-20 Fri 17:08]
    Don't block log requests for server connection, add to buffer and
    move on. If buffer fills up, drop further logs until there's space.
 
@@ -60,11 +61,13 @@
    - Gently try once in a while to see if the server has become
      reachable again
 
-** TODO Connection pooling (bloodhound)
+** DONE Connection pooling (bloodhound)
+   CLOSED: [2015-03-20 Fri 17:09]
 
    Exposing Manager would solve this, as it does internal pooling.
 
-** TODO Stop using Strings everywhere (bloodhound)
+** DONE Stop using Strings everywhere (bloodhound)
+   CLOSED: [2015-03-20 Fri 17:09]
 
    Seems to be a limitation of http-client that we'll have to live
    with for now.
