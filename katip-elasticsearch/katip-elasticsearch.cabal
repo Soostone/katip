@@ -53,3 +53,20 @@ benchmark bench
                , rng-utils
                , uuid
                , text
+
+test-suite test
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  hs-source-dirs: test
+  default-language:    Haskell2010
+  build-depends:
+      katip-elasticsearch
+    , katip
+    , http-client
+    , bloodhound
+    , base
+    , tasty
+    , tasty-hunit
+    , containers
+    , transformers
+

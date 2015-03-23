@@ -96,14 +96,12 @@ mkEsScribe cfg@EsScribeCfg {..} server ix mapping sev verb = do
     _ <- async $ do
       takeMVar endSig
       atomically $ closeTBMQueue q
-      -- wait for queue to empty
-      atomically $ check =<< isEmptyTBMQueue q
-      mapM_ cancel workers
+      mapM_ wait workers
       putMVar endSig ()
 
     let scribe = Scribe $ \ i ->
           when (_itemSeverity i >= sev) $
-          void $ atomically $ tryWriteTBMQueue q (itemJson verb i)
+            void $ atomically $ tryWriteTBMQueue q (itemJson verb i)
     let finalizer = putMVar endSig () >> takeMVar endSig
     return (scribe, finalizer)
 
@@ -158,10 +156,15 @@ startWorker
     -> MappingName
     -> TBMQueue Value
     -> IO ()
-startWorker EsScribeCfg {..} env ix mapping q = forever $ do
-    v <- atomically $ readTBMQueue q
-    sendLog v `catchAny` eat
+startWorker EsScribeCfg {..} env ix mapping q = go -- manual recursion here. is this a space leak
   where
+    go = do
+      v <- atomically $ readTBMQueue q
+      case v of
+        Just v' -> do
+          sendLog v' `catchAny` eat
+          go
+        Nothing -> return ()
     sendLog v = void $ recovering essRetryPolicy [handler] $ do
       did <- mkDocId
       runBH env $ indexDocument ix mapping v did
