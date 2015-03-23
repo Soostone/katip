@@ -20,14 +20,15 @@ module Katip.Scribes.ElasticSearch
 
 
 -------------------------------------------------------------------------------
-import           Control.Applicative
 import           Control.Concurrent
-import           Control.Concurrent.STM
+import           Control.Concurrent.Async
+import           Control.Monad.STM
+import           Control.Concurrent.STM.TBMQueue
 import           Control.Exception.Enclosed
 import           Control.Monad
 import           Control.Retry
 import           Data.Aeson
-import qualified Data.Text.Encoding         as T
+import qualified Data.Text.Encoding              as T
 import           Data.Typeable
 import           Data.UUID
 import           Database.Bloodhound
@@ -76,19 +77,32 @@ mkEsScribe
     -> MappingName
     -> Severity
     -> Verbosity
-    -> IO Scribe
+    -> IO (Scribe, IO ())
+    -- ^ Returns a finalizer that will gracefully flush all remaining logs before shutting down workers
 mkEsScribe cfg@EsScribeCfg {..} server ix mapping sev verb = do
-  q <- newTBQueueIO $ unEsQueueSize essQueueSize
+  q <- newTBMQueueIO $ unEsQueueSize essQueueSize
   withManager essManagerSettings $ \mgr -> do
     let env = BHEnv { bhServer = server
                     , bhManager = mgr
                     }
-    replicateM_ (unEsPoolSize essPoolSize) $ forkIO $
+    endSig <- newEmptyMVar
+
+    workers <- replicateM (unEsPoolSize essPoolSize) $ async $
       startWorker cfg env ix mapping q
 
-    return $ Scribe $ \ i ->
-      when (_itemSeverity i >= sev) $
-        void $ atomically $ tryWriteTBQueue q (itemJson verb i)
+    _ <- async $ do
+      takeMVar endSig
+      atomically $ closeTBMQueue q
+      -- wait for queue to empty
+      atomically $ check =<< isEmptyTBMQueue q
+      mapM_ cancel workers
+      putMVar endSig ()
+
+    let scribe = Scribe $ \ i ->
+          when (_itemSeverity i >= sev) $
+          void $ atomically $ tryWriteTBMQueue q (itemJson verb i)
+    let finalizer = putMVar endSig () >> takeMVar endSig
+    return (scribe, finalizer)
 
 
 -------------------------------------------------------------------------------
@@ -139,21 +153,13 @@ startWorker
     -> BHEnv
     -> IndexName
     -> MappingName
-    -> TBQueue Value
+    -> TBMQueue Value
     -> IO ()
 startWorker EsScribeCfg {..} env ix mapping q = forever $ do
-    v <- atomically $ readTBQueue q
+    v <- atomically $ readTBMQueue q
     sendLog v `catchAny` eat
   where
     sendLog v = void $ recoverAll essRetryPolicy $ do
       did <- mkDocId
       runBH env $ indexDocument ix mapping v did
     eat _ = return ()
-
-
--------------------------------------------------------------------------------
-tryWriteTBQueue :: TBQueue a -> a -> STM Bool
-tryWriteTBQueue q v = do
-    ok <- not <$> isFullTBQueue q
-    when ok $ writeTBQueue q v
-    return ok
