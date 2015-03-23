@@ -1,5 +1,6 @@
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE RecordWildCards    #-}
+{-# LANGUAGE DeriveDataTypeable  #-}
+{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Katip.Scribes.ElasticSearch
     (-- * Building a scribe
       mkEsScribe
@@ -22,10 +23,12 @@ module Katip.Scribes.ElasticSearch
 -------------------------------------------------------------------------------
 import           Control.Concurrent
 import           Control.Concurrent.Async
-import           Control.Monad.STM
 import           Control.Concurrent.STM.TBMQueue
+import           Control.Exception.Base
 import           Control.Exception.Enclosed
 import           Control.Monad
+import           Control.Monad.Catch
+import           Control.Monad.STM
 import           Control.Retry
 import           Data.Aeson
 import qualified Data.Text.Encoding              as T
@@ -159,7 +162,11 @@ startWorker EsScribeCfg {..} env ix mapping q = forever $ do
     v <- atomically $ readTBMQueue q
     sendLog v `catchAny` eat
   where
-    sendLog v = void $ recoverAll essRetryPolicy $ do
+    sendLog v = void $ recovering essRetryPolicy [handler] $ do
       did <- mkDocId
       runBH env $ indexDocument ix mapping v did
     eat _ = return ()
+    handler _ = Handler $ \e ->
+      case fromException e of
+        Just (_ :: AsyncException) -> return False
+        _ -> return True
