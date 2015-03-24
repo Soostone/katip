@@ -17,7 +17,7 @@ library
   exposed-modules:
     Katip.Scribes.ElasticSearch
   build-depends:
-      base >=4.6 && <4.7
+      base >=4.6 && <4.8
     , katip
     , bloodhound >= 0.5 && < 0.6
     , random >= 1.0 && < 1.2
