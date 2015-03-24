@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveDataTypeable  #-}
+{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 module Katip.Scribes.ElasticSearch
@@ -31,6 +32,7 @@ import           Control.Monad.Catch
 import           Control.Monad.STM
 import           Control.Retry
 import           Data.Aeson
+import           Data.Monoid
 import qualified Data.Text.Encoding              as T
 import           Data.Typeable
 import           Data.UUID
