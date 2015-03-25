@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE TemplateHaskell   #-}
 module Main
     ( main
@@ -6,12 +7,16 @@ module Main
 
 
 -------------------------------------------------------------------------------
+import           Control.Lens                hiding (mapping)
 import           Control.Monad
 import           Control.Monad.IO.Class
+import           Data.Aeson
+import           Data.Aeson.Lens
 import qualified Data.Map                    as M
 import           Data.Monoid
-import           Database.Bloodhound
-import           Network.HTTP.Client         (defaultManagerSettings)
+import           Database.Bloodhound         hiding (key)
+import           Network.HTTP.Client
+import           Network.HTTP.Types.Status
 import           Test.Tasty
 import           Test.Tasty.HUnit
 -------------------------------------------------------------------------------
@@ -45,49 +50,79 @@ teardownSearch (_, finalizer) = do
 esTests :: IO (Scribe, IO ()) -> TestTree
 esTests setup = testGroup "elasticsearch scribe"
   [
-    testCase "it works" $ withTestLogging setup $ \done -> do
+    testCase "it flushes to elasticsearch" $ withTestLogging setup $ \done -> do
        $(logT) () mempty InfoS "A test message"
        liftIO $ do
          done
-         print =<< getLogs
-         True @?= False
+         logs <- getLogs
+         length logs @?= 1
+         let l = head logs
+         l ^? key "_source" . key "msg" . _String @?= Just "A test message"
   ]
 
 
 -------------------------------------------------------------------------------
-getLogs = bh $ searchByIndex ixn $ mkSearch Nothing Nothing
+getLogs :: IO [Value]
+getLogs = do
+  r <- bh $ searchByIndex ixn $ mkSearch Nothing Nothing
+  statusCode (responseStatus r) @?= 200
+  return $ responseBody r ^.. key "hits" . key "hits" . values
 
 
 -------------------------------------------------------------------------------
+bh :: BH IO a -> IO a
 bh = withBH defaultManagerSettings svr
 
 
 -------------------------------------------------------------------------------
+withTestLogging
+  :: IO (Scribe, IO a) -> (IO Reply -> KatipT IO b) -> IO b
 withTestLogging setup f = do
-    (scribe, done) <- setup
+    (scr, done) <- setup
     le <- initLogEnv ns env
-    runKatipT le { _logEnvScribes = M.singleton "es" scribe} (f done)
+    let done' = done >> bh (refreshIndex ixn)
+    runKatipT le { _logEnvScribes = M.singleton "es" scr} (f done')
   where
     ns = Namespace ["katip-test"]
     env = Environment "test"
 
+
 -------------------------------------------------------------------------------
+svr :: Server
 svr = Server "http://localhost:9200"
+
+
+-------------------------------------------------------------------------------
+ixn :: IndexName
 ixn = IndexName "katip-elasticsearch-tests"
+
+
+-------------------------------------------------------------------------------
+ixs :: IndexSettings
 ixs = defaultIndexSettings
+
+-------------------------------------------------------------------------------
+mn :: MappingName
 mn = MappingName "logs"
+
+
+-------------------------------------------------------------------------------
+mapping :: ()
 mapping = () -- ehhh
 
 
 -------------------------------------------------------------------------------
+recreateESSchema :: BH IO Reply
 recreateESSchema = dropESSchema >> createESSchema
 
 
 -------------------------------------------------------------------------------
+dropESSchema :: BH IO ()
 dropESSchema = void $ deleteIndex ixn
 
 
 -------------------------------------------------------------------------------
+createESSchema :: BH IO Reply
 createESSchema = do
   createIndex ixs ixn
   putMapping ixn mn mapping

@@ -69,4 +69,9 @@ test-suite test
     , tasty-hunit
     , containers
     , transformers
+    , lens
+    , lens-aeson
+    , text
+    , http-types
+    , aeson
 
