@@ -16,6 +16,7 @@ module Katip
     , KatipContext(..)
     , AnyLogContext
     , LogContexts, liftPayload
+    , SimpleLogPayload, sl
 
     -- * A Built-in Monad For Logging
     , KatipT (..)

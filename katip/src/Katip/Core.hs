@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE ExistentialQuantification  #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -25,7 +26,7 @@ import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.Resource
 import           Control.Monad.Trans.State
 import           Control.Monad.Trans.Writer
-import           Data.Aeson                   (ToJSON (..))
+import           Data.Aeson                   (ToJSON (..), object)
 import qualified Data.Aeson                   as A
 import           Data.Foldable                (foldMap)
 import qualified Data.HashMap.Strict          as HM
@@ -232,6 +233,40 @@ class ToObject a => LogItem a where
 
 
 instance LogItem () where payloadKeys _ _ = SomeKeys []
+
+
+data AnyLogPayload = forall a. ToJSON a => AnyLogPayload a
+
+newtype SimpleLogPayload = SimpleLogPayload {
+      unSimpleLogPayload :: [(Text, AnyLogPayload)]
+    }
+
+-------------------------------------------------------------------------------
+-- | A built-in convenience log payload that won't log anything on 'V0',
+-- but will log everything in any other level of verbosity. Intended
+-- for easy in-line usage without having to define new log types.
+--
+-- Construct using 'sl' and combine multiple tuples using '<>' from
+-- 'Monoid'.
+instance ToJSON SimpleLogPayload where
+    toJSON (SimpleLogPayload as) = object $ map go as
+      where go (k, AnyLogPayload v) = k A..= v
+
+instance ToObject SimpleLogPayload
+
+instance LogItem SimpleLogPayload where
+    payloadKeys V0 _ = SomeKeys []
+    payloadKeys _ _ = AllKeys
+
+instance Monoid SimpleLogPayload where
+    mempty = SimpleLogPayload []
+    SimpleLogPayload a `mappend` SimpleLogPayload b = SimpleLogPayload (a `mappend` b)
+
+
+-------------------------------------------------------------------------------
+-- | Construct a simple log from any JSON item.
+sl :: ToJSON a => Text -> a -> SimpleLogPayload
+sl a b = SimpleLogPayload [(a, AnyLogPayload b)]
 
 
 -------------------------------------------------------------------------------
