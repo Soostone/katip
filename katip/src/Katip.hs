@@ -10,6 +10,8 @@ module Katip
     , Verbosity (..)
     , ToObject (..)
     , LogItem (..)
+    , Item(..)
+    , ThreadIdText(..)
     , PayloadSelection (..)
     , Scribe (..)
     , LogEnv (..)

@@ -26,7 +26,8 @@ import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.Resource
 import           Control.Monad.Trans.State
 import           Control.Monad.Trans.Writer
-import           Data.Aeson                   (ToJSON (..), object)
+import           Data.Aeson                   (FromJSON (..), ToJSON (..),
+                                               object)
 import qualified Data.Aeson                   as A
 import           Data.Foldable                (foldMap)
 import qualified Data.HashMap.Strict          as HM
@@ -49,7 +50,7 @@ import           System.Posix
 
 -------------------------------------------------------------------------------
 newtype Namespace = Namespace { unNamespace :: [Text] }
-  deriving (Eq,Show,Read,Ord,Generic,ToJSON,Monoid)
+  deriving (Eq,Show,Read,Ord,Generic,ToJSON,FromJSON,Monoid)
 
 instance IsString Namespace where
     fromString s = Namespace [fromString s]
@@ -64,7 +65,7 @@ intercalateNs (Namespace xs) = intersperse "." xs
 -------------------------------------------------------------------------------
 -- | Application environment, like @prod@, @devel@, @testing@.
 newtype Environment = Environment { getEnvironment :: Text }
-  deriving (Eq,Show,Read,Ord,Generic,ToJSON,IsString)
+  deriving (Eq,Show,Read,Ord,Generic,ToJSON,FromJSON,IsString)
 
 
 -------------------------------------------------------------------------------
@@ -106,8 +107,37 @@ renderSeverity s = case s of
 
 
 -------------------------------------------------------------------------------
+severityText :: Prism' Text Severity
+severityText = prism fromSev toSev
+  where
+    fromSev DebugS     = "Debug"
+    fromSev InfoS      = "Info"
+    fromSev NoticeS    = "Notice"
+    fromSev WarningS   = "Warning"
+    fromSev ErrorS     = "Error"
+    fromSev CriticalS  = "Critical"
+    fromSev AlertS     = "Alert"
+    fromSev EmergencyS = "Emergency"
+    toSev "Debug"     = Right DebugS
+    toSev "Info"      = Right InfoS
+    toSev "Notice"    = Right NoticeS
+    toSev "Warning"   = Right WarningS
+    toSev "Error"     = Right ErrorS
+    toSev "Critical"  = Right CriticalS
+    toSev "Alert"     = Right AlertS
+    toSev "Emergency" = Right EmergencyS
+    toSev x           = Left x
+
 instance ToJSON Severity where
-    toJSON s = A.String (renderSeverity s)
+    toJSON s = A.String (s ^. re severityText)
+
+
+instance FromJSON Severity where
+    parseJSON = A.withText "Severity" parseSeverity
+      where
+        parseSeverity t = case t ^? severityText of
+          Just x -> return x
+          Nothing -> fail $ "Invalid Severity " ++ toS t
 
 
 -------------------------------------------------------------------------------
@@ -121,6 +151,11 @@ instance IsString LogStr where
 instance Monoid LogStr where
     mappend (LogStr a) (LogStr b) = LogStr (a `mappend` b)
     mempty = LogStr mempty
+
+instance FromJSON LogStr where
+    parseJSON = A.withText "LogStr" parseLogStr
+      where
+        parseLogStr = return . LogStr . B.fromText
 
 -------------------------------------------------------------------------------
 -- | Pack any string-like thing into a 'LogStr'. This will
@@ -142,12 +177,21 @@ showLS = ls . show
 
 
 -------------------------------------------------------------------------------
+newtype ThreadIdText = ThreadIdText {
+      getThreadIdText :: Text
+    } deriving (ToJSON, FromJSON, Show, Eq, Ord)
+
+
+mkThreadIdText :: ThreadId -> ThreadIdText
+mkThreadIdText = ThreadIdText . T.pack . show
+
+-------------------------------------------------------------------------------
 -- | This has everything each log message will contain.
 data Item a = Item {
       _itemApp       :: Namespace
     , _itemEnv       :: Environment
     , _itemSeverity  :: Severity
-    , _itemThread    :: ThreadId
+    , _itemThread    :: ThreadIdText
     , _itemHost      :: HostName
     , _itemProcess   :: ProcessID
     , _itemPayload   :: a
@@ -164,9 +208,9 @@ instance ToJSON a => ToJSON (Item a) where
       [ "app" A..= _itemApp
       , "env" A..= _itemEnv
       , "sev" A..= _itemSeverity
-      , "thread" A..= show _itemThread
+      , "thread" A..= getThreadIdText _itemThread
       , "host" A..= _itemHost
-      , "pid" A..= A.String (toS (show _itemProcess))
+      , "pid" A..= ProcessIDJs _itemProcess
       , "data" A..= _itemPayload
       , "msg" A..= (B.toLazyText $ unLogStr _itemMessage)
       , "at" A..= _itemTime
@@ -185,6 +229,61 @@ instance ToJSON LocJs where
       , "loc_ln" A..= l
       , "loc_col" A..= c
       ]
+
+
+instance FromJSON LocJs where
+    parseJSON = A.withObject "LocJs" parseLocJs
+      where
+        parseLocJs o = do
+          fn <- o A..: "loc_fn"
+          p <- o A..: "loc_pkg"
+          m <- o A..: "loc_mod"
+          l <- o A..: "loc_ln"
+          c <- o A..: "loc_col"
+          return $ LocJs $ Loc fn p m (l, c) (l, c)
+
+
+instance FromJSON a => FromJSON (Item a) where
+    parseJSON = A.withObject "Item" parseItem
+      where --TODO: match these up with the serialize
+        parseItem o = Item
+          <$> o A..: "app"
+          <*> o A..: "env"
+          <*> o A..: "sev"
+          <*> o A..: "thread"
+          <*> o A..: "host"
+          <*> (getProcessIDJs <$> o A..: "pid")
+          <*> o A..: "data"
+          <*> o A..: "msg"
+          <*> o A..: "at"
+          <*> o A..: "ns"
+          <*> (fmap getLocJs <$> o A..: "loc")
+
+
+processIDText :: Prism' Text ProcessID
+processIDText = prism fromProcessID toProcessID
+  where
+    fromProcessID = toS . show
+    toProcessID t = case toS t ^? _Show of
+      Just i -> Right i
+      Nothing -> Left t
+
+
+newtype ProcessIDJs = ProcessIDJs {
+      getProcessIDJs :: ProcessID
+    }
+
+
+instance ToJSON ProcessIDJs where
+    toJSON (ProcessIDJs p) = A.String (p ^. re processIDText)
+
+
+instance FromJSON ProcessIDJs where
+    parseJSON = A.withText "ProcessID" parseProcessID
+      where
+        parseProcessID t = case t ^? processIDText of
+          Just p -> return $ ProcessIDJs p
+          Nothing -> fail $ "Invalid ProcessIDJs " ++ toS t
 
 
 -------------------------------------------------------------------------------
@@ -411,7 +510,7 @@ logItem a ns loc sev msg = do
       <$> pure _logEnvNs
       <*> pure _logEnvEnv
       <*> pure sev
-      <*> liftIO myThreadId
+      <*> liftIO (mkThreadIdText <$> myThreadId)
       <*> pure _logEnvHost
       <*> pure _logEnvPid
       <*> pure a
