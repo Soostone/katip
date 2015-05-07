@@ -49,7 +49,7 @@ import           Control.Monad.RWS.Class
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Control
 import           Control.Monad.Trans.Either        (EitherT)
-import           Control.Monad.Trans.Error         (ErrorT)
+import           Control.Monad.Trans.Except        (ExceptT)
 import           Control.Monad.Trans.Identity      (IdentityT)
 import           Control.Monad.Trans.List          (ListT)
 import           Control.Monad.Trans.Maybe         (MaybeT)
@@ -130,7 +130,7 @@ TRANS(ReaderT r)
 TRANS(ResourceT)
 TRANS(Strict.StateT s)
 TRANS(StateT s)
-TRANS_CTX(Error e,         ErrorT e)
+TRANS(ExceptT s)
 TRANS_CTX(Monoid w, Strict.WriterT w)
 TRANS_CTX(Monoid w,        WriterT w)
 TRANS_CTX(Monoid w, Strict.RWST r w s)
