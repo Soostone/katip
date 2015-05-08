@@ -71,10 +71,7 @@ deriving instance Arbitrary ThreadIdText
 deriving instance Arbitrary CPid
 deriving instance Eq Loc
 deriving instance Eq LogStr
-deriving instance Show Loc
-deriving instance Show LogStr
 deriving instance (Eq a) => Eq (Item a)
-deriving instance (Show a) => Show (Item a)
 
 
 -------------------------------------------------------------------------------

@@ -8,7 +8,6 @@
 {-# LANGUAGE RankNTypes                 #-}
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE TemplateHaskell            #-}
-
 module Katip.Core where
 
 -------------------------------------------------------------------------------
@@ -143,7 +142,7 @@ instance FromJSON Severity where
 -------------------------------------------------------------------------------
 -- | Log message with Builder unerneath; use '<>' to concat in O(1).
 newtype LogStr = LogStr { unLogStr :: B.Builder }
-    deriving (Generic)
+    deriving (Generic, Show)
 
 instance IsString LogStr where
     fromString = LogStr . B.fromString
@@ -201,6 +200,32 @@ data Item a = Item {
     , _itemLoc       :: Maybe Loc
     } deriving (Generic)
 makeLenses ''Item
+
+
+instance Show a => Show (Item a) where
+    show Item{..} = "Item {_itemApp = " ++ show _itemApp ++ ", " ++
+                          "_itemEnv = " ++ show _itemEnv ++ ", " ++
+                          "_itemSeverity = " ++ show _itemSeverity ++ ", " ++
+                          "_itemThread = " ++ show _itemThread ++ ", " ++
+                          "_itemHost = " ++ show _itemHost ++ ", " ++
+                          "_itemProcess = " ++ show _itemProcess ++ ", " ++
+                          "_itemPayload = " ++ show _itemPayload ++ ", " ++
+                          "_itemMessage = " ++ show _itemMessage ++ ", " ++
+                          "_itemTime = " ++ show _itemTime ++ ", " ++
+                          "_itemNamespace = " ++ show _itemNamespace ++ ", " ++
+                          "_itemLoc = " ++ show (LocShow <$> _itemLoc) ++ "}"
+
+
+newtype LocShow = LocShow Loc
+
+
+instance Show LocShow where
+    show (LocShow Loc{..}) =
+      "Loc {loc_filename = " ++ show loc_filename ++ ", " ++
+           "loc_package = " ++ show loc_package ++ ", " ++
+           "loc_module = " ++ show loc_module ++ ", " ++
+           "loc_start = " ++ show loc_start ++ ", " ++
+           "loc_end = " ++ show loc_end ++ "}"
 
 
 instance ToJSON a => ToJSON (Item a) where
