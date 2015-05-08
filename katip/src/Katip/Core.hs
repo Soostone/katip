@@ -245,7 +245,7 @@ instance FromJSON LocJs where
 
 instance FromJSON a => FromJSON (Item a) where
     parseJSON = A.withObject "Item" parseItem
-      where --TODO: match these up with the serialize
+      where
         parseItem o = Item
           <$> o A..: "app"
           <*> o A..: "env"
