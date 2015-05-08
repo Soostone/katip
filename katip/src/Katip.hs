@@ -11,6 +11,17 @@ module Katip
     , ToObject (..)
     , LogItem (..)
     , Item(..)
+    , itemApp
+    , itemEnv
+    , itemSeverity
+    , itemThread
+    , itemHost
+    , itemProcess
+    , itemPayload
+    , itemMessage
+    , itemTime
+    , itemNamespace
+    , itemLoc
     , ThreadIdText(..)
     , PayloadSelection (..)
     , Scribe (..)
