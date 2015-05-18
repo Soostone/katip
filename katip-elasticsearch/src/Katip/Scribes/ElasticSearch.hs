@@ -32,7 +32,6 @@ import           Control.Monad.Catch
 import           Control.Monad.STM
 import           Control.Retry
 import           Data.Aeson
-import           Data.Monoid
 import qualified Data.Text.Encoding              as T
 import           Data.Typeable
 import           Data.UUID
@@ -86,26 +85,27 @@ mkEsScribe
     -- ^ Returns a finalizer that will gracefully flush all remaining logs before shutting down workers
 mkEsScribe cfg@EsScribeCfg {..} server ix mapping sev verb = do
   q <- newTBMQueueIO $ unEsQueueSize essQueueSize
-  withManager essManagerSettings $ \mgr -> do
-    let env = BHEnv { bhServer = server
-                    , bhManager = mgr
-                    }
-    endSig <- newEmptyMVar
+  mgr <- newManager essManagerSettings
+  let env = BHEnv { bhServer = server
+                  , bhManager = mgr
+                  }
+  endSig <- newEmptyMVar
 
-    workers <- replicateM (unEsPoolSize essPoolSize) $ async $
-      startWorker cfg env ix mapping q
+  workers <- replicateM (unEsPoolSize essPoolSize) $ async $
+    startWorker cfg env ix mapping q
 
-    _ <- async $ do
-      takeMVar endSig
-      atomically $ closeTBMQueue q
-      mapM_ wait workers
-      putMVar endSig ()
+  _ <- async $ do
+    takeMVar endSig
+    atomically $ closeTBMQueue q
+    mapM_ wait workers
+    closeManager mgr
+    putMVar endSig ()
 
-    let scribe = Scribe $ \ i ->
-          when (_itemSeverity i >= sev) $
-            void $ atomically $ tryWriteTBMQueue q (itemJson verb i)
-    let finalizer = putMVar endSig () >> takeMVar endSig
-    return (scribe, finalizer)
+  let scribe = Scribe $ \ i ->
+        when (_itemSeverity i >= sev) $
+          void $ atomically $ tryWriteTBMQueue q (itemJson verb i)
+  let finalizer = putMVar endSig () >> takeMVar endSig
+  return (scribe, finalizer)
 
 
 -------------------------------------------------------------------------------
