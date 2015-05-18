@@ -30,8 +30,11 @@ import           Control.Exception.Enclosed
 import           Control.Monad
 import           Control.Monad.Catch
 import           Control.Monad.STM
-import           Control.Retry
+import           Control.Retry                   (RetryPolicy,
+                                                  exponentialBackoff,
+                                                  limitRetries, recovering)
 import           Data.Aeson
+import           Data.Monoid                     ((<>))
 import qualified Data.Text.Encoding              as T
 import           Data.Typeable
 import           Data.UUID
