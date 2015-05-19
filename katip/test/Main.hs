@@ -3,7 +3,8 @@ module Main (main) where
 -------------------------------------------------------------------------------
 import           Test.Tasty
 -------------------------------------------------------------------------------
-import           Katip.Tests
+import qualified Katip.Tests
+import qualified Katip.Tests.Scribes.Handle
 -------------------------------------------------------------------------------
 
 
@@ -14,4 +15,5 @@ testSuite :: TestTree
 testSuite = testGroup "katip"
   [
     Katip.Tests.tests
+  , Katip.Tests.Scribes.Handle.tests
   ]

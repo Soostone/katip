@@ -72,11 +72,15 @@ test-suite test
                , katip
                , aeson
                , tasty
+               , tasty-hunit
                , tasty-quickcheck
                , quickcheck-instances
                , template-haskell
                , text
                , time
+               , temporary
+               , directory
+               , regex-tdfa-rc
 
 
 benchmark bench

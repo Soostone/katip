@@ -68,7 +68,7 @@ formatItem withColor verb Item{..} =
     brackets (fromText (renderSeverity' _itemSeverity)) <>
     brackets (fromString _itemHost) <>
     brackets (fromString (show _itemProcess)) <>
-    brackets (fromString (show _itemThread)) <>
+    brackets (fromText (getThreadIdText _itemThread)) <>
     mconcat ks <>
     maybe mempty (brackets . fromString . locationToString) _itemLoc <>
     fromText " " <> (unLogStr _itemMessage)
