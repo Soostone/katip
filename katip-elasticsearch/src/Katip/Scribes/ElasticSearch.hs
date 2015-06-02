@@ -15,13 +15,16 @@ module Katip.Scribes.ElasticSearch
     , essRetryPolicy
     , essQueueSize
     , essPoolSize
+    , essAnnotateTypes
     , defaultEsScribeCfg
     -- * Utilities
     , mkDocId
+    , module Katip.Scribes.ElasticSearch.Annotations
     ) where
 
 
 -------------------------------------------------------------------------------
+import           Control.Applicative
 import           Control.Concurrent
 import           Control.Concurrent.Async
 import           Control.Concurrent.STM.TBMQueue
@@ -30,12 +33,13 @@ import           Control.Exception.Enclosed
 import           Control.Monad
 import           Control.Monad.Catch
 import           Control.Monad.STM
-import           Control.Retry                   (RetryPolicy,
-                                                  exponentialBackoff,
-                                                  limitRetries, recovering)
+import           Control.Retry                           (RetryPolicy,
+                                                          exponentialBackoff,
+                                                          limitRetries,
+                                                          recovering)
 import           Data.Aeson
-import           Data.Monoid                     ((<>))
-import qualified Data.Text.Encoding              as T
+import           Data.Monoid                             ((<>))
+import qualified Data.Text.Encoding                      as T
 import           Data.Typeable
 import           Data.UUID
 import           Database.Bloodhound
@@ -43,6 +47,7 @@ import           Network.HTTP.Client
 import           System.Random
 -------------------------------------------------------------------------------
 import           Katip.Core
+import           Katip.Scribes.ElasticSearch.Annotations
 -------------------------------------------------------------------------------
 
 
@@ -55,6 +60,19 @@ data EsScribeCfg = EsScribeCfg {
     -- ^ Maximum size of the bounded log queue
     , essPoolSize        :: EsPoolSize
     -- ^ Worker pool size limit for sending data to the
+    , essAnnotateTypes   :: Bool
+    -- ^ Different payload items coexist in the "data" attribute in
+    -- ES. It is possible for different payloads to have different
+    -- types for the same key, e.g. an "id" key that is sometimes a
+    -- number and sometimes a string. If you're having ES do dynamic
+    -- mapping, the first log item will set the type and any that
+    -- don't conform will be *discarded*. If you set this to True,
+    -- keys will recursively be appended with their ES core
+    -- type. e.g. "id" would become "id::long" and "id::string"
+    -- automatically, so they won't conflict. When this library
+    -- exposes a querying API, we will try to make deserialization and
+    -- querying transparently remove the type annotations if this is
+    -- enabled.
     } deriving (Typeable)
 
 
@@ -67,13 +85,21 @@ data EsScribeCfg = EsScribeCfg {
 --     * Queue size of 1000
 --
 --     * Pool size of 2
+--
+--     * Annotate types set to False
 defaultEsScribeCfg :: EsScribeCfg
 defaultEsScribeCfg = EsScribeCfg {
       essManagerSettings = defaultManagerSettings
-    , essRetryPolicy = exponentialBackoff 25 <> limitRetries 5
-    , essQueueSize = EsQueueSize 1000
-    , essPoolSize = EsPoolSize 2
+    , essRetryPolicy     = exponentialBackoff 25 <> limitRetries 5
+    , essQueueSize       = EsQueueSize 1000
+    , essPoolSize        = EsPoolSize 2
+    , essAnnotateTypes   = False
     }
+
+
+-------------------------------------------------------------------------------
+
+
 
 
 -------------------------------------------------------------------------------
@@ -106,9 +132,13 @@ mkEsScribe cfg@EsScribeCfg {..} server ix mapping sev verb = do
 
   let scribe = Scribe $ \ i ->
         when (_itemSeverity i >= sev) $
-          void $ atomically $ tryWriteTBMQueue q (itemJson verb i)
+          void $ atomically $ tryWriteTBMQueue q (itemJson' verb i)
   let finalizer = putMVar endSig () >> takeMVar endSig
   return (scribe, finalizer)
+  where
+    itemJson' v i
+      | essAnnotateTypes = itemJson v (TypeAnnotated <$> i)
+      | otherwise        = itemJson v i
 
 
 -------------------------------------------------------------------------------

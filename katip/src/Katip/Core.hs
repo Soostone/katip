@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveFunctor              #-}
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE ExistentialQuantification  #-}
 {-# LANGUAGE FlexibleContexts           #-}
@@ -198,7 +199,7 @@ data Item a = Item {
     , _itemTime      :: UTCTime
     , _itemNamespace :: Namespace
     , _itemLoc       :: Maybe Loc
-    } deriving (Generic)
+    } deriving (Generic, Functor)
 makeLenses ''Item
 
 
