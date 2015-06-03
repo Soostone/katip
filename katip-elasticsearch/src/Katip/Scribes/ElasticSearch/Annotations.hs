@@ -96,16 +96,16 @@ deannotateKeys = HM.fromList . map go . HM.toList
 
 
 stringAnn :: Text
-stringAnn = "::string"
+stringAnn = "::s"
 
 doubleAnn :: Text
-doubleAnn = "::double"
+doubleAnn = "::d"
 
 longAnn :: Text
-longAnn = "::long"
+longAnn = "::l"
 
 booleanAnn :: Text
-booleanAnn = "::boolean"
+booleanAnn = "::b"
 
 nullAnn :: Text
-nullAnn = "::null"
+nullAnn = "::n"

@@ -67,7 +67,7 @@ esTests setup = testGroup "elasticsearch scribe"
          length logs @?= 1
          let l = head logs
          l ^? key "_source" . key "msg" . _String @?= Just "A test message"
-         l ^? key "_source" . key "data" . key "whatever::boolean" . _Bool @?= Just True
+         l ^? key "_source" . key "data" . key "whatever::b" . _Bool @?= Just True
   ]
 
 
@@ -120,12 +120,12 @@ annotatedExampleValue = Array $ V.fromList
     Null
   , Object $ HM.fromList
     [
-      ("a map",Object $ HM.fromList [("baz::boolean", Bool True)])
-    , ("a bool::boolean", Bool False)
-    , ("a null::null", Null)
-    , ("a string::string", String "s")
-    , ("a double::double", Number 52.3)
-    , ("a long::long", Number 24.0)
+      ("a map",Object $ HM.fromList [("baz::b", Bool True)])
+    , ("a bool::b", Bool False)
+    , ("a null::n", Null)
+    , ("a string::s", String "s")
+    , ("a double::d", Number 52.3)
+    , ("a long::l", Number 24.0)
     ]
   ]
 
