@@ -454,6 +454,8 @@ initLogEnv an env = LogEnv
 
 
 -------------------------------------------------------------------------------
+-- | Add a scribe to the list. All future log calls will go to this
+-- scribe in addition to the others.
 registerScribe
     :: Text
     -- ^ Name the scribe
@@ -464,6 +466,8 @@ registerScribe nm h = logEnvScribes . at nm .~ Just h
 
 
 -------------------------------------------------------------------------------
+-- | Remove a scribe from the list. All future log calls will no
+-- longer use this scribe. If the given scribe doesn't exist, its a no-op.
 unregisterScribe
     :: Text
     -- ^ Name of the scribe
@@ -471,6 +475,14 @@ unregisterScribe
     -> LogEnv
 unregisterScribe nm = logEnvScribes . at nm .~ Nothing
 
+
+-------------------------------------------------------------------------------
+-- | Unregister *all* scribes. Logs will go off into space from this
+-- point onward until new scribes are added.
+clearScribes
+    :: LogEnv
+    -> LogEnv
+clearScribes = logEnvScribes .~ mempty
 
 
 -------------------------------------------------------------------------------

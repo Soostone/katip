@@ -39,6 +39,7 @@ module Katip
     , initLogEnv
     , registerScribe
     , unregisterScribe
+    , clearScribes
 
     -- * Logging Functions
     , LogStr (..)
