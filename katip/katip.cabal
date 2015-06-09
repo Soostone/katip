@@ -41,7 +41,7 @@ library
                , either >= 4 && < 4.4
                , exceptions >= 0.5 && < 0.9
                , hostname >=1.0 && <1.1
-               , lens >= 4.4 && <4.9
+               , lens >= 4.4 && <4.10
                , lens-aeson < 1.1
                , old-locale >= 1.0 && < 1.1
                , string-conv >= 0.1 && < 0.2
