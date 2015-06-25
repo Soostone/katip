@@ -9,6 +9,8 @@
 {-# LANGUAGE RankNTypes                 #-}
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE UndecidableInstances       #-}
 module Katip.Core where
 
 -------------------------------------------------------------------------------
@@ -17,9 +19,11 @@ import           Control.AutoUpdate
 import           Control.Concurrent
 import           Control.Lens
 import           Control.Monad
+import           Control.Monad.Base
 import           Control.Monad.Catch
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class
+import           Control.Monad.Trans.Control
 import           Control.Monad.Trans.Either
 import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.Reader
@@ -518,11 +522,25 @@ instance (Katip m) => Katip (ResourceT m) where
 -- | A concrete monad you can use to run logging actions.
 newtype KatipT m a = KatipT { unKatipT :: ReaderT LogEnv m a }
   deriving ( Functor, Applicative, Monad, MonadIO
-           , MonadMask, MonadCatch, MonadThrow, MonadTrans )
+           , MonadMask, MonadCatch, MonadThrow, MonadTrans, MonadBase b)
 
 
 instance MonadIO m => Katip (KatipT m) where
     getLogEnv = KatipT ask
+
+
+instance MonadTransControl KatipT where
+    type StT (KatipT) a = a
+    liftWith f = KatipT $ ReaderT $ \le -> f $ \t -> runKatipT le t
+    restoreT = KatipT . ReaderT . const
+    {-# INLINABLE liftWith #-}
+    {-# INLINABLE restoreT #-}
+
+
+instance (MonadBaseControl b m) => MonadBaseControl b (KatipT m) where
+  type StM ((KatipT) m) a = ComposeSt (KatipT) m a
+  liftBaseWith = defaultLiftBaseWith
+  restoreM = defaultRestoreM
 
 
 -------------------------------------------------------------------------------

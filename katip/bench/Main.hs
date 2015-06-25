@@ -1,17 +1,18 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE StandaloneDeriving         #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Main
     ( main
     ) where
 
 
 -------------------------------------------------------------------------------
-import           Blaze.ByteString.Builder
 import           Control.Concurrent
-import           Control.Monad.IO.Class
-import           CriterionPlus
+import           Control.DeepSeq
+import           Criterion.Main
 import           Data.Aeson
 import           Data.Monoid
-import           Data.Text              (Text)
 import           Data.Time.Calendar
 import           Data.Time.Clock
 import           System.IO
@@ -22,35 +23,39 @@ import           Katip.Scribes.Handle
 -------------------------------------------------------------------------------
 
 main :: IO ()
-main = benchmark $
-  handleScribeBench
+main = defaultMain [
+    handleScribeBench
+  ]
 
 
 -------------------------------------------------------------------------------
-handleScribeBench :: Benchmark ()
-handleScribeBench = standoff "Katip.Scribes.Handle" $
-  subject "Bytestring Builder" $ do
-    pause
-    (Scribe push) <- liftIO setup
-    tid <- liftIO myThreadId
-    continue
-    whnfIO $ push $ exItem tid
+handleScribeBench :: Benchmark
+handleScribeBench = bgroup "Katip.Scribes.Handle" [
+      env setupEnv $ \ ~(Scribe push, tid) ->
+      bench "Bytestring Builder" $
+        whnfIO $ push $ exItem tid
+    ]
+  where
+    setupEnv = do
+      scribe <- setup
+      tid <- myThreadId
+      return (scribe, mkThreadIdText tid)
 
 
 -------------------------------------------------------------------------------
-exItem :: ThreadId -> Item ExPayload
+exItem :: ThreadIdText -> Item ExPayload
 exItem tid = Item {
-      itemApp = Namespace ["app"]
-    , itemEnv = Environment "production"
-    , itemSeverity = Warning
-    , itemThread = tid
-    , itemHost = "example"
-    , itemProcess = CPid 123
-    , itemPayload = ExPayload
-    , itemMessage = "message"
-    , itemTime = mkUTCTime 2015 3 14 1 5 9
-    , itemNamespace = Namespace ["foo"]
-    , itemLoc = Nothing
+      _itemApp = Namespace ["app"]
+    , _itemEnv = Environment "production"
+    , _itemSeverity = WarningS
+    , _itemThread = tid
+    , _itemHost = "example"
+    , _itemProcess = CPid 123
+    , _itemPayload = ExPayload
+    , _itemMessage = "message"
+    , _itemTime = mkUTCTime 2015 3 14 1 5 9
+    , _itemNamespace = Namespace ["foo"]
+    , _itemLoc = Nothing
     }
 
 
@@ -59,6 +64,8 @@ data ExPayload = ExPayload
 
 instance ToJSON ExPayload where
   toJSON _ = Object mempty
+
+instance ToObject ExPayload
 
 instance LogItem ExPayload where
   payloadKeys _ _ = AllKeys
@@ -76,4 +83,12 @@ mkUTCTime y mt d h mn s = UTCTime day dt
 setup :: IO Scribe
 setup = do
   h <- openFile "/dev/null" WriteMode
-  mkHandleScribe h Debug V0
+  mkHandleScribe ColorIfTerminal h DebugS V0
+
+
+-------------------------------------------------------------------------------
+deriving instance NFData ThreadIdText
+
+
+instance NFData Scribe where
+  rnf (Scribe _) = ()

@@ -71,7 +71,7 @@ test-suite test
   build-depends: base
                , katip
                , aeson
-               , tasty
+               , tasty >= 0.10.1.2
                , tasty-hunit
                , tasty-quickcheck
                , quickcheck-instances
@@ -96,9 +96,9 @@ benchmark bench
                , aeson
                , blaze-builder
                , katip
-               , criterion >= 0.8 && < 1.0
-               , criterion-plus
+               , criterion >= 1.1.0.0
                , unix
                , text
                , time
                , transformers
+               , deepseq
