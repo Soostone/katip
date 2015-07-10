@@ -198,7 +198,7 @@ startWorker EsScribeCfg {..} env ix mapping q = go -- manual recursion here. is 
         Nothing -> return ()
     sendLog v = void $ recovering essRetryPolicy [handler] $ do
       did <- mkDocId
-      runBH env $ indexDocument ix mapping v did
+      runBH env $ indexDocument ix mapping defaultIndexDocumentSettings v did
     eat _ = return ()
     handler _ = Handler $ \e ->
       case fromException e of

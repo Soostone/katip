@@ -1,0 +1,3 @@
+[submodule "katip-elasticsearch/deps/bloodhound"]
+	path = katip-elasticsearch/deps/bloodhound
+	url = git@github.com:Soostone/bloodhound.git
