@@ -26,6 +26,12 @@ module Katip
     , PayloadSelection (..)
     , Scribe (..)
     , LogEnv (..)
+    , logEnvHost
+    , logEnvPid
+    , logEnvNs
+    , logEnvEnv
+    , logEnvTimer
+    , logEnvScribes
     , KatipContext(..)
     , AnyLogContext
     , LogContexts, liftPayload
