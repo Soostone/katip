@@ -6,14 +6,15 @@ module Katip.Scribes.Handle where
 import           Control.Lens
 import           Control.Monad
 import           Data.Aeson.Lens
-import qualified Data.HashMap.Strict    as HM
+import qualified Data.HashMap.Strict     as HM
 import           Data.Monoid
 import           Data.Text.Lazy.Builder
-import           Data.Text.Lazy.IO      as T
+import           Data.Text.Lazy.IO       as T
 import           Data.Time
+import qualified Data.Time.Locale.Compat as LC
 import           System.IO
-import           System.IO.Unsafe       (unsafePerformIO)
-import           System.Locale
+import           System.IO.Unsafe        (unsafePerformIO)
+import           System.Locale           as L
 -------------------------------------------------------------------------------
 import           Katip.Core
 -------------------------------------------------------------------------------
@@ -73,7 +74,7 @@ formatItem withColor verb Item{..} =
     maybe mempty (brackets . fromString . locationToString) _itemLoc <>
     fromText " " <> (unLogStr _itemMessage)
   where
-    nowStr = fromString $ formatTime defaultTimeLocale "%Y-%m-%d %H:%M:%S" _itemTime
+    nowStr = fromString $ formatTime LC.defaultTimeLocale "%Y-%m-%d %H:%M:%S" _itemTime
     ks = map brackets $ getKeys verb _itemPayload
     renderSeverity' s = case s of
       EmergencyS -> red $ renderSeverity s
