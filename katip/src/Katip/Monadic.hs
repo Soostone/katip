@@ -214,6 +214,7 @@ newtype LogT' n m a = LogT {
                , MonadWriter w
                , MonadError e
                , MonadPlus
+               , Alternative
                , MonadFix
                , Katip
                )
@@ -278,6 +279,7 @@ newtype BlankLogT m a = BlankLogT {
                , MonadWriter w
                , MonadError e
                , MonadPlus
+               , Alternative
                , MonadFix
                , Katip
                )
