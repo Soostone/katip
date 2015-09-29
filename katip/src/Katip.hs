@@ -6,7 +6,9 @@ module Katip
       Katip (..)
     , Namespace (..)
     , Environment (..)
-    , Severity (..), renderSeverity
+    , Severity (..)
+    , renderSeverity
+    , severityText
     , Verbosity (..)
     , ToObject (..)
     , LogItem (..)

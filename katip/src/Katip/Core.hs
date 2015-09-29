@@ -112,16 +112,8 @@ renderSeverity s = case s of
 
 -------------------------------------------------------------------------------
 severityText :: Prism' Text Severity
-severityText = prism fromSev toSev
+severityText = prism renderSeverity toSev
   where
-    fromSev DebugS     = "Debug"
-    fromSev InfoS      = "Info"
-    fromSev NoticeS    = "Notice"
-    fromSev WarningS   = "Warning"
-    fromSev ErrorS     = "Error"
-    fromSev CriticalS  = "Critical"
-    fromSev AlertS     = "Alert"
-    fromSev EmergencyS = "Emergency"
     toSev "Debug"     = Right DebugS
     toSev "Info"      = Right InfoS
     toSev "Notice"    = Right NoticeS
