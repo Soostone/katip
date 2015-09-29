@@ -97,7 +97,7 @@ benchmark bench
                , aeson
                , blaze-builder
                , katip
-               , criterion
+               , criterion >= 1.1.0.0
                , unix
                , text
                , time
