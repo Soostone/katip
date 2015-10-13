@@ -72,6 +72,7 @@
    Seems to be a limitation of http-client that we'll have to live
    with for now.
 
+** TODO update index settings on setup (when the API becomes available in bloodhound)
 
 * katip-rotated-log
 
