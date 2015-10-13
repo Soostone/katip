@@ -16,6 +16,7 @@ module Katip.Scribes.ElasticSearch
     , essQueueSize
     , essPoolSize
     , essAnnotateTypes
+    , essIndexSettings
     , defaultEsScribeCfg
     -- * Utilities
     , mkDocId
@@ -73,6 +74,7 @@ data EsScribeCfg = EsScribeCfg {
     -- exposes a querying API, we will try to make deserialization and
     -- querying transparently remove the type annotations if this is
     -- enabled.
+    , essIndexSettings   :: IndexSettings
     } deriving (Typeable)
 
 
@@ -94,6 +96,7 @@ defaultEsScribeCfg = EsScribeCfg {
     , essQueueSize       = EsQueueSize 1000
     , essPoolSize        = EsPoolSize 2
     , essAnnotateTypes   = False
+    , essIndexSettings   = defaultIndexSettings
     }
 
 
@@ -116,6 +119,12 @@ mkEsScribe cfg@EsScribeCfg {..} server ix mapping sev verb = do
                   }
   endSig <- newEmptyMVar
 
+  runBH env $ do
+    chk <- indexExists ix
+    -- note that this doesn't update settings. That's not available
+    -- through the Bloodhound API yet
+    unless chk $ void $ createIndex essIndexSettings ix
+
   workers <- replicateM (unEsPoolSize essPoolSize) $ async $
     startWorker cfg env ix mapping q
 
@@ -123,7 +132,6 @@ mkEsScribe cfg@EsScribeCfg {..} server ix mapping sev verb = do
     takeMVar endSig
     atomically $ closeTBMQueue q
     mapM_ wait workers
-    closeManager mgr
     putMVar endSig ()
 
   let scribe = Scribe $ \ i ->

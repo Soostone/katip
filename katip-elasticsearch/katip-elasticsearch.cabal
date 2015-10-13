@@ -84,3 +84,8 @@ test-suite test
     , vector
     , unordered-containers
     , scientific
+
+  if flag(lib-Werror)
+    ghc-options: -Wall -Werror
+
+  ghc-options: -threaded -rtsopts

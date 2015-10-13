@@ -2,6 +2,7 @@
 {-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Main
     ( main
     ) where
@@ -45,7 +46,7 @@ main = defaultMain $ testGroup "katip-elasticsearch"
 setupSearch :: IO (Scribe, IO ())
 setupSearch = do
     bh recreateESSchema
-    mkEsScribe defaultEsScribeCfg { essAnnotateTypes = True } svr ixn mn DebugS V3
+    mkEsScribe defaultEsScribeCfg { essAnnotateTypes = True, essIndexSettings = ixs } svr ixn mn DebugS V3
 
 
 -------------------------------------------------------------------------------
@@ -62,7 +63,7 @@ esTests setup = testGroup "elasticsearch scribe"
     testCase "it flushes to elasticsearch" $ withTestLogging setup $ \done -> do
        $(logT) (ExampleCtx True) mempty InfoS "A test message"
        liftIO $ do
-         done
+         void done
          logs <- getLogs
          length logs @?= 1
          let l = head logs
@@ -168,7 +169,8 @@ ixn = IndexName "katip-elasticsearch-tests"
 
 -------------------------------------------------------------------------------
 ixs :: IndexSettings
-ixs = defaultIndexSettings
+ixs = defaultIndexSettings { indexShards = ShardCount 1
+                           , indexReplicas = ReplicaCount 1}
 
 -------------------------------------------------------------------------------
 mn :: MappingName
@@ -181,7 +183,7 @@ mapping = () -- ehhh
 
 
 -------------------------------------------------------------------------------
-recreateESSchema :: BH IO Reply
+recreateESSchema :: BH IO ()
 recreateESSchema = dropESSchema >> createESSchema
 
 
@@ -191,9 +193,9 @@ dropESSchema = void $ deleteIndex ixn
 
 
 -------------------------------------------------------------------------------
-createESSchema :: BH IO Reply
-createESSchema = do
-  createIndex ixs ixn
+createESSchema :: BH IO ()
+createESSchema = void $ do
+  void $ createIndex ixs ixn
   putMapping ixn mn mapping
 
 
