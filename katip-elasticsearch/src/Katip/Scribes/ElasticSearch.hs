@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveDataTypeable  #-}
+{-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -6,6 +7,7 @@ module Katip.Scribes.ElasticSearch
     (-- * Building a scribe
       mkEsScribe
     -- * Scribe configuration
+    , EsScribeSetupError(..)
     , EsQueueSize
     , mkEsQueueSize
     , EsPoolSize
@@ -25,6 +27,8 @@ module Katip.Scribes.ElasticSearch
 
 
 -------------------------------------------------------------------------------
+import           Control.Monad.IO.Class
+
 import           Control.Applicative
 import           Control.Concurrent
 import           Control.Concurrent.Async
@@ -40,11 +44,13 @@ import           Control.Retry                           (RetryPolicy,
                                                           recovering)
 import           Data.Aeson
 import           Data.Monoid                             ((<>))
+import           Data.Text                               (Text)
 import qualified Data.Text.Encoding                      as T
 import           Data.Typeable
 import           Data.UUID
 import           Database.Bloodhound
 import           Network.HTTP.Client
+import           Network.HTTP.Types.Status
 import           System.Random
 -------------------------------------------------------------------------------
 import           Katip.Core
@@ -100,6 +106,12 @@ defaultEsScribeCfg = EsScribeCfg {
     }
 
 
+-------------------------------------------------------------------------------
+data EsScribeSetupError = CouldNotCreateIndex !Reply
+                        | CouldNotCreateMapping !Reply deriving (Typeable, Show)
+
+
+instance Exception EsScribeSetupError
 
 -------------------------------------------------------------------------------
 mkEsScribe
@@ -123,7 +135,14 @@ mkEsScribe cfg@EsScribeCfg {..} server ix mapping sev verb = do
     chk <- indexExists ix
     -- note that this doesn't update settings. That's not available
     -- through the Bloodhound API yet
-    unless chk $ void $ createIndex essIndexSettings ix
+    unless chk $ void $ do
+      r1 <- createIndex essIndexSettings ix
+      unless (statusIsSuccessful (responseStatus r1)) $
+        liftIO $ throwIO (CouldNotCreateIndex r1)
+      --TODO: throw on error
+      r2 <- putMapping ix mapping (baseMapping mapping)
+      unless (statusIsSuccessful (responseStatus r2)) $
+        liftIO $ throwIO (CouldNotCreateMapping r2)
 
   workers <- replicateM (unEsPoolSize essPoolSize) $ async $
     startWorker cfg env ix mapping q
@@ -143,6 +162,40 @@ mkEsScribe cfg@EsScribeCfg {..} server ix mapping sev verb = do
     itemJson' v i
       | essAnnotateTypes = itemJson v (TypeAnnotated <$> i)
       | otherwise        = itemJson v i
+
+
+-------------------------------------------------------------------------------
+baseMapping :: MappingName -> Value
+baseMapping (MappingName mn) =
+  object [ mn .= object ["properties" .= object pairs] ]
+  where pairs = [ str "thread"
+                , str "sev"
+                , str "pid"
+                , str "ns"
+                , str "msg"
+                , "loc" .= locType
+                , str "host"
+                , str "env"
+                , "at" .= dateType
+                , str "app"
+                ]
+        str k = k .= object ["type" .= String "string"]
+        locType = object ["properties" .= object locPairs]
+        locPairs = [ str "loc_pkg"
+                   , str "loc_mod"
+                   , str "loc_ln"
+                   , str "loc_fn"
+                   , str "loc_col"
+                   ]
+        dateType = object [ "format" .= esDateFormat
+                          , "type" .= String "date"
+                          ]
+
+
+-------------------------------------------------------------------------------
+-- | Handle both old-style aeson and picosecond-level precision
+esDateFormat :: Text
+esDateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZ||yyyy-MM-dd'T'HH:mm:ss.SSSSSSSSSSSSZ"
 
 
 -------------------------------------------------------------------------------

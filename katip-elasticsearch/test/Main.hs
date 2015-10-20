@@ -45,7 +45,7 @@ main = defaultMain $ testGroup "katip-elasticsearch"
 -------------------------------------------------------------------------------
 setupSearch :: IO (Scribe, IO ())
 setupSearch = do
-    bh recreateESSchema
+    bh dropESSchema
     mkEsScribe defaultEsScribeCfg { essAnnotateTypes = True, essIndexSettings = ixs } svr ixn mn DebugS V3
 
 
@@ -178,25 +178,8 @@ mn = MappingName "logs"
 
 
 -------------------------------------------------------------------------------
-mapping :: ()
-mapping = () -- ehhh
-
-
--------------------------------------------------------------------------------
-recreateESSchema :: BH IO ()
-recreateESSchema = dropESSchema >> createESSchema
-
-
--------------------------------------------------------------------------------
 dropESSchema :: BH IO ()
 dropESSchema = void $ deleteIndex ixn
-
-
--------------------------------------------------------------------------------
-createESSchema :: BH IO ()
-createESSchema = void $ do
-  void $ createIndex ixs ixn
-  putMapping ixn mn mapping
 
 
 -------------------------------------------------------------------------------
