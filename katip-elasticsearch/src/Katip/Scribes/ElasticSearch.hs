@@ -150,7 +150,7 @@ mkEsScribe cfg@EsScribeCfg {..} server ix mapping sev verb = do
   _ <- async $ do
     takeMVar endSig
     atomically $ closeTBMQueue q
-    mapM_ wait workers
+    mapM_ waitCatch workers
     putMVar endSig ()
 
   let scribe = Scribe $ \ i ->
