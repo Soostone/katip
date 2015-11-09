@@ -428,12 +428,19 @@ data LogEnv = LogEnv {
     , _logEnvNs      :: Namespace
     , _logEnvEnv     :: Environment
     , _logEnvTimer   :: IO UTCTime
+    -- ^ Action to fetch the timestamp. You can use something like
+    -- 'AutoUpdate' for high volume logs but note that this may cause
+    -- some output forms to display logs out of order.
     , _logEnvScribes :: M.Map Text Scribe
     }
 makeLenses ''LogEnv
 
 
 -------------------------------------------------------------------------------
+-- | Create a reasonable default InitLogEnv. Uses an 'AutoUdate' with
+-- the default settings as the timer. If you are concerned about
+-- timestamp precision or event ordering in log outputs like
+-- ElasticSearch, you should replace the timer with 'getCurrentTime'
 initLogEnv
     :: Namespace
     -- ^ A base namespace for this application
