@@ -72,8 +72,15 @@
    Seems to be a limitation of http-client that we'll have to live
    with for now.
 
-** TODO update index settings on setup (when the API becomes available in bloodhound)
+** DONE update index settings on setup (when the API becomes available in bloodhound)
+   CLOSED: [2015-11-12 Thu 08:33]
 
+** TODO by-day or user scheduled index sharding
+   Consider using templates and write to indexes per-day. So rather
+   than building the direct index the user asks for, set up a template
+   that automatically gets applied to indices matching the prefix,
+   then create an index per day. Apparently this allows more efficient
+   searches. Its yet to be seen when one-big-index breaks down
 * katip-rotated-log
 
 ** TODO Create a rotated-log scribe
