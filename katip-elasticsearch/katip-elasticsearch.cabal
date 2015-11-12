@@ -30,7 +30,7 @@ library
     , enclosed-exceptions >= 1.0.0 && < 1.1
     , http-client
     , text
-    , retry >= 0.6 && < 0.8
+    , retry >= 0.7 && < 0.8
     , exceptions
     , scientific
     , unordered-containers

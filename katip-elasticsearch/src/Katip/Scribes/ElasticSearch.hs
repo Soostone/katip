@@ -257,7 +257,7 @@ startWorker EsScribeCfg {..} env ix mapping q = go -- manual recursion here. is 
           sendLog v' `catchAny` eat
           go
         Nothing -> return ()
-    sendLog v = void $ recovering essRetryPolicy [handler] $ do
+    sendLog v = void $ recovering essRetryPolicy [handler] $ const $ do
       did <- mkDocId
       runBH env $ indexDocument ix mapping defaultIndexDocumentSettings v did
     eat _ = return ()
