@@ -14,7 +14,6 @@ import           Data.Time
 import qualified Data.Time.Locale.Compat as LC
 import           System.IO
 import           System.IO.Unsafe        (unsafePerformIO)
-import           System.Locale           as L
 -------------------------------------------------------------------------------
 import           Katip.Core
 -------------------------------------------------------------------------------

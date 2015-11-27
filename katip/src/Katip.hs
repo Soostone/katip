@@ -57,9 +57,11 @@ module Katip
     , logMsg
     , logT
     , logItem
+    , logException
     , logFM
     , logTM
     , logItemM
+    , logExceptionM
 
     -- * Transformer for appending to a log context
     , LogT

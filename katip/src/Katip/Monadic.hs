@@ -21,6 +21,7 @@ module Katip.Monadic
       logFM
     , logTM
     , logItemM
+    , logExceptionM
 
     -- * Machinery for merging typed log payloads/contexts
     , KatipContext(..)
@@ -64,6 +65,7 @@ import qualified Control.Monad.Trans.Writer.Strict as Strict (WriterT)
 import           Data.Aeson
 import qualified Data.HashMap.Strict               as HM
 import           Data.Monoid
+import           Data.Text                         (Text)
 import           Language.Haskell.TH
 -------------------------------------------------------------------------------
 import           Katip.Core
@@ -177,6 +179,22 @@ logFM sev msg = do
 -- @$(logt) InfoS "Hello world"@
 logTM :: ExpQ
 logTM = [| logItemM (Just $(getLoc)) |]
+
+
+-------------------------------------------------------------------------------
+-- | Perform an action while logging any exceptions that may occur.
+-- Inspired by 'onException`.
+--
+-- >>>> error "foo" `logExceptionM` ErrorS
+logExceptionM
+    :: (KatipContext m, MonadCatch m, Applicative m)
+    => m a                      -- ^ Main action to run
+    -> Severity                 -- ^ Severity
+    -> m a
+logExceptionM action sev = action `catchAll` \e -> f e >> throwM e
+  where
+    f e = logFM sev (msg e)
+    msg e = ls ("An exception has occured: " :: Text) <> showLS e
 
 
 -------------------------------------------------------------------------------
