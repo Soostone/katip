@@ -597,15 +597,15 @@ logF a ns sev msg = logItem a ns Nothing sev msg
 -- | Perform an action while logging any exceptions that may occur.
 -- Inspired by 'onException`.
 --
--- >>>> logException (error "foo") () mempty ErrorS
+-- >>>> logException () mempty ErrorS (error "foo")
 logException
     :: (Katip m, LogItem a, MonadCatch m, Applicative m)
-    => m b                      -- ^ Main action being run
-    -> a                        -- ^ Log context
+    => a                        -- ^ Log context
     -> Namespace                -- ^ Namespace
     -> Severity                 -- ^ Severity
+    -> m b                      -- ^ Main action being run
     -> m b
-logException action a ns sev = action `catchAll` \e -> f e >> throwM e
+logException a ns sev action = action `catchAll` \e -> f e >> throwM e
   where
     f e = logF a ns sev (msg e)
     msg e = ls (T.pack "An exception has occured: ") <> showLS e
