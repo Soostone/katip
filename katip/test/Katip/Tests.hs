@@ -69,7 +69,6 @@ deriving instance Arbitrary Namespace
 deriving instance Arbitrary Environment
 deriving instance Arbitrary ThreadIdText
 deriving instance Arbitrary CPid
-deriving instance Eq Loc
 deriving instance Eq LogStr
 deriving instance (Eq a) => Eq (Item a)
 
