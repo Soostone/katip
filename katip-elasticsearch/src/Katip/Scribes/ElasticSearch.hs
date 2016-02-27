@@ -19,6 +19,9 @@ module Katip.Scribes.ElasticSearch
     , essPoolSize
     , essAnnotateTypes
     , essIndexSettings
+    , essIndexSharding
+    , IndexShardingPolicy(..)
+    , IndexNameSegment(..)
     , defaultEsScribeCfg
     -- * Utilities
     , mkDocId
@@ -27,8 +30,6 @@ module Katip.Scribes.ElasticSearch
 
 
 -------------------------------------------------------------------------------
-import           Control.Monad.IO.Class
-
 import           Control.Applicative
 import           Control.Concurrent
 import           Control.Concurrent.Async
@@ -37,6 +38,7 @@ import           Control.Exception.Base
 import           Control.Exception.Enclosed
 import           Control.Monad
 import           Control.Monad.Catch
+import           Control.Monad.IO.Class
 import           Control.Monad.STM
 import           Control.Retry                           (RetryPolicy,
                                                           exponentialBackoff,
@@ -45,7 +47,9 @@ import           Control.Retry                           (RetryPolicy,
 import           Data.Aeson
 import           Data.Monoid                             ((<>))
 import           Data.Text                               (Text)
+import qualified Data.Text                               as T
 import qualified Data.Text.Encoding                      as T
+import           Data.Time
 import           Data.Typeable
 import           Data.UUID
 import           Database.Bloodhound
@@ -81,6 +85,7 @@ data EsScribeCfg = EsScribeCfg {
     -- querying transparently remove the type annotations if this is
     -- enabled.
     , essIndexSettings   :: IndexSettings
+    , essIndexSharding   :: IndexShardingPolicy
     } deriving (Typeable)
 
 
@@ -103,7 +108,99 @@ defaultEsScribeCfg = EsScribeCfg {
     , essPoolSize        = EsPoolSize 2
     , essAnnotateTypes   = False
     , essIndexSettings   = defaultIndexSettings
+    , essIndexSharding   = NoIndexSharding
     }
+
+
+-------------------------------------------------------------------------------
+-- | How should katip store your log data?
+--
+-- * NoIndexSharding will store all logs in one index name. This is
+-- the simplest option but is not advised in production. In practice,
+-- the index will grow very large and will get slower to
+-- search. Deleting records based on some sort of retention period is
+-- also extremely slow.
+--
+-- * MonthlyIndexSharding, DailyIndexSharding, HourlyIndexSharding,
+-- EveryMinuteIndexSharding will generate indexes based on the time of
+-- the log. Index name is treated as a prefix. So if your index name
+-- is @foo@ and DailySharding is used, logs will be stored in
+-- @foo-2016-02-25@, @foo-2016-02-26@ and so on. Index templating will
+-- be used to set up mappings automatically. Deletes based on date are
+-- very fast and queries can be restricted to date ranges for better
+-- performance. Queries against all dates should use @foo-*@ as an
+-- index name. Note that index aliasing's glob feature is not suitable
+-- for these date ranges as it matches index names as they are
+-- declared, so new dates will be excluded. DailyIndexSharding is a
+-- reasonable choice. Changing index sharding strategies is a *bad
+-- idea*.
+--
+-- * CustomSharding: supply your own function that decomposes an item
+-- into its index name heirarchy which will be appended to the index
+-- name. So for instance if your function return ["arbitrary",
+-- "prefix"], the index will be @foo-arbitrary-prefix@ and the index
+-- template will be set to match @foo-*@
+data IndexShardingPolicy = NoIndexSharding
+                         | MonthlyIndexSharding
+                         | DailyIndexSharding
+                         | HourlyIndexSharding
+                         | EveryMinuteIndexSharding
+                         | CustomIndexSharding (forall a. Item a -> [IndexNameSegment])
+
+
+instance Show IndexShardingPolicy where
+ show NoIndexSharding          = "NoIndexSharding"
+ show MonthlyIndexSharding     = "MonthlyIndexSharding"
+ show DailyIndexSharding       = "DailyIndexSharding"
+ show HourlyIndexSharding      = "HourlyIndexSharding"
+ show EveryMinuteIndexSharding = "EveryMinuteIndexSharding"
+ show (CustomIndexSharding _)  = "CustomIndexSharding λ"
+
+
+-------------------------------------------------------------------------------
+newtype IndexNameSegment = IndexNameSegment {
+      indexNameSegment :: Text
+    } deriving (Show, Eq, Ord)
+
+
+-------------------------------------------------------------------------------
+shardPolicySegs :: IndexShardingPolicy -> Item a -> [IndexNameSegment]
+shardPolicySegs NoIndexSharding _ = []
+shardPolicySegs MonthlyIndexSharding Item {..} = [sis y, sis m]
+  where
+    (y, m, _) = toGregorian (utctDay _itemTime)
+shardPolicySegs DailyIndexSharding Item {..} = [sis y, sis m, sis d]
+  where
+    (y, m, d) = toGregorian (utctDay _itemTime)
+shardPolicySegs HourlyIndexSharding Item {..} = [sis y, sis m, sis d, sis h]
+  where
+    (y, m, d) = toGregorian (utctDay _itemTime)
+    (h, _) = splitTime (utctDayTime _itemTime)
+shardPolicySegs EveryMinuteIndexSharding Item {..} = [sis y, sis m, sis d, sis h, sis mn]
+  where
+    (y, m, d) = toGregorian (utctDay _itemTime)
+    (h, mn) = splitTime (utctDayTime _itemTime)
+shardPolicySegs (CustomIndexSharding f) i  = f i
+
+
+-------------------------------------------------------------------------------
+chooseIxn :: IndexName -> IndexShardingPolicy -> Item a -> IndexName
+chooseIxn (IndexName ixn) p i =
+  IndexName (T.intercalate "-" (ixn:segs))
+  where
+    segs = indexNameSegment <$> shardPolicySegs p i
+
+
+-------------------------------------------------------------------------------
+sis :: Show a => a -> IndexNameSegment
+sis = IndexNameSegment . T.pack . show
+
+
+-------------------------------------------------------------------------------
+splitTime :: DiffTime -> (Int, Int)
+splitTime t = asMins `divMod` 60
+  where
+    asMins = floor t `div` 60
 
 
 -------------------------------------------------------------------------------
@@ -118,6 +215,7 @@ mkEsScribe
     :: EsScribeCfg
     -> Server
     -> IndexName
+    -- ^ Treated as a prefix if index sharding is enabled
     -> MappingName
     -> Severity
     -> Verbosity
@@ -140,12 +238,14 @@ mkEsScribe cfg@EsScribeCfg {..} server ix mapping sev verb = do
       unless (statusIsSuccessful (responseStatus r1)) $
         liftIO $ throwIO (CouldNotCreateIndex r1)
       --TODO: throw on error
-      r2 <- putMapping ix mapping (baseMapping mapping)
+      r2 <- if shardingEnabled
+              then putTemplate tpl tplName
+              else putMapping ix mapping (baseMapping mapping)
       unless (statusIsSuccessful (responseStatus r2)) $
         liftIO $ throwIO (CouldNotCreateMapping r2)
 
   workers <- replicateM (unEsPoolSize essPoolSize) $ async $
-    startWorker cfg env ix mapping q
+    startWorker cfg env mapping q
 
   _ <- async $ do
     takeMVar endSig
@@ -155,13 +255,19 @@ mkEsScribe cfg@EsScribeCfg {..} server ix mapping sev verb = do
 
   let scribe = Scribe $ \ i ->
         when (_itemSeverity i >= sev) $
-          void $ atomically $ tryWriteTBMQueue q (itemJson' verb i)
+          void $ atomically $ tryWriteTBMQueue q (chooseIxn ix essIndexSharding i, itemJson' i)
   let finalizer = putMVar endSig () >> takeMVar endSig
   return (scribe, finalizer)
   where
-    itemJson' v i
-      | essAnnotateTypes = itemJson v (TypeAnnotated <$> i)
-      | otherwise        = itemJson v i
+    tplName = TemplateName ixn
+    shardingEnabled = case essIndexSharding of
+      NoIndexSharding -> False
+      _               -> True
+    tpl = IndexTemplate (TemplatePattern (ixn <> "-*")) (Just essIndexSettings) [toJSON (baseMapping mapping)]
+    IndexName ixn = ix
+    itemJson' i
+      | essAnnotateTypes = itemJson verb (TypeAnnotated <$> i)
+      | otherwise        = itemJson verb i
 
 
 -------------------------------------------------------------------------------
@@ -242,24 +348,24 @@ mkNonZero ctor n
 
 -------------------------------------------------------------------------------
 startWorker
-    :: EsScribeCfg
+    :: forall a. EsScribeCfg
     -> BHEnv
-    -> IndexName
     -> MappingName
-    -> TBMQueue Value
+    -> TBMQueue (IndexName, Value)
     -> IO ()
-startWorker EsScribeCfg {..} env ix mapping q = go -- manual recursion here. is this a space leak
+startWorker EsScribeCfg {..} env mapping q = go
   where
     go = do
-      v <- atomically $ readTBMQueue q
-      case v of
-        Just v' -> do
-          sendLog v' `catchAny` eat
+      popped <- atomically $ readTBMQueue q
+      case popped of
+        Just (ixn, v) -> do
+          sendLog ixn v `catchAny` eat
           go
         Nothing -> return ()
-    sendLog v = void $ recovering essRetryPolicy [handler] $ const $ do
+    sendLog :: IndexName -> Value -> IO ()
+    sendLog ixn v = void $ recovering essRetryPolicy [handler] $ const $ do
       did <- mkDocId
-      runBH env $ indexDocument ix mapping defaultIndexDocumentSettings v did
+      runBH env $ indexDocument ixn mapping defaultIndexDocumentSettings v did
     eat _ = return ()
     handler _ = Handler $ \e ->
       case fromException e of
