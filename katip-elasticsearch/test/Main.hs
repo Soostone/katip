@@ -9,7 +9,7 @@ module Main
 
 
 -------------------------------------------------------------------------------
-import           Control.Applicative
+import           Control.Applicative         as A
 import           Control.Concurrent.STM
 import           Control.Lens                hiding (mapping, (.=))
 import           Control.Monad
@@ -60,8 +60,8 @@ teardownSearch :: (Scribe, IO ()) -> IO ()
 teardownSearch (_, finalizer) = do
   finalizer
   bh $ do
-    dropESSchema
-    dropESSTemplate
+    when False $ dropESSchema
+    when False $ dropESSTemplate --TODO: drop
 
 
 -------------------------------------------------------------------------------
@@ -263,7 +263,7 @@ instance Arbitrary Value where
     , String <$> arbitrary
     , Number <$> (scientific <$> arbitrary <*> arbitrary)
     , Bool <$> arbitrary
-    , pure Null
+    , A.pure Null
     ]
 
 

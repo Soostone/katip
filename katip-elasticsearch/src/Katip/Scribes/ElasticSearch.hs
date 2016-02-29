@@ -30,7 +30,7 @@ module Katip.Scribes.ElasticSearch
 
 
 -------------------------------------------------------------------------------
-import           Control.Applicative
+import           Control.Applicative                     as A
 import           Control.Concurrent
 import           Control.Concurrent.Async
 import           Control.Concurrent.STM.TBMQueue
@@ -193,7 +193,7 @@ chooseIxn :: IndexName -> IndexShardingPolicy -> Item a -> IndexName
 chooseIxn (IndexName ixn) p i =
   IndexName (T.intercalate "-" (ixn:segs))
   where
-    segs = indexNameSegment <$> shardPolicySegs p i
+    segs = indexNameSegment A.<$> shardPolicySegs p i
 
 
 -------------------------------------------------------------------------------
@@ -277,18 +277,18 @@ mkEsScribe cfg@EsScribeCfg {..} server ix mapping sev verb = do
 -------------------------------------------------------------------------------
 baseMapping :: MappingName -> Value
 baseMapping (MappingName mn) =
-  object [ mn .= object ["properties" .= object pairs] ]
-  where pairs = [ str "thread"
-                , str "sev"
-                , str "pid"
-                , str "ns"
-                , str "msg"
-                , "loc" .= locType
-                , str "host"
-                , str "env"
-                , "at" .= dateType
-                , str "app"
-                ]
+  object [ mn .= object ["properties" .= object prs] ]
+  where prs = [ str "thread"
+              , str "sev"
+              , str "pid"
+              , str "ns"
+              , str "msg"
+              , "loc" .= locType
+              , str "host"
+              , str "env"
+              , "at" .= dateType
+              , str "app"
+              ]
         str k = k .= object ["type" .= String "string"]
         locType = object ["properties" .= object locPairs]
         locPairs = [ str "loc_pkg"
@@ -305,7 +305,7 @@ baseMapping (MappingName mn) =
 -------------------------------------------------------------------------------
 -- | Handle both old-style aeson and picosecond-level precision
 esDateFormat :: Text
-esDateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZ||yyyy-MM-dd'T'HH:mm:ss.SSSSSSSSSSSSZ"
+esDateFormat = "yyyy-MM-dd'T'HH:mm:ssZ||yyyy-MM-dd'T'HH:mm:ss.SSSZ||yyyy-MM-dd'T'HH:mm:ss.SSSSSSSSSSSSZ"
 
 
 -------------------------------------------------------------------------------
@@ -369,7 +369,8 @@ startWorker EsScribeCfg {..} env mapping q = go
     sendLog :: IndexName -> Value -> IO ()
     sendLog ixn v = void $ recovering essRetryPolicy [handler] $ const $ do
       did <- mkDocId
-      runBH env $ indexDocument ixn mapping defaultIndexDocumentSettings v did
+      res <- runBH env $ indexDocument ixn mapping defaultIndexDocumentSettings v did
+      return res
     eat _ = return ()
     handler _ = Handler $ \e ->
       case fromException e of

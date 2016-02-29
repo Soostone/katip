@@ -14,7 +14,7 @@
 module Katip.Core where
 
 -------------------------------------------------------------------------------
-import           Control.Applicative
+import           Control.Applicative          as A
 import           Control.AutoUpdate
 import           Control.Concurrent
 import           Control.Lens
@@ -33,7 +33,7 @@ import           Control.Monad.Trans.Writer
 import           Data.Aeson                   (FromJSON (..), ToJSON (..),
                                                object)
 import qualified Data.Aeson                   as A
-import           Data.Foldable                (foldMap)
+import           Data.Foldable                as FT
 import qualified Data.HashMap.Strict          as HM
 import           Data.List
 import qualified Data.Map.Strict              as M
@@ -394,7 +394,7 @@ sl a b = SimpleLogPayload [(a, AnyLogPayload b)]
 -- | Constrain payload based on verbosity. Backends should use this to
 -- automatically bubble higher verbosity levels to lower ones.
 payloadObject :: LogItem a => Verbosity -> a -> A.Object
-payloadObject verb a = case foldMap (flip payloadKeys a) [(V0)..verb] of
+payloadObject verb a = case FT.foldMap (flip payloadKeys a) [(V0)..verb] of
     AllKeys -> toObject a
     SomeKeys ks -> HM.filterWithKey (\ k _ -> k `elem` ks) $ toObject a
 
@@ -552,7 +552,7 @@ runKatipT le (KatipT f) = runReaderT f le
 -- | Log with everything, including a source code location. This is
 -- very low level and you typically can use 'logT' in its place.
 logItem
-    :: (Applicative m, LogItem a, Katip m)
+    :: (A.Applicative m, LogItem a, Katip m)
     => a
     -> Namespace
     -> Maybe Loc

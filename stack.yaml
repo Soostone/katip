@@ -1,0 +1,13 @@
+resolver: lts-5.5
+packages:
+  - katip
+  - katip-elasticsearch
+extra-deps:
+  - bloodhound-0.10.0.0
+  - string-conv-0.1
+  - aeson-0.10.0.0
+flags:
+  katip:
+    lib-Werror: true
+  katip-elasticsearch:
+    lib-Werror: true
