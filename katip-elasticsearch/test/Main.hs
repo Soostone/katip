@@ -10,6 +10,7 @@ module Main
 
 -------------------------------------------------------------------------------
 import           Control.Applicative
+import           Control.Concurrent.STM
 import           Control.Lens                hiding (mapping, (.=))
 import           Control.Monad
 import           Control.Monad.IO.Class
@@ -20,6 +21,7 @@ import qualified Data.HashMap.Strict         as HM
 import qualified Data.Map                    as M
 import           Data.Monoid
 import           Data.Scientific
+import           Data.Time
 import qualified Data.Vector                 as V
 import           Database.Bloodhound         hiding (key)
 import           Network.HTTP.Client
@@ -37,30 +39,46 @@ import           Katip.Scribes.ElasticSearch
 main :: IO ()
 main = defaultMain $ testGroup "katip-elasticsearch"
   [
-    withResource setupSearch teardownSearch esTests
+    esTests
   , typeAnnotatedTests
   ]
 
 
 -------------------------------------------------------------------------------
-setupSearch :: IO (Scribe, IO ())
-setupSearch = do
+setupSearch :: (EsScribeCfg -> EsScribeCfg) -> IO (Scribe, IO ())
+setupSearch modScribeCfg = do
     bh dropESSchema
-    mkEsScribe defaultEsScribeCfg { essAnnotateTypes = True, essIndexSettings = ixs } svr ixn mn DebugS V3
+    mkEsScribe cfg svr ixn mn DebugS V3
+  where
+    cfg = modScribeCfg (defaultEsScribeCfg { essAnnotateTypes = True
+                                           , essIndexSettings = ixs
+                                           })
 
 
 -------------------------------------------------------------------------------
 teardownSearch :: (Scribe, IO ()) -> IO ()
 teardownSearch (_, finalizer) = do
   finalizer
-  bh dropESSchema
+  bh $ do
+    dropESSchema
+    dropESSTemplate
 
 
 -------------------------------------------------------------------------------
-esTests :: IO (Scribe, IO ()) -> TestTree
-esTests setup = testGroup "elasticsearch scribe"
+withSearch :: (IO (Scribe, IO ()) -> TestTree) -> TestTree
+withSearch = withSearch' id
+
+
+-------------------------------------------------------------------------------
+withSearch' :: (EsScribeCfg -> EsScribeCfg) -> (IO (Scribe, IO ()) -> TestTree) -> TestTree
+withSearch' modScribeCfg = withResource (setupSearch modScribeCfg) teardownSearch
+
+
+-------------------------------------------------------------------------------
+esTests :: TestTree
+esTests = testGroup "elasticsearch scribe"
   [
-    testCase "it flushes to elasticsearch" $ withTestLogging setup $ \done -> do
+    withSearch $ \setup -> testCase "it flushes to elasticsearch" $ withTestLogging setup $ \done -> do
        $(logT) (ExampleCtx True) mempty InfoS "A test message"
        liftIO $ do
          void done
@@ -69,7 +87,40 @@ esTests setup = testGroup "elasticsearch scribe"
          let l = head logs
          l ^? key "_source" . key "msg" . _String @?= Just "A test message"
          l ^? key "_source" . key "data" . key "whatever::b" . _Bool @?= Just True
+  , withSearch' (\c -> c { essIndexSharding = DailyIndexSharding}) $ \setup -> testCase "date-based index sharding" $ do
+      let t1 = mkTime 2016 1 2 3 4 5
+      fakeClock <- newTVarIO t1
+      withTestLogging' (set logEnvTimer (readTVarIO fakeClock)) setup $ \done -> do
+        $(logT) (ExampleCtx True) mempty InfoS "today"
+        let t2 = mkTime 2016 1 3 3 4 5
+        liftIO (atomically (writeTVar fakeClock t2))
+        $(logT) (ExampleCtx True) mempty InfoS "tomorrow"
+        liftIO $ do
+          void done
+          todayLogs <- getLogsByIndex (IndexName "katip-elasticsearch-tests-2016-1-2")
+          tomorrowLogs <- getLogsByIndex (IndexName "katip-elasticsearch-tests-2016-1-3")
+          assertBool ("todayLogs has " <> show (length todayLogs) <> " items") (length todayLogs == 1)
+          assertBool ("tomorrowLogs has " <> show (length tomorrowLogs) <> " items") (length tomorrowLogs == 1)
+          let logToday = head todayLogs
+          let logTomorrow = head tomorrowLogs
+          logToday ^? key "_source" . key "msg" . _String @?= Just "today"
+          logTomorrow ^? key "_source" . key "msg" . _String @?= Just "tomorrow"
   ]
+
+
+-------------------------------------------------------------------------------
+mkTime :: Integer -> Int -> Int -> DiffTime -> DiffTime -> DiffTime -> UTCTime
+mkTime y m d hr minute s = UTCTime day dt
+  where
+    day = mkDay y m d
+    dt = s + 60 * minute + 60 * 60 * hr
+
+
+-------------------------------------------------------------------------------
+mkDay :: Integer -> Int -> Int -> Day
+mkDay y m d = day
+  where
+    Just day = fromGregorianValid y m d
 
 
 -------------------------------------------------------------------------------
@@ -133,9 +184,17 @@ annotatedExampleValue = Array $ V.fromList
 
 -------------------------------------------------------------------------------
 getLogs :: IO [Value]
-getLogs = do
-  r <- bh $ searchByIndex ixn $ mkSearch Nothing Nothing
-  statusCode (responseStatus r) @?= 200
+getLogs = getLogsByIndex ixn
+
+
+-------------------------------------------------------------------------------
+getLogsByIndex :: IndexName -> IO [Value]
+getLogsByIndex i = do
+  r <- bh $ do
+    void (refreshIndex i)
+    searchByIndex i (mkSearch Nothing Nothing)
+  let actualCode = statusCode (responseStatus r)
+  assertBool ("search by " <> show i <> " " <> show actualCode <> " /= 200") (actualCode == 200)
   return $ responseBody r ^.. key "hits" . key "hits" . values
 
 
@@ -147,11 +206,20 @@ bh = withBH defaultManagerSettings svr
 -------------------------------------------------------------------------------
 withTestLogging
   :: IO (Scribe, IO a) -> (IO Reply -> KatipT IO b) -> IO b
-withTestLogging setup f = do
-    (scr, done) <- setup
-    le <- initLogEnv ns env
-    let done' = done >> bh (refreshIndex ixn)
-    runKatipT le { _logEnvScribes = M.singleton "es" scr} (f done')
+withTestLogging = withTestLogging' id
+
+
+-------------------------------------------------------------------------------
+withTestLogging'
+  :: (LogEnv -> LogEnv)
+  -> IO (Scribe, IO a)
+  -> (IO Reply -> KatipT IO b)
+  -> IO b
+withTestLogging' modEnv setup f = do
+  (scr, done) <- setup
+  le <- modEnv <$> initLogEnv ns env
+  let done' = done >> bh (refreshIndex ixn)
+  runKatipT le { _logEnvScribes = M.singleton "es" scr} (f done')
   where
     ns = Namespace ["katip-test"]
     env = Environment "test"
@@ -179,7 +247,12 @@ mn = MappingName "logs"
 
 -------------------------------------------------------------------------------
 dropESSchema :: BH IO ()
-dropESSchema = void $ deleteIndex ixn
+dropESSchema = void $ deleteIndex (IndexName "katip-elasticsearch-tests*")
+
+
+-------------------------------------------------------------------------------
+dropESSTemplate :: BH IO ()
+dropESSTemplate = void $ deleteTemplate (TemplateName "katip-elasticsearch-tests")
 
 
 -------------------------------------------------------------------------------

@@ -348,7 +348,7 @@ mkNonZero ctor n
 
 -------------------------------------------------------------------------------
 startWorker
-    :: forall a. EsScribeCfg
+    :: EsScribeCfg
     -> BHEnv
     -> MappingName
     -> TBMQueue (IndexName, Value)

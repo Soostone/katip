@@ -87,6 +87,8 @@ test-suite test
     , vector
     , unordered-containers
     , scientific
+    , time
+    , stm
 
   if flag(lib-Werror)
     ghc-options: -Wall -Werror
