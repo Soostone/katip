@@ -242,7 +242,6 @@ mkEsScribe cfg@EsScribeCfg {..} server ix mapping sev verb = do
       r1 <- createIndex essIndexSettings ix
       unless (statusIsSuccessful (responseStatus r1)) $
         liftIO $ throwIO (CouldNotCreateIndex r1)
-      --TODO: throw on error
       r2 <- if shardingEnabled
               then putTemplate tpl tplName
               else putMapping ix mapping (baseMapping mapping)
