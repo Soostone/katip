@@ -55,7 +55,7 @@ benchmark bench
                , katip-elasticsearch
                , bloodhound
                , deepseq
-               , criterion >= 0.8 && < 1.0
+               , criterion >= 1.1.0.0
                , rng-utils
                , uuid
                , text

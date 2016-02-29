@@ -12,7 +12,7 @@ import           Control.Concurrent
 import           Control.DeepSeq
 import           Criterion.Main
 import           Data.Aeson
-import           Data.Monoid
+import           Data.Monoid          as M
 import           Data.Time.Calendar
 import           Data.Time.Clock
 import           System.IO
@@ -63,7 +63,7 @@ exItem tid = Item {
 data ExPayload = ExPayload
 
 instance ToJSON ExPayload where
-  toJSON _ = Object mempty
+  toJSON _ = Object M.mempty
 
 instance ToObject ExPayload
 
