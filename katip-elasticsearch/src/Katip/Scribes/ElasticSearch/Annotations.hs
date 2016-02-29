@@ -7,7 +7,7 @@ module Katip.Scribes.ElasticSearch.Annotations
 
 
 -------------------------------------------------------------------------------
-import           Control.Applicative
+import           Control.Applicative as A
 import           Data.Aeson
 import qualified Data.Foldable       as FT
 import qualified Data.HashMap.Strict as HM
@@ -35,7 +35,7 @@ instance ToObject a => ToObject (TypeAnnotated a)
 
 
 instance FromJSON a => FromJSON (TypeAnnotated a) where
-  parseJSON v = TypeAnnotated <$> parseJSON (deannotateValue v)
+  parseJSON v = TypeAnnotated A.<$> parseJSON (deannotateValue v)
 
 
 instance LogItem a => LogItem (TypeAnnotated a) where
