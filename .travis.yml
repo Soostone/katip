@@ -35,7 +35,7 @@ install:
 # around some quirks in Travis's terminal implementation.
 script:
   - stack $ARGS setup
-  - stack $ARGS --no-terminal test --haddock
+  - stack $ARGS --no-terminal test --haddock --no-haddock-deps
   - stack $ARGS bench
   - stack $ARGS build
   - stack $ARGS sdist
