@@ -100,6 +100,8 @@ data EsScribeCfg = EsScribeCfg {
 --     * Pool size of 2
 --
 --     * Annotate types set to False
+--
+--     * NoIndexSharding
 defaultEsScribeCfg :: EsScribeCfg
 defaultEsScribeCfg = EsScribeCfg {
       essManagerSettings = defaultManagerSettings
@@ -125,21 +127,24 @@ defaultEsScribeCfg = EsScribeCfg {
 -- EveryMinuteIndexSharding will generate indexes based on the time of
 -- the log. Index name is treated as a prefix. So if your index name
 -- is @foo@ and DailySharding is used, logs will be stored in
--- @foo-2016-02-25@, @foo-2016-02-26@ and so on. Index templating will
+-- @foo-2016-2-25@, @foo-2016-2-26@ and so on. Index templating will
 -- be used to set up mappings automatically. Deletes based on date are
 -- very fast and queries can be restricted to date ranges for better
 -- performance. Queries against all dates should use @foo-*@ as an
 -- index name. Note that index aliasing's glob feature is not suitable
 -- for these date ranges as it matches index names as they are
 -- declared, so new dates will be excluded. DailyIndexSharding is a
--- reasonable choice. Changing index sharding strategies is a *bad
--- idea*.
+-- reasonable choice. Changing index sharding strategies is not
+-- advisable.
 --
 -- * CustomSharding: supply your own function that decomposes an item
 -- into its index name heirarchy which will be appended to the index
 -- name. So for instance if your function return ["arbitrary",
 -- "prefix"], the index will be @foo-arbitrary-prefix@ and the index
--- template will be set to match @foo-*@
+-- template will be set to match @foo-*@. In general, you want to use
+-- segments of increasing granularity (like year, month, day for
+-- dates). This makes it easier to address groups of indexes
+-- (e.g. @foo-2016-*@).
 data IndexShardingPolicy = NoIndexSharding
                          | MonthlyIndexSharding
                          | DailyIndexSharding
