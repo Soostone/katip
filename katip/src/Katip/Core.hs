@@ -561,19 +561,20 @@ logItem
     -> m ()
 logItem a ns loc sev msg = do
     LogEnv{..} <- getLogEnv
-    item <- Item
-      <$> pure _logEnvNs
-      <*> pure _logEnvEnv
-      <*> pure sev
-      <*> liftIO (mkThreadIdText <$> myThreadId)
-      <*> pure _logEnvHost
-      <*> pure _logEnvPid
-      <*> pure a
-      <*> pure msg
-      <*> liftIO _logEnvTimer
-      <*> pure (_logEnvNs <> ns)
-      <*> pure loc
-    liftIO $ forM_ (M.elems _logEnvScribes) $ \ (Scribe h) -> h item
+    liftIO $ do
+      item <- Item
+        <$> pure _logEnvNs
+        <*> pure _logEnvEnv
+        <*> pure sev
+        <*> (mkThreadIdText <$> myThreadId)
+        <*> pure _logEnvHost
+        <*> pure _logEnvPid
+        <*> pure a
+        <*> pure msg
+        <*> _logEnvTimer
+        <*> pure (_logEnvNs <> ns)
+        <*> pure loc
+      forM_ (M.elems _logEnvScribes) $ \ (Scribe h) -> h item
 
 
 -------------------------------------------------------------------------------
