@@ -6,6 +6,9 @@ extra-deps:
   - bloodhound-0.10.0.0
   - string-conv-0.1
   - aeson-0.10.0.0
+  - criterion-1.1.0.0
+  - attoparsec-0.12.1.6
+  - rng-utils-0.2.1
 flags:
   katip:
     lib-Werror: true
