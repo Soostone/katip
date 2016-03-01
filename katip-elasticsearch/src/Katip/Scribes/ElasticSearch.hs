@@ -26,6 +26,7 @@ module Katip.Scribes.ElasticSearch
     -- * Utilities
     , mkDocId
     , module Katip.Scribes.ElasticSearch.Annotations
+    , roundToSunday
     ) where
 
 
@@ -50,6 +51,7 @@ import           Data.Text                               (Text)
 import qualified Data.Text                               as T
 import qualified Data.Text.Encoding                      as T
 import           Data.Time
+import           Data.Time.Calendar.WeekDate
 import           Data.Typeable
 import           Data.UUID
 import           Database.Bloodhound
@@ -147,6 +149,8 @@ defaultEsScribeCfg = EsScribeCfg {
 -- (e.g. @foo-2016-*@).
 data IndexShardingPolicy = NoIndexSharding
                          | MonthlyIndexSharding
+                         | WeeklyIndexSharding
+                         -- ^ A special case of daily which shards to sunday
                          | DailyIndexSharding
                          | HourlyIndexSharding
                          | EveryMinuteIndexSharding
@@ -156,6 +160,7 @@ data IndexShardingPolicy = NoIndexSharding
 instance Show IndexShardingPolicy where
  show NoIndexSharding          = "NoIndexSharding"
  show MonthlyIndexSharding     = "MonthlyIndexSharding"
+ show WeeklyIndexSharding      = "WeeklyIndexSharding"
  show DailyIndexSharding       = "DailyIndexSharding"
  show HourlyIndexSharding      = "HourlyIndexSharding"
  show EveryMinuteIndexSharding = "EveryMinuteIndexSharding"
@@ -174,6 +179,9 @@ shardPolicySegs NoIndexSharding _ = []
 shardPolicySegs MonthlyIndexSharding Item {..} = [sis y, sis m]
   where
     (y, m, _) = toGregorian (utctDay _itemTime)
+shardPolicySegs WeeklyIndexSharding Item {..} = [sis y, sis m, sis d]
+  where
+    (y, m, d) = toGregorian (roundToSunday (utctDay _itemTime))
 shardPolicySegs DailyIndexSharding Item {..} = [sis y, sis m, sis d]
   where
     (y, m, d) = toGregorian (utctDay _itemTime)
@@ -186,6 +194,18 @@ shardPolicySegs EveryMinuteIndexSharding Item {..} = [sis y, sis m, sis d, sis h
     (y, m, d) = toGregorian (utctDay _itemTime)
     (h, mn) = splitTime (utctDayTime _itemTime)
 shardPolicySegs (CustomIndexSharding f) i  = f i
+
+
+-------------------------------------------------------------------------------
+-- | If the given day is sunday, returns the input, otherwise returns
+-- the previous sunday
+roundToSunday :: Day -> Day
+roundToSunday d
+    | dow == 7  = d
+    | w > 1     = fromWeekDate y (w - 1) 7
+    | otherwise = fromWeekDate (y - 1) 53 7
+  where
+    (y, w, dow) = toWeekDate d
 
 
 -------------------------------------------------------------------------------

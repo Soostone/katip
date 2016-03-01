@@ -22,6 +22,7 @@ import qualified Data.Map                    as M
 import           Data.Monoid
 import           Data.Scientific
 import           Data.Time
+import           Data.Time.Calendar.WeekDate
 import qualified Data.Vector                 as V
 import           Database.Bloodhound         hiding (key)
 import           Network.HTTP.Client
@@ -41,6 +42,7 @@ main = defaultMain $ testGroup "katip-elasticsearch"
   [
     esTests
   , typeAnnotatedTests
+  , roundToSundayTests
   ]
 
 
@@ -105,6 +107,24 @@ esTests = testGroup "elasticsearch scribe"
           let logTomorrow = head tomorrowLogs
           logToday ^? key "_source" . key "msg" . _String @?= Just "today"
           logTomorrow ^? key "_source" . key "msg" . _String @?= Just "tomorrow"
+  , withSearch' (\c -> c { essIndexSharding = WeeklyIndexSharding}) $ \setup -> testCase "weekly index sharding rounds to previous sunday" $ do
+      let t1 = mkTime 2016 3 5 0 0 0 -- saturday, march 5th
+      fakeClock <- newTVarIO t1
+      withTestLogging' (set logEnvTimer (readTVarIO fakeClock)) setup $ \done -> do
+        $(logT) (ExampleCtx True) mempty InfoS "today"
+        let t2 = mkTime 2016 3 6 0 0 0 -- sunday march 6th
+        liftIO (atomically (writeTVar fakeClock t2))
+        $(logT) (ExampleCtx True) mempty InfoS "tomorrow"
+        liftIO $ do
+          void done
+          todayLogs <- getLogsByIndex (IndexName "katip-elasticsearch-tests-2016-2-28") -- rounds back to previous sunday
+          tomorrowLogs <- getLogsByIndex (IndexName "katip-elasticsearch-tests-2016-3-6") -- is on sunday, so uses current date
+          assertBool ("todayLogs has " <> show (length todayLogs) <> " items") (length todayLogs == 1)
+          assertBool ("tomorrowLogs has " <> show (length tomorrowLogs) <> " items") (length tomorrowLogs == 1)
+          let logToday = head todayLogs
+          let logTomorrow = head tomorrowLogs
+          logToday ^? key "_source" . key "msg" . _String @?= Just "today"
+          logTomorrow ^? key "_source" . key "msg" . _String @?= Just "tomorrow"
   ]
 
 
@@ -151,6 +171,20 @@ typeAnnotatedTests = testGroup "TypeAnnotated"
       in res === Right v
   ]
 
+
+-------------------------------------------------------------------------------
+roundToSundayTests :: TestTree
+roundToSundayTests = testGroup "roundToSunday"
+  [
+    testProperty "always returns a sunday" $ \d ->
+      getDOW (roundToSunday d) === 7
+  , testProperty "returns input on sunday" $ \d -> getDOW d == 7 ==>
+      roundToSunday d === d
+  , testProperty "goes back a week when not sunday" $ \d -> getDOW d /= 7 ==>
+      roundToSunday d < d
+  ]
+  where
+    getDOW = view _3 . toWeekDate
 
 -------------------------------------------------------------------------------
 exampleValue :: Value
