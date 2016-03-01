@@ -28,33 +28,18 @@ module Katip.Monadic
     , AnyLogContext
     , LogContexts
     , liftPayload
-
-    -- * Transformer for appending to a log context
-    , LogT'
-    , LogT
-    , runLogT
-    , BlankLogT
-    , runBlankLogT
     ) where
 
 
 -------------------------------------------------------------------------------
-import           Control.Applicative
-import           Control.Monad
-import           Control.Monad.Base
 import           Control.Monad.Catch
-import           Control.Monad.Error.Class
-import           Control.Monad.Fix
-import           Control.Monad.IO.Class
-import           Control.Monad.RWS.Class
 import           Control.Monad.Trans.Class
-import           Control.Monad.Trans.Control
 import           Control.Monad.Trans.Either        (EitherT)
 import           Control.Monad.Trans.Except        (ExceptT)
 import           Control.Monad.Trans.Identity      (IdentityT)
 import           Control.Monad.Trans.List          (ListT)
 import           Control.Monad.Trans.Maybe         (MaybeT)
-import           Control.Monad.Trans.Reader        (ReaderT (..), runReaderT)
+import           Control.Monad.Trans.Reader        (ReaderT)
 import           Control.Monad.Trans.Resource      (ResourceT)
 import           Control.Monad.Trans.RWS           (RWST)
 import qualified Control.Monad.Trans.RWS.Strict    as Strict (RWST)
@@ -195,128 +180,3 @@ logExceptionM action sev = action `catchAll` \e -> f e >> throwM e
   where
     f e = logFM sev (msg e)
     msg e = ls ("An exception has occured: " :: Text) <> showLS e
-
-
--------------------------------------------------------------------------------
--- | Wrapper over 'ReaderT' that provides a passthrough instance for
--- 'MonadReader' so your stack will not be affected. Also provides a
--- 'KatipContext' instance which combines with the inner monad's
--- instance.
---
--- @
---   instance KatipContext m WebMonad where
---     getKatipContext = ...
---     getKatipNamespace = Namespace ["web"]
---
---   dbCallInWeb = runLogT getDBContext (Namespace ["db"]) $ do
---     someStuff
--- @
---
--- In the above example, any logging inside of @dbCallInWeb@ will get
--- the (optionally) monadic log context for the db, combine it with
--- the web server's and will use the namespace @Namespace ["web","db"]@.
---
--- 'LogT' is exported which fixes @n ~ m@. The two type
--- variables must be present for defining a 'MonadTransControl' instance.
-newtype LogT' n m a = LogT {
-      unLogT :: ReaderT (n LogContexts, n Namespace) m a
-    } deriving ( Functor
-               , Applicative
-               , Monad
-               , MonadIO
-               , MonadThrow
-               , MonadCatch
-               , MonadMask
-               , MonadBase b
-               , MonadState s
-               , MonadWriter w
-               , MonadError e
-               , MonadPlus
-               , Alternative
-               , MonadFix
-               , Katip
-               )
-
-type LogT m a = LogT' m m a
-
-instance MonadTrans (LogT' n) where
-    lift = LogT . lift
-
--- Reader is a passthrough. We don't expose our internal reader so as not to conflict
-instance (MonadReader r m) => MonadReader r (LogT' n m) where
-    ask = lift ask
-    local f (LogT (ReaderT m)) = LogT $ ReaderT $ \r ->
-      local f (m r)
-
-instance MonadTransControl (LogT' n) where
-    type StT (LogT' n) a = StT (ReaderT (n LogContexts)) a
-    liftWith = defaultLiftWith LogT unLogT
-    restoreT = defaultRestoreT LogT
-    {-# INLINE liftWith #-}
-    {-# INLINE restoreT #-}
-
-instance (MonadBaseControl b m) => MonadBaseControl b (LogT' n m) where
-  type StM ((LogT' n) m) a = ComposeSt (LogT' n) m a
-  liftBaseWith = defaultLiftBaseWith
-  restoreM = defaultRestoreM
-
-instance (KatipContext m, Monad m) => KatipContext (LogT' m m) where
-    getKatipContext = LogT $ ReaderT $ \(gctxs, _) -> do
-      ctxs <- gctxs
-      ctxs' <- getKatipContext
-      return $ ctxs <> ctxs'
-    getKatipNamespace = LogT $ ReaderT $ \(_, getNsInner) -> do
-      nsOuter <- getKatipNamespace
-      nsInner <- getNsInner
-      return $ nsOuter <> nsInner
-
-runLogT
-    :: (Functor m, LogItem a)
-    => m a
-    -> m Namespace
-    -> LogT m b
-    -> m b
-runLogT lgtr nsgtr m = runReaderT (unLogT m) (liftPayload <$> lgtr, nsgtr)
-
-
--------------------------------------------------------------------------------
--- | Type analogous to IdentityT that provides an empty log
--- context. Use this if your root monad doesn't have a LogContext instance.
-newtype BlankLogT m a = BlankLogT {
-      runBlankLogT :: m a
-    } deriving ( Functor
-               , Applicative
-               , Monad
-               , MonadIO
-               , MonadThrow
-               , MonadCatch
-               , MonadMask
-               , MonadBase b
-               , MonadReader r
-               , MonadState s
-               , MonadWriter w
-               , MonadError e
-               , MonadPlus
-               , Alternative
-               , MonadFix
-               , Katip
-               )
-
-instance Katip m => KatipContext (BlankLogT m) where
-    getKatipContext = return mempty
-    getKatipNamespace = return mempty
-
-instance MonadTrans BlankLogT where
-    lift = BlankLogT
-
-instance MonadTransControl BlankLogT where
-    type StT BlankLogT a = a
-    liftWith f = BlankLogT $ f runBlankLogT
-    restoreT = BlankLogT
-    {-# INLINABLE liftWith #-}
-    {-# INLINABLE restoreT #-}
-
-instance (MonadBaseControl b m) => MonadBaseControl b (BlankLogT m) where
-  type StM (BlankLogT m) a = ComposeSt BlankLogT m a
-  liftBaseWith = defaultLiftBaseWith
-  restoreM = defaultRestoreM

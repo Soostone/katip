@@ -79,7 +79,7 @@ data EsScribeCfg = EsScribeCfg {
     -- mapping, the first log item will set the type and any that
     -- don't conform will be *discarded*. If you set this to True,
     -- keys will recursively be appended with their ES core
-    -- type. e.g. "id" would become "id::long" and "id::string"
+    -- type. e.g. "id" would become "id::l" and "id::s"
     -- automatically, so they won't conflict. When this library
     -- exposes a querying API, we will try to make deserialization and
     -- querying transparently remove the type annotations if this is

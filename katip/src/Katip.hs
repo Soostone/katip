@@ -63,12 +63,6 @@ module Katip
     , logItemM
     , logExceptionM
 
-    -- * Transformer for appending to a log context
-    , LogT
-    , runLogT
-    , BlankLogT
-    , runBlankLogT
-
     -- * Included Scribes
     , mkHandleScribe
     , ColorStrategy (..)

@@ -24,6 +24,10 @@ description:
     configured to a different log severity.
 
   A note on the name: Katip is Turkish for scribe.
+
+  Be sure to look in the @examples@ directory for some examples of how
+  do integrate Katip into your own stack.
+
 license:             BSD3
 license-file:        LICENSE
 author:              Ozgun Ataman
@@ -32,6 +36,13 @@ copyright:           Soostone Inc, 2015
 category:            Data, Text, Logging
 build-type:          Simple
 cabal-version:       >=1.10
+extra-source-files:
+  examples/example.hs
+  examples/example_lens.hs
+  bench/Main.hs
+  test/Main.hs
+  test/Katip/Tests.hs
+  test/Katip/Tests/Scribes/Handle.hs
 
 flag lib-Werror
   default: False
