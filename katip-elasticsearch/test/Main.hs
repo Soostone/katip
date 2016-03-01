@@ -78,7 +78,7 @@ withSearch' modScribeCfg = withResource (setupSearch modScribeCfg) teardownSearc
 esTests :: TestTree
 esTests = testGroup "elasticsearch scribe"
   [
-    withSearch $ \setup -> testCase "it flushes to elasticsearch" $ withTestLogging setup $ \done -> do
+    withSearch' (\c -> c { essIndexSharding = NoIndexSharding}) $ \setup -> testCase "it flushes to elasticsearch" $ withTestLogging setup $ \done -> do
        $(logT) (ExampleCtx True) mempty InfoS "A test message"
        liftIO $ do
          void done
@@ -87,7 +87,7 @@ esTests = testGroup "elasticsearch scribe"
          let l = head logs
          l ^? key "_source" . key "msg" . _String @?= Just "A test message"
          l ^? key "_source" . key "data" . key "whatever::b" . _Bool @?= Just True
-  , withSearch' (\c -> c { essIndexSharding = DailyIndexSharding}) $ \setup -> testCase "date-based index sharding" $ do
+  , withSearch $ \setup -> testCase "date-based index sharding" $ do
       let t1 = mkTime 2016 1 2 3 4 5
       fakeClock <- newTVarIO t1
       withTestLogging' (set logEnvTimer (readTVarIO fakeClock)) setup $ \done -> do

@@ -101,7 +101,7 @@ data EsScribeCfg = EsScribeCfg {
 --
 --     * Annotate types set to False
 --
---     * NoIndexSharding
+--     * DailyIndexSharding
 defaultEsScribeCfg :: EsScribeCfg
 defaultEsScribeCfg = EsScribeCfg {
       essManagerSettings = defaultManagerSettings
@@ -110,7 +110,7 @@ defaultEsScribeCfg = EsScribeCfg {
     , essPoolSize        = EsPoolSize 2
     , essAnnotateTypes   = False
     , essIndexSettings   = defaultIndexSettings
-    , essIndexSharding   = NoIndexSharding
+    , essIndexSharding   = DailyIndexSharding
     }
 
 
