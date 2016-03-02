@@ -13,7 +13,6 @@ module Katip.Scribes.ElasticSearch
     , EsPoolSize
     , mkEsPoolSize
     , EsScribeCfg
-    , essManagerSettings
     , essRetryPolicy
     , essQueueSize
     , essPoolSize
@@ -65,9 +64,7 @@ import           Katip.Scribes.ElasticSearch.Annotations
 
 
 data EsScribeCfg = EsScribeCfg {
-      essManagerSettings :: ManagerSettings
-    -- ^ Connection manager settings
-    , essRetryPolicy     :: RetryPolicy
+      essRetryPolicy     :: RetryPolicy
     -- ^ Retry policy when there are errors sending logs to the server
     , essQueueSize       :: EsQueueSize
     -- ^ Maximum size of the bounded log queue
@@ -106,8 +103,7 @@ data EsScribeCfg = EsScribeCfg {
 --     * DailyIndexSharding
 defaultEsScribeCfg :: EsScribeCfg
 defaultEsScribeCfg = EsScribeCfg {
-      essManagerSettings = defaultManagerSettings
-    , essRetryPolicy     = exponentialBackoff 25 <> limitRetries 5
+      essRetryPolicy     = exponentialBackoff 25 <> limitRetries 5
     , essQueueSize       = EsQueueSize 1000
     , essPoolSize        = EsPoolSize 2
     , essAnnotateTypes   = False
@@ -238,7 +234,7 @@ instance Exception EsScribeSetupError
 -------------------------------------------------------------------------------
 mkEsScribe
     :: EsScribeCfg
-    -> Server
+    -> BHEnv
     -> IndexName
     -- ^ Treated as a prefix if index sharding is enabled
     -> MappingName
@@ -246,12 +242,8 @@ mkEsScribe
     -> Verbosity
     -> IO (Scribe, IO ())
     -- ^ Returns a finalizer that will gracefully flush all remaining logs before shutting down workers
-mkEsScribe cfg@EsScribeCfg {..} server ix mapping sev verb = do
+mkEsScribe cfg@EsScribeCfg {..} env ix mapping sev verb = do
   q <- newTBMQueueIO $ unEsQueueSize essQueueSize
-  mgr <- newManager essManagerSettings
-  let env = BHEnv { bhServer = server
-                  , bhManager = mgr
-                  }
   endSig <- newEmptyMVar
 
   runBH env $ do
