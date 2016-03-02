@@ -10,11 +10,7 @@
 
 -- | Provides support for treating payloads and namespaces as
 -- composable contexts. The common pattern would be to provide a
--- 'KatipContext' instance for your base monad. When your program
--- changes to a more detailed context, say to the database, you can
--- use 'LogT' to tack on a typed context and a namespace
--- which will be merged into the enclosing monad's context and
--- namespace.
+-- 'KatipContext' instance for your base monad.
 module Katip.Monadic
     (
     -- * Monadic variants of logging functions from "Katip.Core"
@@ -29,10 +25,10 @@ module Katip.Monadic
     , LogContexts
     , liftPayload
 
-    -- * LogT - Utility transformer that provides Katip and KatipContext instances
-    , LogT(..)
-    , runLogT
-    , LogTState(..)
+    -- * KatipContextT - Utility transformer that provides Katip and KatipContext instances
+    , KatipContextT(..)
+    , runKatipContextT
+    , KatipContextTState(..)
     ) where
 
 
@@ -101,7 +97,7 @@ liftPayload = LogContexts . (:[]) . AnyLogContext
 -------------------------------------------------------------------------------
 -- | A monadic context that has an inherant way to get logging
 -- context and namespace. Examples include a web application monad or
--- database monad. Combine with 'LogT' to nest.
+-- database monad.
 class Katip m => KatipContext m where
   getKatipContext :: m LogContexts
   getKatipNamespace   :: m Namespace
@@ -202,12 +198,12 @@ logExceptionM action sev = action `catchAll` \e -> f e >> throwM e
 --     le <- getLogEnv
 --     ctx <- getKatipContext
 --     ns <- getKatipNamespace
---     forkIO $ runLogT le ctx ns $ do
+--     forkIO $ runKatipContextT le ctx ns $ do
 --       $(logTM) InfoS "Look, I can log in IO and retain context!"
 --       doOtherStuff
 -- @
-newtype LogT m a = LogT {
-      unLogT :: ReaderT LogTState m a
+newtype KatipContextT m a = KatipContextT {
+      unKatipContextT :: ReaderT KatipContextTState m a
     } deriving ( Functor
                , Applicative
                , Monad
@@ -226,30 +222,30 @@ newtype LogT m a = LogT {
                )
 
 
-data LogTState = LogTState {
+data KatipContextTState = KatipContextTState {
       ltsLogEnv    :: !LogEnv
     , ltsContext   :: !LogContexts
     , ltsNamespace :: !Namespace
     }
 
 -- Reader is a passthrough. We don't expose our internal reader so as not to conflict
-instance (MonadReader r m) => MonadReader r (LogT m) where
+instance (MonadReader r m) => MonadReader r (KatipContextT m) where
     ask = lift ask
-    local f (LogT (ReaderT m)) = LogT $ ReaderT $ \r ->
+    local f (KatipContextT (ReaderT m)) = KatipContextT $ ReaderT $ \r ->
       local f (m r)
 
 
-instance (MonadIO m) => Katip (LogT m) where
-  getLogEnv = LogT $ ReaderT $ \lts -> return (ltsLogEnv lts)
+instance (MonadIO m) => Katip (KatipContextT m) where
+  getLogEnv = KatipContextT $ ReaderT $ \lts -> return (ltsLogEnv lts)
 
 
-instance (MonadIO m) => KatipContext (LogT m) where
-  getKatipContext = LogT $ ReaderT $ \lts -> return (ltsContext lts)
-  getKatipNamespace = LogT $ ReaderT $ \lts -> return (ltsNamespace lts)
+instance (MonadIO m) => KatipContext (KatipContextT m) where
+  getKatipContext = KatipContextT $ ReaderT $ \lts -> return (ltsContext lts)
+  getKatipNamespace = KatipContextT $ ReaderT $ \lts -> return (ltsNamespace lts)
 
 
 -------------------------------------------------------------------------------
-runLogT :: (LogItem c) => LogEnv -> c -> Namespace -> LogT m a -> m a
-runLogT le ctx ns = flip runReaderT lts . unLogT
+runKatipContextT :: (LogItem c) => LogEnv -> c -> Namespace -> KatipContextT m a -> m a
+runKatipContextT le ctx ns = flip runReaderT lts . unKatipContextT
   where
-    lts = LogTState le (liftPayload ctx) ns
+    lts = KatipContextTState le (liftPayload ctx) ns
