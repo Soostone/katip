@@ -28,28 +28,36 @@ module Katip.Monadic
     , AnyLogContext
     , LogContexts
     , liftPayload
+
+    -- * LogT - Utility transformer that provides Katip and KatipContext instances
+    , LogT(..)
+    , runLogT
+    , LogTState(..)
     ) where
 
 
 -------------------------------------------------------------------------------
+import           Control.Applicative
+import           Control.Monad.Base
 import           Control.Monad.Catch
-import           Control.Monad.Trans.Class
+import           Control.Monad.Error.Class
+import           Control.Monad.IO.Class
+import           Control.Monad.Reader
+import           Control.Monad.State
 import           Control.Monad.Trans.Either        (EitherT)
 import           Control.Monad.Trans.Except        (ExceptT)
 import           Control.Monad.Trans.Identity      (IdentityT)
 import           Control.Monad.Trans.List          (ListT)
 import           Control.Monad.Trans.Maybe         (MaybeT)
-import           Control.Monad.Trans.Reader        (ReaderT)
 import           Control.Monad.Trans.Resource      (ResourceT)
 import           Control.Monad.Trans.RWS           (RWST)
 import qualified Control.Monad.Trans.RWS.Strict    as Strict (RWST)
-import           Control.Monad.Trans.State         (StateT)
 import qualified Control.Monad.Trans.State.Strict  as Strict (StateT)
-import           Control.Monad.Trans.Writer        (WriterT)
 import qualified Control.Monad.Trans.Writer.Strict as Strict (WriterT)
+import           Control.Monad.Writer
 import           Data.Aeson
 import qualified Data.HashMap.Strict               as HM
-import           Data.Monoid
+import           Data.Monoid                       as M
 import           Data.Text                         (Text)
 import           Language.Haskell.TH
 -------------------------------------------------------------------------------
@@ -179,4 +187,69 @@ logExceptionM
 logExceptionM action sev = action `catchAll` \e -> f e >> throwM e
   where
     f e = logFM sev (msg e)
-    msg e = ls ("An exception has occured: " :: Text) <> showLS e
+    msg e = ls ("An exception has occured: " :: Text) M.<> showLS e
+
+
+-------------------------------------------------------------------------------
+-- | Provides a simple transformer that defines a 'KatipContext'
+-- instance for a fixed namespace and context. You will typically only
+-- use this if you are forced to run in IO but still want to have your
+-- log context. This is the slightly more powerful version of KatipT
+-- in that it provides KatipContext instead of just Katip. For instance:
+--
+-- @
+--   threadWithLogging = do
+--     le <- getLogEnv
+--     ctx <- getKatipContext
+--     ns <- getKatipNamespace
+--     forkIO $ runLogT le ctx ns $ do
+--       $(logTM) InfoS "Look, I can log in IO and retain context!"
+--       doOtherStuff
+-- @
+newtype LogT m a = LogT {
+      unLogT :: ReaderT LogTState m a
+    } deriving ( Functor
+               , Applicative
+               , Monad
+               , MonadIO
+               , MonadThrow
+               , MonadCatch
+               , MonadMask
+               , MonadBase b
+               , MonadState s
+               , MonadWriter w
+               , MonadError e
+               , MonadPlus
+               , Alternative
+               , MonadFix
+               , MonadTrans
+               )
+
+
+data LogTState = LogTState {
+      ltsLogEnv    :: !LogEnv
+    , ltsContext   :: !LogContexts
+    , ltsNamespace :: !Namespace
+    }
+
+-- Reader is a passthrough. We don't expose our internal reader so as not to conflict
+instance (MonadReader r m) => MonadReader r (LogT m) where
+    ask = lift ask
+    local f (LogT (ReaderT m)) = LogT $ ReaderT $ \r ->
+      local f (m r)
+
+
+instance (MonadIO m) => Katip (LogT m) where
+  getLogEnv = LogT $ ReaderT $ \lts -> return (ltsLogEnv lts)
+
+
+instance (MonadIO m) => KatipContext (LogT m) where
+  getKatipContext = LogT $ ReaderT $ \lts -> return (ltsContext lts)
+  getKatipNamespace = LogT $ ReaderT $ \lts -> return (ltsNamespace lts)
+
+
+-------------------------------------------------------------------------------
+runLogT :: (LogItem c) => LogEnv -> c -> Namespace -> LogT m a -> m a
+runLogT le ctx ns = flip runReaderT lts . unLogT
+  where
+    lts = LogTState le (liftPayload ctx) ns

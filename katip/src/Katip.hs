@@ -66,6 +66,10 @@ module Katip
     -- * Included Scribes
     , mkHandleScribe
     , ColorStrategy (..)
+
+    -- * LogT - Utility transformer that provides Katip and KatipContext instances
+    , LogT
+    , runLogT
     ) where
 
 -------------------------------------------------------------------------------
