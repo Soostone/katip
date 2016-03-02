@@ -40,6 +40,7 @@ import           Control.Monad.Error.Class
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.Monad.State
+import           Control.Monad.Trans.Control
 import           Control.Monad.Trans.Either        (EitherT)
 import           Control.Monad.Trans.Except        (ExceptT)
 import           Control.Monad.Trans.Identity      (IdentityT)
@@ -227,6 +228,21 @@ data KatipContextTState = KatipContextTState {
     , ltsContext   :: !LogContexts
     , ltsNamespace :: !Namespace
     }
+
+
+instance MonadTransControl KatipContextT where
+    type StT KatipContextT a = StT (ReaderT KatipContextTState) a
+    liftWith = defaultLiftWith KatipContextT unKatipContextT
+    restoreT = defaultRestoreT KatipContextT
+    {-# INLINE liftWith #-}
+    {-# INLINE restoreT #-}
+
+
+instance (MonadBaseControl b m) => MonadBaseControl b (KatipContextT m) where
+  type StM (KatipContextT m) a = ComposeSt KatipContextT m a
+  liftBaseWith = defaultLiftBaseWith
+  restoreM = defaultRestoreM
+
 
 -- Reader is a passthrough. We don't expose our internal reader so as not to conflict
 instance (MonadReader r m) => MonadReader r (KatipContextT m) where
