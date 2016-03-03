@@ -50,7 +50,8 @@ main = defaultMain $ testGroup "katip-elasticsearch"
 setupSearch :: (EsScribeCfg -> EsScribeCfg) -> IO (Scribe, IO ())
 setupSearch modScribeCfg = do
     bh dropESSchema
-    mkEsScribe cfg svr ixn mn DebugS V3
+    mgr <- newManager defaultManagerSettings
+    mkEsScribe cfg (mkBHEnv svr mgr) ixn mn DebugS V3
   where
     cfg = modScribeCfg (defaultEsScribeCfg { essAnnotateTypes = True
                                            , essIndexSettings = ixs
