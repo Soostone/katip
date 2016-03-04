@@ -1,3 +1,23 @@
+-- | Includes all of the API's youll need to use Katip. Be sure to
+-- check out the included @examples@ directory for an example of
+-- usage.
+--
+-- To get up and running, the workflow is generally:
+--
+-- * Set up a 'LogEnv' using 'initLogEnv'.
+--
+-- * Add 'Scribe's using 'registerScribe'.
+--
+-- * Either use 'KatipT' or 'KatipContextT' for a pre-built
+-- transformer stack or add 'Katip' and 'KatipContext' instances to
+-- your own transformer stack. If you do the latter, you may want to
+-- look in the @examples@ dir for some tips on composing contexts and
+-- namespaces.
+--
+-- * Define some structured log data throughout your application and
+-- implement 'ToObject' and 'LogItem' for them.
+--
+-- * Begin logging with 'logT', 'logTM', etc.
 module Katip
     (
 

@@ -21,7 +21,9 @@ description:
   * Designed to be highly configurable. Can be adjusted both with
     verbosity, which dictates how much of the log structure should
     actually get logged, and severity. Each individual scribe can be
-    configured to a different log severity.
+    configured to a different log severity. It is even possible to at
+    runtime swap out and replace loggers, allowing for swapping in
+    verbose debug logging at runtime if you want.
 
   A note on the name: Katip is Turkish for scribe.
 

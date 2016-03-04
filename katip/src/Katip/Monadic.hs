@@ -69,7 +69,10 @@ data AnyLogContext where
 
 -------------------------------------------------------------------------------
 -- | Heterogeneous list of log contexts that provides a smart
--- 'LogContext' instance for combining multiple payload policies.
+-- 'LogContext' instance for combining multiple payload policies. This
+-- is critical for log contexts deep down in a stack to be able to
+-- inject their own context without worrying about other context that
+-- has already been set.
 newtype LogContexts = LogContexts [AnyLogContext] deriving (Monoid)
 
 instance ToJSON LogContexts where
@@ -90,7 +93,8 @@ instance LogItem LogContexts where
 
 
 -------------------------------------------------------------------------------
--- | Lift a log context into the generic wrapper
+-- | Lift a log context into the generic wrapper so that it can
+-- combine with the existing log context.
 liftPayload :: (LogItem a) => a -> LogContexts
 liftPayload = LogContexts . (:[]) . AnyLogContext
 
@@ -164,7 +168,8 @@ logFM sev msg = do
 
 
 -------------------------------------------------------------------------------
--- | 'Loc'-tagged logging when using template-haskell is OK. Automatically supplies payload and namespace.
+-- | 'Loc'-tagged logging when using template-haskell. Automatically
+-- supplies payload and namespace.
 --
 -- @$(logt) InfoS "Hello world"@
 logTM :: ExpQ

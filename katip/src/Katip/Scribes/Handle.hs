@@ -49,6 +49,7 @@ data ColorStrategy
 
 
 -------------------------------------------------------------------------------
+-- | Logs to a file handle such as stdout, stderr, or a file.
 mkHandleScribe :: ColorStrategy -> Handle -> Severity -> Verbosity -> IO Scribe
 mkHandleScribe cs h sev verb = do
     hSetBuffering h LineBuffering

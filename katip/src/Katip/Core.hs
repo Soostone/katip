@@ -53,6 +53,11 @@ import           System.Posix
 
 
 -------------------------------------------------------------------------------
+-- | Represents a heirarchy of namespaces going from general to
+-- specific. For instance: ["processname", "subsystem"]. Note that
+-- single-segment namespaces can be created using
+-- IsString/OverloadedStrings, so "foo" will result in Namespace
+-- ["foo"].
 newtype Namespace = Namespace { unNamespace :: [Text] }
   deriving (Eq,Show,Read,Ord,Generic,ToJSON,FromJSON,Monoid)
 
@@ -168,6 +173,7 @@ ls = logStr
 
 
 -------------------------------------------------------------------------------
+-- | Convert any showable type into a LogStr.
 showLS :: Show a => a -> LogStr
 showLS = ls . show
 
@@ -180,6 +186,7 @@ newtype ThreadIdText = ThreadIdText {
 
 mkThreadIdText :: ThreadId -> ThreadIdText
 mkThreadIdText = ThreadIdText . T.pack . show
+
 
 -------------------------------------------------------------------------------
 -- | This has everything each log message will contain.
@@ -341,7 +348,15 @@ instance ToObject ()
 instance ToObject A.Object
 
 -------------------------------------------------------------------------------
--- | Payload objects need instances of this class.
+-- | Payload objects need instances of this class. LogItem makes it so
+-- that you can have very verbose items getting logged with lots of
+-- extra fields but under normal circumstances, if your scribe is
+-- configured for a lower verbosity level, it will only log a
+-- selection of those keys. Furthermore, each 'Scribe' can be
+-- configured with a different 'Verbosity' level. You could even use
+-- 'registerScribe', 'unregisterScribe', and 'clearScribes' to at
+-- runtime swap out your existing scribes for more verbose debugging
+-- scribes if you wanted to.
 --
 -- When defining 'payloadKeys', don't redundantly declare the same
 -- keys for higher levels of verbosity. Each level of verbosity
@@ -666,7 +681,7 @@ getLoc = [| $(location >>= liftLoc) |]
 
 
 -------------------------------------------------------------------------------
--- | 'Loc'-tagged logging when using template-haskell is OK.
+-- | 'Loc'-tagged logging when using template-haskell.
 --
 -- @$(logT) obj mempty InfoS "Hello world"@
 logT :: ExpQ
