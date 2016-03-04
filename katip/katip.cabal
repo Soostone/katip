@@ -2,33 +2,7 @@ name:                katip
 version:             0.1.0.0
 synopsis:            A structured logging framework.
 description:
-  Katip is a structured logging framework with following design goals:
-
-  * Logs are structured, meaning they can be individually tagged with
-    key value data (JSON Objects).  This helps you add critical
-    details to log messages before you need them so that when you do,
-    they are available. Logs are also namespaced to help filter
-    different subsystems.
-
-  * Critical details for monitoring production systems such as host,
-    PID, thread id, module and line location are automatically
-    captured.
-
-  * Can be easily extended (even at runtime) to output to multiple
-    destinations at once (known as scribes). See @katip-elasticsearch@
-    as an example.
-
-  * Designed to be highly configurable. Can be adjusted both with
-    verbosity, which dictates how much of the log structure should
-    actually get logged, and severity. Each individual scribe can be
-    configured to a different log severity. It is even possible to at
-    runtime swap out and replace loggers, allowing for swapping in
-    verbose debug logging at runtime if you want.
-
-  A note on the name: Katip is Turkish for scribe.
-
-  Be sure to look in the @examples@ directory for some examples of how
-  do integrate Katip into your own stack.
+  Katip is a structured logging framework. See README.md for more details.
 
 license:             BSD3
 license-file:        LICENSE
@@ -39,6 +13,8 @@ category:            Data, Text, Logging
 build-type:          Simple
 cabal-version:       >=1.10
 extra-source-files:
+  README.md
+  changelog.md
   examples/example.hs
   examples/example_lens.hs
   bench/Main.hs
@@ -57,7 +33,6 @@ library
     Katip.Monadic
     Katip.Scribes.Handle
 
-  -- other-modules:
   default-extensions:
     DeriveGeneric
     FlexibleContexts
