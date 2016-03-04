@@ -34,7 +34,7 @@ Kâtip (pronounced kah-tip) is the Turkish word for scribe.
 
 * *Extensible:* Can be easily extended (even at runtime) to output to
   multiple backends at once (known as scribes). See
-  @katip-elasticsearch@ as an example.
+  `katip-elasticsearch` as an example.
 
 * *Configurable:*. Can be adjusted on a per-scribe basis both with
   verbosity and severity.
@@ -50,5 +50,5 @@ Kâtip (pronounced kah-tip) is the Turkish word for scribe.
 
 
 ## Examples
-Be sure to look in the @examples@ directory for some examples of how
+Be sure to look in the `examples` directory for some examples of how
 to integrate Katip into your own stack.
