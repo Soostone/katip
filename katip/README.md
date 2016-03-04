@@ -50,5 +50,5 @@ Kâtip (pronounced kah-tip) is the Turkish word for scribe.
 
 
 ## Examples
-Be sure to look in the `examples` directory for some examples of how
+Be sure to look in the [examples](./examples) directory for some examples of how
 to integrate Katip into your own stack.
