@@ -11,6 +11,7 @@ extra-deps:
   - rng-utils-0.2.1
   - retry-0.7.1
   - tasty-0.11.0.2
+  - tagged-0.8.3
 flags:
   katip:
     lib-Werror: true
