@@ -57,7 +57,7 @@ mkHandleScribe cs h sev verb = do
       ColorIfTerminal -> hIsTerminalDevice h
       ColorLog b -> return b
     return $ Scribe $ \ i@Item{..} -> do
-      when (_itemSeverity >= sev) $
+      when (permitItem sev i) $
         T.hPutStrLn h $ toLazyText $ formatItem colorize verb i
 
 

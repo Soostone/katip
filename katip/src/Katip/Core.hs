@@ -425,8 +425,36 @@ itemJson verb a = toJSON $ a & itemPayload %~ payloadObject verb
 -------------------------------------------------------------------------------
 -- | Scribes are handlers of incoming items. Each registered scribe
 -- knows how to push a log item somewhere.
+--
+-- = Guidelines for writing your own 'Scribe'
+--
+-- Scribes should always take a 'Severity' and 'Verbosity'.
+--
+-- Severity is used to *exclude log messages* that are < the provided
+-- Severity. For instance, if the user passes InfoS, DebugS items
+-- should be ignored. Katip provides the 'permitItem' utility for this.
+--
+-- Verbosity is used to select keys from the log item's payload. Each
+-- 'LogItem' instance describes what keys should be retained for each
+-- Verbosity level. Use the 'payloadObject' utility for extracting the keys
+-- that should be permitted.
+--
+-- There is no built-in mechanism in katip for telling a scribe that
+-- its time to shut down. 'unregisterScribe' merely drops it from the
+-- 'LogEnv'. This means there are 2 ways to handle resources as a scribe:
+--
+-- 1. Pass in the resource when the scribe is created. Handle
+-- allocation and release of the resource elsewhere. This is what the
+-- Handle scribe does.
+--
+-- 2. Return a finalizing function that tells the scribe to shut
+-- down. @katip-elasticsearch@'s @mkEsScribe@ returns a @IO (Scribe,
+-- IO ())@. The finalizer will flush any queued log messages and shut
+-- down gracefully before returning. This can be hooked into your
+-- application's shutdown routine to ensure you never miss any log
+-- messages on shutdown.
 data Scribe = Scribe {
-      lhPush :: forall a. LogItem a => Item a -> IO ()
+      liPush :: forall a. LogItem a => Item a -> IO ()
     }
 
 
@@ -435,6 +463,13 @@ instance Monoid Scribe where
     mappend (Scribe a) (Scribe b) = Scribe $ \ item -> do
       a item
       b item
+
+
+-------------------------------------------------------------------------------
+-- | Should this item be logged given the user's maximum severity?
+permitItem :: Severity -> Item a -> Bool
+permitItem sev i = _itemSeverity i >= sev
+
 
 -------------------------------------------------------------------------------
 data LogEnv = LogEnv {

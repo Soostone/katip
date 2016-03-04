@@ -18,6 +18,10 @@
 -- implement 'ToObject' and 'LogItem' for them.
 --
 -- * Begin logging with 'logT', 'logTM', etc.
+--
+-- * Define your own 'Scribe' if you need to output to some as-yet
+-- unsupported format or service. If you think it would be useful to
+-- others, consider releasing your own package.
 module Katip
     (
 
@@ -86,6 +90,11 @@ module Katip
     -- * Included Scribes
     , mkHandleScribe
     , ColorStrategy (..)
+
+    -- * Tools for implementing Scribes
+    , permitItem
+    , payloadObject
+    , itemJson
 
     -- * KatipContextT - Utility transformer that provides Katip and KatipContext instances
     , KatipContextT
