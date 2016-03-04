@@ -2,7 +2,7 @@
 
 Katip is a structured logging framework for Haskell.
 
-![Katip](./katip.jpg)
+![Katip](./katip/katip.jpg)
 
 Kâtip (pronounced kah-tip) is the Turkish word for scribe.
 
@@ -11,11 +11,11 @@ Kâtip (pronounced kah-tip) is the Turkish word for scribe.
 This is the core katip logging library. It includes a file handle
 logger.
 
-See [katip's readme](./katip/README.md) for more details.
+See [katip's README](./katip/README.md) for more details.
 
 
 ## katip-elasticsearch
 
 ElasticSearch backend for katip using the `bloodhound` package.
 
-See [katip-elasticsearch's readme](./katip-elasticsearch/README.md) for more details.
+See [katip-elasticsearch's README](./katip-elasticsearch/README.md) for more details.
