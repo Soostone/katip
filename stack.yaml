@@ -12,6 +12,7 @@ extra-deps:
   - retry-0.7.1
   - tasty-0.11.0.2
   - tagged-0.8.3
+  - fail-4.9.0.0
 flags:
   katip:
     lib-Werror: true
