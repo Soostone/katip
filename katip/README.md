@@ -28,7 +28,7 @@ Kâtip (pronounced kah-tip) is the Turkish word for scribe.
 
 * *Debug-Friendly:* Critical details for monitoring production systems
   such as host, PID, thread id, module and line location are
-  automatically captured. User-specified attributes such ass
+  automatically captured. User-specified attributes such as
   environment (e.g. Production, Test, Dev) and system name are also
   captured.
 
