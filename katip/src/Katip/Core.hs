@@ -25,6 +25,7 @@ import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Control
 import           Control.Monad.Trans.Either
+import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.Resource
@@ -551,6 +552,8 @@ instance Katip m => Katip (ReaderT s m) where
 instance Katip m => Katip (EitherT s m) where
     getLogEnv = lift getLogEnv
 
+instance Katip m => Katip (ExceptT s m) where
+    getLogEnv = lift getLogEnv
 
 instance Katip m => Katip (MaybeT m) where
     getLogEnv = lift getLogEnv
