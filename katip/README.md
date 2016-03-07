@@ -16,15 +16,33 @@ Kâtip (pronounced kah-tip) is the Turkish word for scribe.
   add context that will be automatically merged in with existing log
   context.
 
-* *Easy to Use:* Katip was designed to be easily integrated into
-  existing systems. By using a typeclass for logging facilities,
+* *Easy to Integration:* Katip was designed to be easily integrated
+  into existing monads. By using typeclasses for logging facilities,
   individual subsystems and even libraries can easily add their own
   namespacing and context without having any knowledge of their
   logging environment.
 
+* *Practical Use:* Katip comes with a set of convenience facilities
+  built-in, so it can be used without much headache even in small
+  projects.
+
+    * A `Handle` backend for logging to files in simple settings.
+
+    * A `AnyLogPayload` key-value type that makes it easy to log
+      structured columns on the fly without having to define new data
+      types.
+
+    * A `Monadic` interface where logging namespace can be obtained
+      from the monad context.
+
+    * Multiple variants of the fundamental logging functions for
+      optionally including fields and line-number information.
+
 * *Extensible:* Can be easily extended (even at runtime) to output to
   multiple backends at once (known as scribes). See
-  `katip-elasticsearch` as an example.
+  `katip-elasticsearch` as an example. Backends for other forms of
+  storage are trivial to write, including both hosted database systems
+  and SaaS logging providers.
 
 * *Debug-Friendly:* Critical details for monitoring production systems
   such as host, PID, thread id, module and line location are
