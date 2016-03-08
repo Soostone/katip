@@ -412,7 +412,7 @@ sl a b = SimpleLogPayload [(a, AnyLogPayload b)]
 payloadObject :: LogItem a => Verbosity -> a -> A.Object
 payloadObject verb a = case FT.foldMap (flip payloadKeys a) [(V0)..verb] of
     AllKeys -> toObject a
-    SomeKeys ks -> HM.filterWithKey (\ k _ -> k `elem` ks) $ toObject a
+    SomeKeys ks -> HM.filterWithKey (\ k _ -> k `FT.elem` ks) $ toObject a
 
 
 -------------------------------------------------------------------------------
@@ -627,7 +627,7 @@ logItem a ns loc sev msg = do
         <*> _logEnvTimer
         <*> pure (_logEnvNs <> ns)
         <*> pure loc
-      forM_ (M.elems _logEnvScribes) $ \ (Scribe h) -> h item
+      FT.forM_ (M.elems _logEnvScribes) $ \ (Scribe h) -> h item
 
 
 -------------------------------------------------------------------------------
