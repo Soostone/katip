@@ -168,13 +168,13 @@ logStr t = LogStr (B.fromText $ toS t)
 
 
 -------------------------------------------------------------------------------
--- | Shorthand for 'logMsg'
+-- | Shorthand for 'logStr'
 ls :: StringConv a Text => a -> LogStr
 ls = logStr
 
 
 -------------------------------------------------------------------------------
--- | Convert any showable type into a LogStr.
+-- | Convert any showable type into a 'LogStr'.
 showLS :: Show a => a -> LogStr
 showLS = ls . show
 
