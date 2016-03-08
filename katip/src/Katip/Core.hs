@@ -18,7 +18,6 @@ import           Control.Applicative          as A
 import           Control.AutoUpdate
 import           Control.Concurrent
 import           Control.Lens
-import           Control.Monad
 import           Control.Monad.Base
 import           Control.Monad.Catch
 import           Control.Monad.IO.Class
