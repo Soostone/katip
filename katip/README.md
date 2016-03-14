@@ -107,6 +107,7 @@ stack.
   mechanisms (`System.Log.Filter`), whereas Katip focuses more on
   convention (`Verbosity` specifies how much key/value data gets
   through, `Severity` specifies if the log gets through at all).
+* Katip has a bit of a smaller API footprint than logger.
 
 
 ## Contributors
