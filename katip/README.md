@@ -76,6 +76,39 @@ directory for some examples of how to integrate Katip into your own
 stack.
 
 
+## Comparison With Other Loggers
+
+### [logger](http://hackage.haskell.org/package/logger)
+
+* Logger's logging facilities are focused around text-like messages
+  being the payload of each log. Katip makes messages and key/value
+  data equal, first class aspects of each log message (so-called
+  "structured logging").
+* Logger can be run from pure code and can export a list of log
+  messages generated. Katip must be run in monads capable of
+  performing IO.
+* Both have TH helpers for attaching code location information to log
+  messages.
+* Logger builds several of its features out by adding layers to the
+  monad transformer stack (`DropLoggerT`, `PriorityLoggerT`,
+  etc). This is highly flexible but can be confusing when constructing
+  the final monad transformer stack. Katip operates off of one or two
+  typeclasses, `Katip` and `KatipContext`, depending on your
+  needs. Corresponding transformers are provided but you don't need to
+  use them.
+* Both have the ability to add log handlers on the fly.
+* Logger does not seem to support removing log handlers on the fly.
+* Logger does not seem to handle per-handler log level/severity
+  filtering.
+* Logger seems to emphasize flexible, user-defined log filtering
+  mechanisms (`System.Log.Filter`), whereas Katip focuses more on
+  convention (`Verbosity` specifies how much key/value data gets
+  through, `Severity` specifies if the log gets through at all).
+* Both support file-handle based log output out of the box.
+* Katip is released alongside a ready-to-use log handler for
+  ElasticSearch.
+
+
 ## Contributors
 
 * [Ozgun Ataman](https://github.com/ozataman)
