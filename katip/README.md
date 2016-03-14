@@ -2,7 +2,7 @@
 
 Katip is a structured logging framework for Haskell.
 
-![Katip](./katip.jpg)
+![Katip](https://github.com/Soostone/katip/blob/master/katip/katip.jpg)
 
 Kâtip (pronounced kah-tip) is the Turkish word for scribe.
 
@@ -69,8 +69,11 @@ Kâtip (pronounced kah-tip) is the Turkish word for scribe.
 
 
 ## Examples
-Be sure to look in the [examples](./examples) directory for some examples of how
-to integrate Katip into your own stack.
+
+Be sure to look in the
+[examples](https://github.com/Soostone/katip/blob/master/katip/examples)
+directory for some examples of how to integrate Katip into your own
+stack.
 
 
 ## Contributors
