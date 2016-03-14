@@ -84,6 +84,9 @@ stack.
   being the payload of each log. Katip makes messages and key/value
   data equal, first class aspects of each log message (so-called
   "structured logging").
+* Both support file-handle based log output out of the box.
+* Katip is released alongside a ready-to-use log handler for
+  ElasticSearch.
 * Logger can be run from pure code and can export a list of log
   messages generated. Katip must be run in monads capable of
   performing IO.
@@ -104,9 +107,6 @@ stack.
   mechanisms (`System.Log.Filter`), whereas Katip focuses more on
   convention (`Verbosity` specifies how much key/value data gets
   through, `Severity` specifies if the log gets through at all).
-* Both support file-handle based log output out of the box.
-* Katip is released alongside a ready-to-use log handler for
-  ElasticSearch.
 
 
 ## Contributors
