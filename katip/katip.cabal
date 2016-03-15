@@ -10,6 +10,8 @@ author:              Ozgun Ataman
 maintainer:          ozgun.ataman@soostone.com
 copyright:           Soostone Inc, 2015-2016
 category:            Data, Text, Logging
+homepage:            https://github.com/Soostone/katip
+bug-reports:         https://github.com/Soostone/katip/issues
 build-type:          Simple
 cabal-version:       >=1.10
 extra-source-files:
@@ -21,6 +23,10 @@ extra-source-files:
   test/Main.hs
   test/Katip/Tests.hs
   test/Katip/Tests/Scribes/Handle.hs
+
+source-repository head
+  type:     git
+  location: https://github.com/Soostone/katip.git
 
 flag lib-Werror
   default: False
