@@ -3,15 +3,15 @@
 module Katip.Scribes.Handle where
 
 -------------------------------------------------------------------------------
-import           Control.Lens
 import           Control.Monad
-import           Data.Aeson.Lens
+import           Data.Aeson
 import qualified Data.HashMap.Strict     as HM
 import           Data.Monoid
 import           Data.Text.Lazy.Builder
 import           Data.Text.Lazy.IO       as T
 import           Data.Time
 import qualified Data.Time.Locale.Compat as LC
+import           Lens.Micro
 import           System.IO
 import           System.IO.Unsafe        (unsafePerformIO)
 -------------------------------------------------------------------------------
@@ -29,15 +29,16 @@ getKeys :: LogItem s => Verbosity -> s -> [Builder]
 getKeys verb a = payloadObject verb a ^..
               to HM.toList . traverse . to rendPair
   where
-    rendPair (k,v) = fromText k <> fromText ":" <> (v ^. _Primitive . to renderPrim)
+    rendPair (k,v) = fromText k <> fromText ":" <> (renderPrim v)
 
 
 -------------------------------------------------------------------------------
-renderPrim :: Primitive -> Builder
-renderPrim (StringPrim t) = fromText t
-renderPrim (NumberPrim s) = fromString (show s)
-renderPrim (BoolPrim b) = fromString (show b)
-renderPrim NullPrim = fromText "null"
+renderPrim :: Value -> Builder
+renderPrim (String t) = fromText t
+renderPrim (Number s) = fromString (show s)
+renderPrim (Bool b) = fromString (show b)
+renderPrim Null = fromText "null"
+renderPrim _ = mempty
 
 
 -------------------------------------------------------------------------------

@@ -11,13 +11,14 @@
 {-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE UndecidableInstances       #-}
+-- | This module is not meant to be imported directly and may contain
+-- internal mechanisms that will change without notice.
 module Katip.Core where
 
 -------------------------------------------------------------------------------
 import           Control.Applicative          as A
 import           Control.AutoUpdate
 import           Control.Concurrent
-import           Control.Lens
 import           Control.Monad.Base
 import           Control.Monad.Catch
 import           Control.Monad.IO.Class
@@ -47,9 +48,18 @@ import           Data.Time
 import           GHC.Generics                 hiding (to)
 import           Language.Haskell.TH
 import qualified Language.Haskell.TH.Syntax   as TH
+import           Lens.Micro
+import           Lens.Micro.TH
 import           Network.HostName
 import           System.Posix
 -------------------------------------------------------------------------------
+
+
+readMay :: Read a => String -> Maybe a
+readMay s = case [x | (x,t) <- reads s, ("","") <- lex t] of
+              [x] -> Just x
+              [] -> Nothing -- no parse
+              _ -> Nothing -- Ambiguous parse
 
 
 -------------------------------------------------------------------------------
@@ -116,27 +126,25 @@ renderSeverity s = case s of
 
 
 -------------------------------------------------------------------------------
-severityText :: Prism' Text Severity
-severityText = prism renderSeverity toSev
-  where
-    toSev "Debug"     = Right DebugS
-    toSev "Info"      = Right InfoS
-    toSev "Notice"    = Right NoticeS
-    toSev "Warning"   = Right WarningS
-    toSev "Error"     = Right ErrorS
-    toSev "Critical"  = Right CriticalS
-    toSev "Alert"     = Right AlertS
-    toSev "Emergency" = Right EmergencyS
-    toSev x           = Left x
+textToSeverity :: Text -> Maybe Severity
+textToSeverity "Debug"     = Just DebugS
+textToSeverity "Info"      = Just InfoS
+textToSeverity "Notice"    = Just NoticeS
+textToSeverity "Warning"   = Just WarningS
+textToSeverity "Error"     = Just ErrorS
+textToSeverity "Critical"  = Just CriticalS
+textToSeverity "Alert"     = Just AlertS
+textToSeverity "Emergency" = Just EmergencyS
+textToSeverity _           = Nothing
+
 
 instance ToJSON Severity where
-    toJSON s = A.String (s ^. re severityText)
-
+    toJSON s = A.String (renderSeverity s)
 
 instance FromJSON Severity where
     parseJSON = A.withText "Severity" parseSeverity
       where
-        parseSeverity t = case t ^? severityText of
+        parseSeverity t = case textToSeverity t of
           Just x -> return x
           Nothing -> fail $ "Invalid Severity " ++ toS t
 
@@ -289,13 +297,12 @@ instance FromJSON a => FromJSON (Item a) where
           <*> (fmap getLocJs <$> o A..: "loc")
 
 
-processIDText :: Prism' Text ProcessID
-processIDText = prism fromProcessID toProcessID
-  where
-    fromProcessID = toS . show
-    toProcessID t = case toS t ^? _Show of
-      Just i -> Right i
-      Nothing -> Left t
+processIDToText :: ProcessID -> Text
+processIDToText = toS . show
+
+
+textToProcessID :: Text -> Maybe ProcessID
+textToProcessID = readMay . toS
 
 
 newtype ProcessIDJs = ProcessIDJs {
@@ -304,13 +311,13 @@ newtype ProcessIDJs = ProcessIDJs {
 
 
 instance ToJSON ProcessIDJs where
-    toJSON (ProcessIDJs p) = A.String (p ^. re processIDText)
+    toJSON (ProcessIDJs p) = A.String (processIDToText p)
 
 
 instance FromJSON ProcessIDJs where
     parseJSON = A.withText "ProcessID" parseProcessID
       where
-        parseProcessID t = case t ^? processIDText of
+        parseProcessID t = case textToProcessID t of
           Just p -> return $ ProcessIDJs p
           Nothing -> fail $ "Invalid ProcessIDJs " ++ toS t
 
@@ -515,7 +522,7 @@ registerScribe
     -> Scribe
     -> LogEnv
     -> LogEnv
-registerScribe nm h = logEnvScribes . at nm .~ Just h
+registerScribe nm h = logEnvScribes %~ M.insert nm h
 
 
 -------------------------------------------------------------------------------
@@ -526,7 +533,7 @@ unregisterScribe
     -- ^ Name of the scribe
     -> LogEnv
     -> LogEnv
-unregisterScribe nm = logEnvScribes . at nm .~ Nothing
+unregisterScribe nm = logEnvScribes %~ M.delete nm
 
 
 -------------------------------------------------------------------------------

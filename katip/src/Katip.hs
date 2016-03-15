@@ -32,11 +32,21 @@ module Katip
     , Environment (..)
     , Severity (..)
     , renderSeverity
-    , severityText
+    , textToSeverity
     , Verbosity (..)
     , ToObject (..)
     , LogItem (..)
     , Item(..)
+    , ThreadIdText(..)
+    , PayloadSelection (..)
+    , Scribe (..)
+    , LogEnv (..)
+    , KatipContext(..)
+    , AnyLogContext
+    , LogContexts, liftPayload
+    , SimpleLogPayload, sl
+
+    -- ** @lens@-compatible Lenses
     , itemApp
     , itemEnv
     , itemSeverity
@@ -48,20 +58,12 @@ module Katip
     , itemTime
     , itemNamespace
     , itemLoc
-    , ThreadIdText(..)
-    , PayloadSelection (..)
-    , Scribe (..)
-    , LogEnv (..)
     , logEnvHost
     , logEnvPid
     , logEnvNs
     , logEnvEnv
     , logEnvTimer
     , logEnvScribes
-    , KatipContext(..)
-    , AnyLogContext
-    , LogContexts, liftPayload
-    , SimpleLogPayload, sl
 
     -- * A Built-in Monad For Logging
     , KatipT (..)
