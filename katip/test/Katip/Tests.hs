@@ -1,4 +1,5 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE StandaloneDeriving         #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
@@ -17,9 +18,11 @@ import           Language.Haskell.TH
 import           System.Posix.Types
 import           Test.QuickCheck.Instances ()
 import           Test.Tasty
+import           Test.Tasty.HUnit
 import           Test.Tasty.QuickCheck
 -------------------------------------------------------------------------------
 import           Katip
+import           Katip.Core
 -------------------------------------------------------------------------------
 
 
@@ -27,7 +30,13 @@ tests :: TestTree
 tests = testGroup "Katip"
   [
     testProperty "JSON cycle Item" $ \(i :: Item ()) ->
-       prop_json_cycle i
+      prop_json_cycle i
+  , testProperty "renderSeverity/textToSeverity cycle" $ \sev ->
+      textToSeverity(renderSeverity sev) === Just sev
+  , testProperty "processIDToText/textToProcessID cycle" $ \pid ->
+      textToProcessID (processIDToText pid) === Just pid
+  , testCase "processIDToText is just the number" $ do
+      processIDToText 123 @?= "123"
   ]
 
 
