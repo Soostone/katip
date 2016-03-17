@@ -53,8 +53,10 @@ import qualified Control.Monad.Trans.State.Strict  as Strict (StateT)
 import qualified Control.Monad.Trans.Writer.Strict as Strict (WriterT)
 import           Control.Monad.Writer
 import           Data.Aeson
+import qualified Data.Foldable                     as FT
 import qualified Data.HashMap.Strict               as HM
 import           Data.Monoid                       as M
+import           Data.Sequence                     as Seq
 import           Data.Text                         (Text)
 import           Language.Haskell.TH
 -------------------------------------------------------------------------------
@@ -72,17 +74,29 @@ data AnyLogContext where
 -- 'LogContext' instance for combining multiple payload policies. This
 -- is critical for log contexts deep down in a stack to be able to
 -- inject their own context without worrying about other context that
--- has already been set.
-newtype LogContexts = LogContexts [AnyLogContext] deriving (Monoid)
+-- has already been set. Also note that contexts are treated as a
+-- sequence and '<>' will be appended to the right hand side of the
+-- sequence. If there are conflicting keys in the contexts, the /right
+-- side will take precedence/, which is counter to how monoid works
+-- for 'Map' and 'HashMap', so bear that in mind. The reasoning is
+-- that if the user is /sequentially/ adding contexts to the right
+-- side of the sequence, on conflict the intent is to overwrite with
+-- the newer value (i.e. the rightmost value).
+--
+-- Additional note: you should not mappend LogContexts in any sort of
+-- infinite loop, as it retains all data, so that would be a memory
+-- leak.
+newtype LogContexts = LogContexts (Seq AnyLogContext) deriving (Monoid) --TODO: could we pre-encode this and also capture payloadKeys
 
 instance ToJSON LogContexts where
     toJSON (LogContexts cs) =
-      Object $ mconcat $ map (\(AnyLogContext v) -> toObject v) cs
+      -- flip mappend to get right-biased merge
+      Object $ FT.foldr (flip mappend) mempty $ fmap (\(AnyLogContext v) -> toObject v) cs
 
 instance ToObject LogContexts
 
 instance LogItem LogContexts where
-    payloadKeys verb (LogContexts vs) = mconcat $ map payloadKeys' vs
+    payloadKeys verb (LogContexts vs) = FT.foldr (flip mappend) mempty $ fmap payloadKeys' vs
       where
         -- To ensure AllKeys doesn't leak keys from other values when
         -- combined, we resolve AllKeys to its equivalent SomeKeys
@@ -96,7 +110,7 @@ instance LogItem LogContexts where
 -- | Lift a log context into the generic wrapper so that it can
 -- combine with the existing log context.
 liftPayload :: (LogItem a) => a -> LogContexts
-liftPayload = LogContexts . (:[]) . AnyLogContext
+liftPayload = LogContexts . Seq.singleton . AnyLogContext
 
 
 -------------------------------------------------------------------------------
