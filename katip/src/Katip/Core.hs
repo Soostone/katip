@@ -327,6 +327,7 @@ instance FromJSON ProcessIDJs where
 data PayloadSelection
     = AllKeys
     | SomeKeys [Text]
+    deriving (Show, Eq)
 
 instance Monoid PayloadSelection where
     mempty = SomeKeys []

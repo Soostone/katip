@@ -11,7 +11,6 @@ import           Data.Text.Lazy.Builder
 import           Data.Text.Lazy.IO       as T
 import           Data.Time
 import qualified Data.Time.Locale.Compat as LC
-import           Lens.Micro
 import           System.IO
 import           System.IO.Unsafe        (unsafePerformIO)
 -------------------------------------------------------------------------------
@@ -26,8 +25,7 @@ brackets m = fromText "[" <> m <> fromText "]"
 
 -------------------------------------------------------------------------------
 getKeys :: LogItem s => Verbosity -> s -> [Builder]
-getKeys verb a = payloadObject verb a ^..
-              to HM.toList . traverse . to rendPair
+getKeys verb a = rendPair <$> HM.toList (payloadObject verb a)
   where
     rendPair (k,v) = fromText k <> fromText ":" <> (renderPrim v)
 
