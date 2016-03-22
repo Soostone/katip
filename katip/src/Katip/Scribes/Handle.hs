@@ -3,6 +3,7 @@
 module Katip.Scribes.Handle where
 
 -------------------------------------------------------------------------------
+import           Control.Applicative     as A
 import           Control.Monad
 import           Data.Aeson
 import qualified Data.HashMap.Strict     as HM
@@ -25,7 +26,7 @@ brackets m = fromText "[" <> m <> fromText "]"
 
 -------------------------------------------------------------------------------
 getKeys :: LogItem s => Verbosity -> s -> [Builder]
-getKeys verb a = rendPair <$> HM.toList (payloadObject verb a)
+getKeys verb a = rendPair A.<$> HM.toList (payloadObject verb a)
   where
     rendPair (k,v) = fromText k <> fromText ":" <> (renderPrim v)
 
