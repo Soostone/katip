@@ -185,7 +185,7 @@ logFM sev msg = do
 -- | 'Loc'-tagged logging when using template-haskell. Automatically
 -- supplies payload and namespace.
 --
--- @$(logt) InfoS "Hello world"@
+-- @$(logTM) InfoS "Hello world"@
 logTM :: ExpQ
 logTM = [| logItemM (Just $(getLoc)) |]
 
