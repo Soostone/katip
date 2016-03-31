@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Katip.Tests.Scribes.Handle
     ( tests
     ) where
@@ -6,6 +6,7 @@ module Katip.Tests.Scribes.Handle
 -------------------------------------------------------------------------------
 import           Control.Monad
 import           Data.Aeson
+import           Data.Monoid
 import           Data.Text        (Text)
 import qualified Data.Text.IO     as T
 import           System.Directory
@@ -27,9 +28,9 @@ tests = testGroup "Katip.Scribes.Handle"
        runKatipT le $ logItem dummyLogItem "test" Nothing InfoS "test message"
        hClose h
        res <- readFile path
-       let pat = "\\[[[:digit:]]{4}-[[:digit:]]{2}-[[:digit:]]{2} [[:digit:]]{2}:[[:digit:]]{2}:[[:digit:]]{2}\\]\\[katip-test.test\\]\\[Info\\]\\[.+\\]\\[[[:digit:]]+\\]\\[ThreadId [[:digit:]]+\\]\\[note:some note\\] test message" :: String
+       let pat = "\\[[[:digit:]]{4}-[[:digit:]]{2}-[[:digit:]]{2} [[:digit:]]{2}:[[:digit:]]{2}:[[:digit:]]{2}\\]\\[katip-test.test\\]\\[Info\\]\\[.+\\]\\[[[:digit:]]+\\]\\[ThreadId [[:digit:]]+\\]\\[note.deep:some note\\] test message" :: String
        let matches = res =~ pat
-       matches @?= True
+       assertBool (res <> " did not match") matches
   ]
 
 
@@ -40,7 +41,10 @@ data DummyLogItem = DummyLogItem {
 
 
 instance ToJSON DummyLogItem where
-  toJSON (DummyLogItem n) = object ["note" .= n]
+  toJSON (DummyLogItem n) = object
+    [ "note" .= object [ "deep" .= n
+                       ]
+    ]
 
 
 instance ToObject DummyLogItem

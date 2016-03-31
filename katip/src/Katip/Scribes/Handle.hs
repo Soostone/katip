@@ -8,6 +8,7 @@ import           Control.Monad
 import           Data.Aeson
 import qualified Data.HashMap.Strict     as HM
 import           Data.Monoid
+import Data.Text (Text)
 import           Data.Text.Lazy.Builder
 import           Data.Text.Lazy.IO       as T
 import           Data.Time
@@ -26,18 +27,17 @@ brackets m = fromText "[" <> m <> fromText "]"
 
 -------------------------------------------------------------------------------
 getKeys :: LogItem s => Verbosity -> s -> [Builder]
-getKeys verb a = rendPair A.<$> HM.toList (payloadObject verb a)
+getKeys verb a = concat (renderPair A.<$> HM.toList (payloadObject verb a))
   where
-    rendPair (k,v) = fromText k <> fromText ":" <> (renderPrim v)
-
-
--------------------------------------------------------------------------------
-renderPrim :: Value -> Builder
-renderPrim (String t) = fromText t
-renderPrim (Number s) = fromString (show s)
-renderPrim (Bool b) = fromString (show b)
-renderPrim Null = fromText "null"
-renderPrim _ = mempty
+    renderPair :: (Text, Value) -> [Builder]
+    renderPair (k,v) =
+      case v of
+        Object o -> concat [renderPair (k <> "." <> k', v')  | (k', v') <- HM.toList o]
+        String t -> [fromText (k <> ":" <> t)]
+        Number n -> [fromText (k <> ":") <> fromString (show n)]
+        Bool b -> [fromText (k <> ":") <> fromString (show b)]
+        Null -> [fromText (k <> ":null")]
+        _ -> mempty -- Can't think of a sensible way to handle arrays
 
 
 -------------------------------------------------------------------------------
