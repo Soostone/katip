@@ -483,12 +483,18 @@ permitItem sev i = _itemSeverity i >= sev
 data LogEnv = LogEnv {
       _logEnvHost    :: HostName
     , _logEnvPid     :: ProcessID
-    , _logEnvNs      :: Namespace
+    , _logEnvApp     :: Namespace
+    -- ^ Name of application. This will typically never change. This
+    -- field gets prepended to the namespace of your individual log
+    -- messages. For example, if your app is MyApp and you write a log
+    -- using "logItem" and the namespace "WebServer", the final
+    -- namespace will be "MyApp.WebServer"
     , _logEnvEnv     :: Environment
     , _logEnvTimer   :: IO UTCTime
     -- ^ Action to fetch the timestamp. You can use something like
     -- 'AutoUpdate' for high volume logs but note that this may cause
-    -- some output forms to display logs out of order.
+    -- some output forms to display logs out of order. Alternatively,
+    -- you could just use 'getCurrentTime'.
     , _logEnvScribes :: M.Map Text Scribe
     }
 makeLenses ''LogEnv
@@ -547,8 +553,16 @@ clearScribes = logEnvScribes .~ mempty
 
 
 -------------------------------------------------------------------------------
--- | Monads where katip logging actions can be performed
-class MonadIO m =>  Katip m where
+-- | Monads where katip logging actions can be performed. Katip is the
+-- most basic logging monad. You will typically use this directly if
+-- you either don't want to use namespaces/contexts heavily or if you
+-- want to pass in specific contexts and/or namespaces at each log site.
+--
+-- For something more powerful, look at the docs for 'KatipContext',
+-- which keeps a namespace and merged context. You can write simple
+-- functions that add additional namespacing and merges additional
+-- context on the fly.
+class MonadIO m => Katip m where
     getLogEnv :: m LogEnv
 
 
@@ -623,7 +637,7 @@ logItem a ns loc sev msg = do
     LogEnv{..} <- getLogEnv
     liftIO $ do
       item <- Item
-        <$> pure _logEnvNs
+        <$> pure _logEnvApp
         <*> pure _logEnvEnv
         <*> pure sev
         <*> (mkThreadIdText <$> myThreadId)
@@ -632,7 +646,7 @@ logItem a ns loc sev msg = do
         <*> pure a
         <*> pure msg
         <*> _logEnvTimer
-        <*> pure (_logEnvNs <> ns)
+        <*> pure (_logEnvApp <> ns)
         <*> pure loc
       FT.forM_ (M.elems _logEnvScribes) $ \ (Scribe h) -> h item
 
