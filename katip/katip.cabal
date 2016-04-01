@@ -69,7 +69,7 @@ library
                , unordered-containers >= 0.2 && < 0.3
                , monad-control >= 1.0 && < 1.1
                , mtl >= 2.0 && < 2.3
-               , transformers-base >= 0.4.1 && < 0.5
+               , transformers-base >= 0.3 && < 0.5
                , resourcet >= 1.1 && < 1.2
                , microlens >= 0.2.0.0 && < 0.5
                , microlens-th >= 0.1.0.0 && < 0.4
