@@ -22,7 +22,7 @@ import           Katip
 -- lens_example for a slightly cleaner and more general pattern.
 main :: IO ()
 main = do
-  le <- initLogEnv "main" "production"
+  le <- initLogEnv "MyApp" "production"
   -- We'll set up a scribe that logs to stdout and will only log item
   -- fields permitted for Verbosity 2 and will throw out Debug
   -- messages entirely. Note that katip provides facilities like
