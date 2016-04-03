@@ -741,9 +741,14 @@ getLoc = case getCallStack ?loc of
 -------------------------------------------------------------------------------
 -- | 'Loc'-tagged logging when using template-haskell.
 --
--- @$(logT) obj mempty InfoS "Hello world"@
-logT :: ExpQ
-logT = [| \ a ns sev msg -> logItem a ns getLoc sev msg |]
+-- @logT obj mempty InfoS "Hello world"@
+logT :: (A.Applicative m, LogItem a, Katip m)
+     => a
+     -> Namespace
+     -> Severity
+     -> LogStr
+     -> m ()
+logT a ns = logItem a ns getLoc
 
 
 -- taken from the file-location package

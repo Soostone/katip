@@ -185,9 +185,12 @@ logFM sev msg = do
 -- | 'Loc'-tagged logging when using template-haskell. Automatically
 -- supplies payload and namespace.
 --
--- @$(logTM) InfoS "Hello world"@
-logTM :: ExpQ
-logTM = [| logItemM getLoc |]
+-- @logTM InfoS "Hello world"@
+logTM :: (Applicative m, KatipContext m, Katip m)
+      => Severity
+      -> LogStr
+      -> m ()
+logTM = logItemM getLoc
 
 
 -------------------------------------------------------------------------------
@@ -219,7 +222,7 @@ logExceptionM action sev = action `catchAll` \e -> f e >> throwM e
 --     ctx <- getKatipContext
 --     ns <- getKatipNamespace
 --     forkIO $ runKatipContextT le ctx ns $ do
---       $(logTM) InfoS "Look, I can log in IO and retain context!"
+--       logTM InfoS "Look, I can log in IO and retain context!"
 --       doOtherStuff
 -- @
 newtype KatipContextT m a = KatipContextT {

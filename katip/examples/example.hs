@@ -32,7 +32,7 @@ main = do
   let le' = registerScribe "stdout" handleScribe le
   let s = MyState M.mempty mempty le'
   runStack s $ do
-    $(logTM) InfoS "Started"
+    logTM InfoS "Started"
     -- this will add "confrabulation" to the current namespace, making
     -- logs made under this block have the namespace of
     -- "main.confrabulation". Further, ConfrabLogCTX's key/value
@@ -41,9 +41,9 @@ main = do
     -- code and they will be flattened out and combined in the log
     -- output.
     addNamespace "confrabulation" $ addContext (ConfrabLogCTX 42) $ do
-      $(logTM) DebugS "Confrabulating widgets, with extra namespace and context"
+      logTM DebugS "Confrabulating widgets, with extra namespace and context"
       confrabulateWidgets
-    $(logTM) InfoS "Namespace and context are back to normal"
+    logTM InfoS "Namespace and context are back to normal"
 
 
 -------------------------------------------------------------------------------

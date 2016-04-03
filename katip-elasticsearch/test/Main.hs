@@ -82,7 +82,7 @@ esTests :: TestTree
 esTests = testGroup "elasticsearch scribe"
   [
     withSearch' (\c -> c { essIndexSharding = NoIndexSharding}) $ \setup -> testCase "it flushes to elasticsearch" $ withTestLogging setup $ \done -> do
-       $(logT) (ExampleCtx True) mempty InfoS "A test message"
+       logT (ExampleCtx True) mempty InfoS "A test message"
        liftIO $ do
          void done
          logs <- getLogs
@@ -94,10 +94,10 @@ esTests = testGroup "elasticsearch scribe"
       let t1 = mkTime 2016 1 2 3 4 5
       fakeClock <- newTVarIO t1
       withTestLogging' (set logEnvTimer (readTVarIO fakeClock)) setup $ \done -> do
-        $(logT) (ExampleCtx True) mempty InfoS "today"
+        logT (ExampleCtx True) mempty InfoS "today"
         let t2 = mkTime 2016 1 3 3 4 5
         liftIO (atomically (writeTVar fakeClock t2))
-        $(logT) (ExampleCtx True) mempty InfoS "tomorrow"
+        logT (ExampleCtx True) mempty InfoS "tomorrow"
         liftIO $ do
           void done
           todayLogs <- getLogsByIndex (IndexName "katip-elasticsearch-tests-2016-1-2")
@@ -112,10 +112,10 @@ esTests = testGroup "elasticsearch scribe"
       let t1 = mkTime 2016 3 5 0 0 0 -- saturday, march 5th
       fakeClock <- newTVarIO t1
       withTestLogging' (set logEnvTimer (readTVarIO fakeClock)) setup $ \done -> do
-        $(logT) (ExampleCtx True) mempty InfoS "today"
+        logT (ExampleCtx True) mempty InfoS "today"
         let t2 = mkTime 2016 3 6 0 0 0 -- sunday march 6th
         liftIO (atomically (writeTVar fakeClock t2))
-        $(logT) (ExampleCtx True) mempty InfoS "tomorrow"
+        logT (ExampleCtx True) mempty InfoS "tomorrow"
         liftIO $ do
           void done
           todayLogs <- getLogsByIndex (IndexName "katip-elasticsearch-tests-2016-2-28") -- rounds back to previous sunday
