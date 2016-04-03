@@ -4,6 +4,7 @@
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE ImplicitParams             #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE RankNTypes                 #-}
@@ -46,6 +47,8 @@ import qualified Data.Text                    as T
 import qualified Data.Text.Lazy.Builder       as B
 import           Data.Time
 import           GHC.Generics                 hiding (to)
+import           GHC.SrcLoc
+import           GHC.Stack
 import           Language.Haskell.TH
 import qualified Language.Haskell.TH.Syntax   as TH
 import           Lens.Micro
@@ -721,16 +724,26 @@ liftLoc (Loc a b c (d1, d2) (e1, e2)) = [|Loc
 -------------------------------------------------------------------------------
 -- | For use when you want to include location in your logs. This will
 -- fill the 'Maybe Loc' gap in 'logF' of this module.
-getLoc :: Q Exp
-getLoc = [| $(location >>= liftLoc) |]
-
+getLoc :: (?loc :: CallStack) => Maybe Loc
+getLoc = case getCallStack ?loc of
+  [] -> Nothing
+  xs -> Just . toLoc . last $ xs
+  where
+    toLoc :: (String, SrcLoc) -> Loc
+    toLoc (_, l) = Loc {
+        loc_filename = srcLocFile l
+      , loc_package  = srcLocPackage l
+      , loc_module   = srcLocModule l
+      , loc_start    = (srcLocStartLine l, srcLocStartCol l)
+      , loc_end      = (srcLocEndLine   l, srcLocEndCol   l)
+      }
 
 -------------------------------------------------------------------------------
 -- | 'Loc'-tagged logging when using template-haskell.
 --
 -- @$(logT) obj mempty InfoS "Hello world"@
 logT :: ExpQ
-logT = [| \ a ns sev msg -> logItem a ns (Just $(getLoc)) sev msg |]
+logT = [| \ a ns sev msg -> logItem a ns getLoc sev msg |]
 
 
 -- taken from the file-location package

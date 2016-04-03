@@ -187,7 +187,7 @@ logFM sev msg = do
 --
 -- @$(logTM) InfoS "Hello world"@
 logTM :: ExpQ
-logTM = [| logItemM (Just $(getLoc)) |]
+logTM = [| logItemM getLoc |]
 
 
 -------------------------------------------------------------------------------
