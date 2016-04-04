@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                        #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE RecordWildCards            #-}
@@ -122,6 +123,9 @@ deriving instance Arbitrary Namespace
 deriving instance Arbitrary Environment
 deriving instance Arbitrary ThreadIdText
 deriving instance Arbitrary CPid
+#if !MIN_VERSION_base(4, 8, 0)
+deriving instance Eq Loc
+#endif
 deriving instance Eq LogStr
 deriving instance (Eq a) => Eq (Item a)
 

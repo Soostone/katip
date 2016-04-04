@@ -23,6 +23,7 @@ extra-source-files:
   test/Main.hs
   test/Katip/Tests.hs
   test/Katip/Tests/Scribes/Handle.hs
+tested-with: GHC == 7.8.4, GHC== 7.10.3
 
 source-repository head
   type:     git
