@@ -36,9 +36,9 @@ install:
 # around some quirks in Travis's terminal implementation.
 script:
   - stack $ARGS setup
-  - stack $ARGS $BUILDFLAGS --no-terminal test --haddock --no-haddock-deps
+  - stack $ARGS test $BUILDFLAGS --no-terminal --haddock --no-haddock-deps
   - stack $ARGS bench
-  - stack $ARGS $BUILDFLAGS build
+  - stack $ARGS build $BUILDFLAGS
   - for f in katip/examples/*.hs; do stack $ARGS ghc -- -Wall -Werror $f -o /dev/null; done
   - stack $ARGS sdist
 
