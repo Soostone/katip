@@ -14,10 +14,10 @@ addons:
 # change flags or use --stack-yaml to point to a different file.
 env:
 - ARGS="" BUILDFLAGS=""
-- ARGS="--resolver lts-2.22" BUILDFLAGS="--flag time-locale-compat:-old-locale"
-- ARGS="--resolver lts-3" BUILDFLAGS=""
-- ARGS="--resolver lts" BUILDFLAGS=""
-- ARGS="--resolver nightly" BUILDFLAGS=""
+- ARGS="--resolver=lts-2.22" BUILDFLAGS="--flag=time-locale-compat:-old-locale"
+- ARGS="--resolver=lts-3" BUILDFLAGS=""
+- ARGS="--resolver=lts" BUILDFLAGS=""
+- ARGS="--resolver=nightly" BUILDFLAGS=""
 
 before_install:
 # Download and unpack the stack executable

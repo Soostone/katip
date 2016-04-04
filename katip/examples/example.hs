@@ -9,6 +9,7 @@ module Main
 
 
 -------------------------------------------------------------------------------
+import qualified Control.Applicative  as A
 import           Control.Monad.Reader
 import           Data.Aeson
 import           Data.Monoid          as M
@@ -77,7 +78,7 @@ data MyState = MyState {
 -------------------------------------------------------------------------------
 newtype MyStack m a = MyStack {
       unStack :: ReaderT MyState m a
-    } deriving (MonadReader MyState, Functor, Applicative, Monad, MonadIO)
+    } deriving (MonadReader MyState, Functor, A.Applicative, Monad, MonadIO)
 
 
 instance (MonadIO m) => Katip (MyStack m) where

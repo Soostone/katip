@@ -9,6 +9,7 @@ module Main
 
 
 -------------------------------------------------------------------------------
+import           Control.Applicative  as A
 import           Control.Lens         hiding ((.=))
 import           Control.Monad.Reader
 import           Data.Aeson
@@ -85,7 +86,7 @@ confrabulateWidgets = return ()
 -------------------------------------------------------------------------------
 newtype MyStack m a = MyStack {
       unStack :: ReaderT MyState m a
-    } deriving (MonadReader MyState, Functor, Applicative, Monad, MonadIO)
+    } deriving (MonadReader MyState, Functor, A.Applicative, Monad, MonadIO)
 
 
 instance (MonadIO m) => Katip (MyStack m) where
