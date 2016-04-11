@@ -16,6 +16,7 @@ module Katip.Monadic
     -- * Monadic variants of logging functions from "Katip.Core"
       logFM
     , logTM
+    , logLocM
     , logItemM
     , logExceptionM
 
@@ -185,12 +186,30 @@ logFM sev msg = do
 -- | 'Loc'-tagged logging when using template-haskell. Automatically
 -- supplies payload and namespace.
 --
--- @logTM InfoS "Hello world"@
-logTM :: (Applicative m, KatipContext m, Katip m)
-      => Severity
-      -> LogStr
-      -> m ()
-logTM = logItemM getLoc
+-- @$(logTM) InfoS "Hello world"@
+logTM :: ExpQ
+logTM = [| logItemM (Just $(getLocTH)) |]
+
+
+-------------------------------------------------------------------------------
+-- | 'Loc'-tagged logging when using template-haskell. Automatically
+-- supplies payload and namespace.
+--
+-- Same consideration as `logLoc` applies.
+--
+-- This function does not require template-haskell as it
+-- automatically uses <https://hackage.haskell.org/package/base-4.8.2.0/docs/GHC-Stack.html#v:getCallStack implicit-callstacks>
+-- when the code is compiled using GHC > 7.8. Using an older version of the
+-- compiler will result in the emission of a log line without any location information,
+-- so be aware of it. Users using GHC <= 7.8 may want to use the template-haskell function
+-- `logTM` for maximum compatibility.
+--
+-- @logLocM InfoS "Hello world"@
+logLocM :: (Applicative m, KatipContext m, Katip m)
+        => Severity
+        -> LogStr
+        -> m ()
+logLocM = logItemM getLoc
 
 
 -------------------------------------------------------------------------------
@@ -222,7 +241,7 @@ logExceptionM action sev = action `catchAll` \e -> f e >> throwM e
 --     ctx <- getKatipContext
 --     ns <- getKatipNamespace
 --     forkIO $ runKatipContextT le ctx ns $ do
---       logTM InfoS "Look, I can log in IO and retain context!"
+--       $(logTM) InfoS "Look, I can log in IO and retain context!"
 --       doOtherStuff
 -- @
 newtype KatipContextT m a = KatipContextT {

@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                        #-}
 {-# LANGUAGE DeriveFunctor              #-}
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE ExistentialQuantification  #-}
@@ -47,8 +48,10 @@ import qualified Data.Text                    as T
 import qualified Data.Text.Lazy.Builder       as B
 import           Data.Time
 import           GHC.Generics                 hiding (to)
+#if MIN_VERSION_base(4, 8, 0)
 import           GHC.SrcLoc
 import           GHC.Stack
+#endif
 import           Language.Haskell.TH
 import qualified Language.Haskell.TH.Syntax   as TH
 import           Lens.Micro
@@ -723,7 +726,9 @@ liftLoc (Loc a b c (d1, d2) (e1, e2)) = [|Loc
 
 -------------------------------------------------------------------------------
 -- | For use when you want to include location in your logs. This will
--- fill the 'Maybe Loc' gap in 'logF' of this module.
+-- fill the 'Maybe Loc' gap in 'logF' of this module, and relies on implicit
+-- callstacks when available (GHC > 7.8).
+#if MIN_VERSION_base(4, 8, 0)
 getLoc :: (?loc :: CallStack) => Maybe Loc
 getLoc = case getCallStack ?loc of
   [] -> Nothing
@@ -737,18 +742,45 @@ getLoc = case getCallStack ?loc of
       , loc_start    = (srcLocStartLine l, srcLocStartCol l)
       , loc_end      = (srcLocEndLine   l, srcLocEndCol   l)
       }
+#else
+getLoc :: Maybe Loc
+getLoc = Nothing
+#endif
+
+
+-------------------------------------------------------------------------------
+-- Like `getLoc`, but uses template-haskell and works with older versions of
+-- the compiler (GHC 7.8 or older).
+getLocTH :: ExpQ
+getLocTH = [| $(location >>= liftLoc) |]
+
 
 -------------------------------------------------------------------------------
 -- | 'Loc'-tagged logging when using template-haskell.
 --
--- @logT obj mempty InfoS "Hello world"@
-logT :: (A.Applicative m, LogItem a, Katip m)
-     => a
-     -> Namespace
-     -> Severity
-     -> LogStr
-     -> m ()
-logT a ns = logItem a ns getLoc
+-- @$(logT) obj mempty InfoS "Hello world"@
+logT :: ExpQ
+logT = [| \ a ns sev msg -> logItem a ns (Just $(getLocTH)) sev msg |]
+
+
+-------------------------------------------------------------------------------
+-- | 'Loc'-tagged logging using implicit-callstacks when available.
+--
+-- This function does not require template-haskell as it
+-- automatically uses <https://hackage.haskell.org/package/base-4.8.2.0/docs/GHC-Stack.html#v:getCallStack implicit-callstacks>
+-- when the code is compiled using GHC > 7.8. Using an older version of the
+-- compiler will result in the emission of a log line without any location information,
+-- so be aware of it. Users using GHC <= 7.8 may want to use the template-haskell function
+-- `logT` for maximum compatibility.
+--
+-- @logLoc obj mempty InfoS "Hello world"@
+logLoc :: (Applicative m, LogItem a, Katip m)
+       => a
+       -> Namespace
+       -> Severity
+       -> LogStr
+       -> m ()
+logLoc a ns = logItem a ns getLoc
 
 
 -- taken from the file-location package
