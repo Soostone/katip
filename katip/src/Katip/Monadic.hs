@@ -29,6 +29,8 @@ module Katip.Monadic
     -- * KatipContextT - Utility transformer that provides Katip and KatipContext instances
     , KatipContextT(..)
     , runKatipContextT
+    , katipAddNamespace
+    , katipAddContext
     , KatipContextTState(..)
     ) where
 
@@ -306,3 +308,25 @@ runKatipContextT :: (LogItem c) => LogEnv -> c -> Namespace -> KatipContextT m a
 runKatipContextT le ctx ns = flip runReaderT lts . unKatipContextT
   where
     lts = KatipContextTState le (liftPayload ctx) ns
+
+
+-------------------------------------------------------------------------------
+katipAddNamespace
+    :: (Monad m)
+    => Namespace
+    -> KatipContextT m a
+    -> KatipContextT m a
+katipAddNamespace ns (KatipContextT f) =
+  KatipContextT (local (\r -> r { ltsNamespace = (ltsNamespace r) <> ns}) f)
+
+
+-------------------------------------------------------------------------------
+katipAddContext
+    :: ( LogItem i
+       , Monad m
+       )
+    => i
+    -> KatipContextT m a
+    -> KatipContextT m a
+katipAddContext i (KatipContextT f) =
+  KatipContextT (local (\r -> r { ltsContext = (ltsContext r) <> liftPayload i}) f)

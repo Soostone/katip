@@ -9,6 +9,7 @@ module Main
 
 
 -------------------------------------------------------------------------------
+import           Control.Applicative  as A
 import           Control.Lens         hiding ((.=))
 import           Control.Monad.Reader
 import           Data.Aeson
@@ -38,7 +39,7 @@ makeClassy ''MyState
 -- lens_example for a slightly cleaner and more general pattern.
 main :: IO ()
 main = do
-  le <- initLogEnv "main" "production"
+  le <- initLogEnv "MyApp" "production"
   -- We'll set up a scribe that logs to stdout and will only log item
   -- fields permitted for Verbosity 2 and will throw out Debug
   -- messages entirely. Note that katip provides facilities like
@@ -85,7 +86,7 @@ confrabulateWidgets = return ()
 -------------------------------------------------------------------------------
 newtype MyStack m a = MyStack {
       unStack :: ReaderT MyState m a
-    } deriving (MonadReader MyState, Functor, Applicative, Monad, MonadIO)
+    } deriving (MonadReader MyState, Functor, A.Applicative, Monad, MonadIO)
 
 
 instance (MonadIO m) => Katip (MyStack m) where
