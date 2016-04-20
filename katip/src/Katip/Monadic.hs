@@ -89,7 +89,7 @@ data AnyLogContext where
 -- Additional note: you should not mappend LogContexts in any sort of
 -- infinite loop, as it retains all data, so that would be a memory
 -- leak.
-newtype LogContexts = LogContexts (Seq AnyLogContext) deriving (Monoid) --TODO: could we pre-encode this and also capture payloadKeys
+newtype LogContexts = LogContexts (Seq AnyLogContext) deriving (Monoid)
 
 instance ToJSON LogContexts where
     toJSON (LogContexts cs) =
