@@ -98,7 +98,7 @@ test-suite test
                , time
                , temporary
                , directory
-               , regex-tdfa-rc
+               , regex-tdfa
                , unordered-containers
 
 
