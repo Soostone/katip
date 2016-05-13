@@ -49,7 +49,13 @@ data ColorStrategy
 
 
 -------------------------------------------------------------------------------
--- | Logs to a file handle such as stdout, stderr, or a file.
+-- | Logs to a file handle such as stdout, stderr, or a file. Contexts
+-- and other information will be flattened out into bracketed
+-- fields. For example:
+--
+-- > [2016-05-11 21:01:15][MyApp][Info][myhost.example.com][1724][ThreadId 1154][main:Helpers.Logging Helpers/Logging.hs:32:7] Started
+-- > [2016-05-11 21:01:15][MyApp.confrabulation][Debug][myhost.example.com][1724][ThreadId 1154][confrab_factor:42.0][main:Helpers.Logging Helpers/Logging.hs:41:9] Confrabulating widgets, with extra namespace and context
+-- > [2016-05-11 21:01:15][MyApp][Info][myhost.example.com][1724][ThreadId 1154][main:Helpers.Logging Helpers/Logging.hs:43:7] Namespace and context are back to normal
 mkHandleScribe :: ColorStrategy -> Handle -> Severity -> Verbosity -> IO Scribe
 mkHandleScribe cs h sev verb = do
     hSetBuffering h LineBuffering
