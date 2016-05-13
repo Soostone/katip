@@ -106,6 +106,7 @@ module Katip
     , runKatipContextT
     , katipAddNamespace
     , katipAddContext
+    , katipNoLogging
     ) where
 
 -------------------------------------------------------------------------------

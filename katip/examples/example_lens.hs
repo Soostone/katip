@@ -61,6 +61,8 @@ main = do
       $(logTM) DebugS "Confrabulating widgets, with extra namespace and context"
       confrabulateWidgets
     $(logTM) InfoS "Namespace and context are back to normal"
+    noLogging $
+      $(logTM) DebugS "You'll never see this log message!"
 
 
 -------------------------------------------------------------------------------
@@ -110,6 +112,12 @@ addContext i = local (\r -> r & msKContext <>~ ctxs)
 -- | Add a layer of namespace to the logs only for the given block
 addNamespace :: (MonadReader r m, HasMyState r) => Namespace -> m a -> m a
 addNamespace ns = local (\r -> r & msKNamespace <>~ ns)
+
+
+-------------------------------------------------------------------------------
+-- | Disable all log output temporarily
+noLogging :: (MonadReader r m, HasMyState r) => m a -> m a
+noLogging = local (\r -> r & msLogEnv %~ clearScribes)
 
 
 -------------------------------------------------------------------------------

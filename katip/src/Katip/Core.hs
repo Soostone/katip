@@ -551,7 +551,10 @@ unregisterScribe nm = logEnvScribes %~ M.delete nm
 
 -------------------------------------------------------------------------------
 -- | Unregister *all* scribes. Logs will go off into space from this
--- point onward until new scribes are added.
+-- point onward until new scribes are added. Note that you could use
+-- this with `local` if you're using a Reader based stack to
+-- temporarily disable log output. See `katipNoLogging` for an
+-- example.
 clearScribes
     :: LogEnv
     -> LogEnv
