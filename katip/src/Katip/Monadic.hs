@@ -156,7 +156,7 @@ deriving instance (Monad m, KatipContext m) => KatipContext (KatipT m)
 -- very low level and you typically can use 'logTM' in its
 -- place. Automaticallysupplies payload and namespace.
 logItemM
-    :: (Applicative m, KatipContext m, Katip m)
+    :: (Applicative m, KatipContext m)
     => Maybe Loc
     -> Severity
     -> LogStr
@@ -172,7 +172,7 @@ logItemM loc sev msg = do
 -- | Log with full context, but without any code
 -- location. Automatically supplies payload and namespace.
 logFM
-  :: (Applicative m, KatipContext m, Katip m)
+  :: (Applicative m, KatipContext m)
   => Severity
   -- ^ Severity of the message
   -> LogStr
@@ -207,7 +207,7 @@ logTM = [| logItemM (Just $(getLocTH)) |]
 -- `logTM` for maximum compatibility.
 --
 -- @logLocM InfoS "Hello world"@
-logLocM :: (Applicative m, KatipContext m, Katip m)
+logLocM :: (Applicative m, KatipContext m)
         => Severity
         -> LogStr
         -> m ()
