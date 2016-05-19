@@ -2,6 +2,7 @@ resolver: lts-5.5
 packages:
   - katip
   - katip-elasticsearch
+  - katip-monad-logger-compat
 extra-deps:
   - bloodhound-0.11.0.0
   - string-conv-0.1
@@ -17,4 +18,6 @@ flags:
   katip:
     lib-Werror: true
   katip-elasticsearch:
+    lib-Werror: true
+  katip-monad-logger-compat:
     lib-Werror: true
