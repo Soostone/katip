@@ -5,7 +5,7 @@ version:             0.2.0.0
 license:             BSD3
 license-file:        LICENSE
 author:              Ozgun Ataman, Michael Xavier
-maintainer:          ozgun.ataman@soostone.com
+maintainer:          michael.xavier@soostone.com
 copyright:           Soostone Inc, 2015-2016
 category:            Data
 build-type:          Simple
