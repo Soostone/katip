@@ -181,7 +181,7 @@ logStr t = LogStr (B.fromText $ toS t)
 
 
 -------------------------------------------------------------------------------
--- | Shorthand for 'logMsg'
+-- | Shorthand for 'logStr'
 ls :: StringConv a Text => a -> LogStr
 ls = logStr
 
