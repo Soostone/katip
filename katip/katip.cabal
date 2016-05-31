@@ -74,6 +74,7 @@ library
                , resourcet >= 1.1 && < 1.2
                , microlens >= 0.2.0.0 && < 0.5
                , microlens-th >= 0.1.0.0 && < 0.5
+               , semigroups
 
   hs-source-dirs:      src
   default-language:    Haskell2010

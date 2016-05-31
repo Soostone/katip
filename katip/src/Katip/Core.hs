@@ -40,7 +40,7 @@ import           Data.Foldable                as FT
 import qualified Data.HashMap.Strict          as HM
 import           Data.List
 import qualified Data.Map.Strict              as M
-import           Data.Monoid
+import           Data.Semigroup
 import           Data.String
 import           Data.String.Conv
 import           Data.Text                    (Text)
@@ -75,7 +75,7 @@ readMay s = case [x | (x,t) <- reads s, ("","") <- lex t] of
 -- IsString/OverloadedStrings, so "foo" will result in Namespace
 -- ["foo"].
 newtype Namespace = Namespace { unNamespace :: [Text] }
-  deriving (Eq,Show,Read,Ord,Generic,ToJSON,FromJSON,Monoid)
+  deriving (Eq,Show,Read,Ord,Generic,ToJSON,FromJSON,Semigroup,Monoid)
 
 instance IsString Namespace where
     fromString s = Namespace [fromString s]
@@ -163,9 +163,15 @@ newtype LogStr = LogStr { unLogStr :: B.Builder }
 instance IsString LogStr where
     fromString = LogStr . B.fromString
 
+
+instance Semigroup LogStr where
+  (LogStr a) <> (LogStr b) = LogStr (a <> b)
+
+
 instance Monoid LogStr where
-    mappend (LogStr a) (LogStr b) = LogStr (a `mappend` b)
+    mappend = (<>)
     mempty = LogStr mempty
+
 
 instance FromJSON LogStr where
     parseJSON = A.withText "LogStr" parseLogStr
@@ -335,11 +341,15 @@ data PayloadSelection
     | SomeKeys [Text]
     deriving (Show, Eq)
 
+instance Semigroup PayloadSelection where
+  AllKeys <> _ = AllKeys
+  _ <> AllKeys = AllKeys
+  SomeKeys as <> SomeKeys bs = SomeKeys (as <> bs)
+
+
 instance Monoid PayloadSelection where
     mempty = SomeKeys []
-    mappend AllKeys _ = AllKeys
-    mappend _ AllKeys = AllKeys
-    mappend (SomeKeys as) (SomeKeys bs) = SomeKeys (as++bs)
+    mappend = (<>)
 
 
 -------------------------------------------------------------------------------
@@ -402,15 +412,22 @@ instance ToJSON SimpleLogPayload where
     toJSON (SimpleLogPayload as) = object $ map go as
       where go (k, AnyLogPayload v) = k A..= v
 
+
 instance ToObject SimpleLogPayload
+
 
 instance LogItem SimpleLogPayload where
     payloadKeys V0 _ = SomeKeys []
     payloadKeys _ _ = AllKeys
 
+
+instance Semigroup SimpleLogPayload where
+  SimpleLogPayload a <> SimpleLogPayload b = SimpleLogPayload (a <> b)
+
+
 instance Monoid SimpleLogPayload where
     mempty = SimpleLogPayload []
-    SimpleLogPayload a `mappend` SimpleLogPayload b = SimpleLogPayload (a `mappend` b)
+    mappend = (<>)
 
 
 -------------------------------------------------------------------------------
@@ -472,11 +489,15 @@ data Scribe = Scribe {
     }
 
 
+instance Semigroup Scribe where
+  (Scribe a) <> (Scribe b) = Scribe $ \ item -> do
+    a item
+    b item
+
+
 instance Monoid Scribe where
     mempty = Scribe $ const $ return ()
-    mappend (Scribe a) (Scribe b) = Scribe $ \ item -> do
-      a item
-      b item
+    mappend = (<>)
 
 
 -------------------------------------------------------------------------------
