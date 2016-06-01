@@ -6,7 +6,6 @@ extra-deps:
   - bloodhound-0.11.0.0
   - string-conv-0.1
   - aeson-0.11.1.0
-  - criterion-1.1.0.0
   - attoparsec-0.13.0.1
   - rng-utils-0.2.1
   - retry-0.7.4
@@ -14,6 +13,9 @@ extra-deps:
   - tagged-0.8.3
   - fail-4.9.0.0
   - regex-tdfa-rc-1.1.8.3
+  - turtle-1.2.8
+  - managed-1.0.5
+  - optional-args-1.0.1
 flags:
   katip:
     lib-Werror: true
