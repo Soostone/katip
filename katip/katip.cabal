@@ -60,9 +60,9 @@ library
                , hostname >=1.0 && <1.1
                , old-locale >= 1.0 && < 1.1
                , string-conv >= 0.1 && < 0.2
-               , template-haskell >= 2.8 && < 2.11
+               , template-haskell >= 2.8 && < 2.12
                , text >= 0.11 && <1.3
-               , time >= 1 && < 1.6
+               , time >= 1 && < 1.7
                , time-locale-compat >= 0.1.0.1 && < 0.2
                , transformers >= 0.3 && < 0.6
                , transformers-compat
@@ -70,7 +70,7 @@ library
                , unordered-containers >= 0.2 && < 0.3
                , monad-control >= 1.0 && < 1.1
                , mtl >= 2.0 && < 2.3
-               , transformers-base >= 0.3 && < 0.5
+               , transformers-base >= 0.3 && < 0.6
                , resourcet >= 1.1 && < 1.2
                , microlens >= 0.2.0.0 && < 0.5
                , microlens-th >= 0.1.0.0 && < 0.5

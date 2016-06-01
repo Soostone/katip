@@ -13,6 +13,9 @@
 {-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE UndecidableInstances       #-}
+#if MIN_VERSION_base(4, 9, 0)
+{-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
+#endif
 -- | This module is not meant to be imported directly and may contain
 -- internal mechanisms that will change without notice.
 module Katip.Core where
@@ -49,7 +52,9 @@ import qualified Data.Text.Lazy.Builder       as B
 import           Data.Time
 import           GHC.Generics                 hiding (to)
 #if MIN_VERSION_base(4, 8, 0)
+#if !MIN_VERSION_base(4, 9, 0)
 import           GHC.SrcLoc
+#endif
 import           GHC.Stack
 #endif
 import           Language.Haskell.TH

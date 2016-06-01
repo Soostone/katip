@@ -7,7 +7,9 @@
 {-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE UndecidableInstances       #-}
-
+#if MIN_VERSION_base(4, 9, 0)
+{-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
+#endif
 -- | Provides support for treating payloads and namespaces as
 -- composable contexts. The common pattern would be to provide a
 -- 'KatipContext' instance for your base monad.

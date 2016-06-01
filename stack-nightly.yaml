@@ -1,4 +1,4 @@
-resolver: lts-2.22
+resolver: nightly-2016-06-01
 packages:
   - katip
   - katip-elasticsearch
@@ -9,20 +9,13 @@ extra-deps:
   - criterion-1.1.0.0
   - attoparsec-0.13.0.1
   - rng-utils-0.2.1
-  - retry-0.7.1
+  - retry-0.7.4
   - tasty-0.11.0.2
   - tagged-0.8.3
   - fail-4.9.0.0
-  # just for 7.8/lts-2
-  - microlens-th-0.3.0.1
-  - microlens-0.4.2.0
-  - time-1.5.0.1
-  - lens-aeson-1.0.0.5
-  - time-locale-compat-0.1.1.1
+  - regex-tdfa-rc-1.1.8.3
 flags:
   katip:
     lib-Werror: true
   katip-elasticsearch:
     lib-Werror: true
-  time-locale-compat:
-    old-locale: false

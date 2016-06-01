@@ -14,10 +14,10 @@ addons:
 # change flags or use --stack-yaml to point to a different file.
 env:
 - ARGS=""
-- ARGS="--stack-yaml=stack-7.8.yaml"
+- ARGS="--stack-yaml=stack-lts-2.yaml"
 - ARGS="--resolver=lts-3"
 - ARGS="--resolver=lts"
-- ARGS="--resolver=nightly"
+- ARGS="--stack-yaml=stack-nightly.yaml"
 
 before_install:
 # Download and unpack the stack executable
