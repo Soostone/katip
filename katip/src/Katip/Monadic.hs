@@ -31,6 +31,7 @@ module Katip.Monadic
     , runKatipContextT
     , katipAddNamespace
     , katipAddContext
+    , katipNoLogging
     , KatipContextTState(..)
     ) where
 
@@ -311,6 +312,8 @@ runKatipContextT le ctx ns = flip runReaderT lts . unKatipContextT
 
 
 -------------------------------------------------------------------------------
+-- | Append a namespace segment to the current namespace for the given
+-- monadic action, then restore the previous state afterwards.
 katipAddNamespace
     :: (Monad m)
     => Namespace
@@ -321,6 +324,8 @@ katipAddNamespace ns (KatipContextT f) =
 
 
 -------------------------------------------------------------------------------
+-- | Append some context to the current context for the given monadic
+-- action, then restore the previous state afterwards.
 katipAddContext
     :: ( LogItem i
        , Monad m
@@ -330,3 +335,15 @@ katipAddContext
     -> KatipContextT m a
 katipAddContext i (KatipContextT f) =
   KatipContextT (local (\r -> r { ltsContext = (ltsContext r) <> liftPayload i}) f)
+
+
+-------------------------------------------------------------------------------
+-- | Disable all scribes for the given monadic action, then restore
+-- them afterwards.
+katipNoLogging
+    :: ( Monad m
+       )
+    => KatipContextT m a
+    -> KatipContextT m a
+katipNoLogging (KatipContextT f) =
+  KatipContextT (local (\r -> r { ltsLogEnv = clearScribes (ltsLogEnv r)}) f)
