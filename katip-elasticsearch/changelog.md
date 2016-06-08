@@ -1,3 +1,11 @@
+0.2.1.0
+==============
+
+* Drop direct dependency on random, upgrade uuid to >= 1.3.12 for
+  safer id generation. Previously, UUID was using randomIO, which uses
+  the system clock as a seed. So if multiple nodes happened to start
+  at the same time, they would produce conflicting UUID sequences.
+
 0.2.0.0
 ==============
 
