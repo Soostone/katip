@@ -53,10 +53,10 @@ import           Data.Time
 import           Data.Time.Calendar.WeekDate
 import           Data.Typeable
 import           Data.UUID
+import qualified Data.UUID.V4                            as UUID4
 import           Database.Bloodhound
 import           Network.HTTP.Client
 import           Network.HTTP.Types.Status
-import           System.Random
 -------------------------------------------------------------------------------
 import           Katip.Core
 import           Katip.Scribes.ElasticSearch.Annotations
@@ -64,13 +64,13 @@ import           Katip.Scribes.ElasticSearch.Annotations
 
 
 data EsScribeCfg = EsScribeCfg {
-      essRetryPolicy     :: RetryPolicy
+      essRetryPolicy   :: RetryPolicy
     -- ^ Retry policy when there are errors sending logs to the server
-    , essQueueSize       :: EsQueueSize
+    , essQueueSize     :: EsQueueSize
     -- ^ Maximum size of the bounded log queue
-    , essPoolSize        :: EsPoolSize
+    , essPoolSize      :: EsPoolSize
     -- ^ Worker pool size limit for sending data to the
-    , essAnnotateTypes   :: Bool
+    , essAnnotateTypes :: Bool
     -- ^ Different payload items coexist in the "data" attribute in
     -- ES. It is possible for different payloads to have different
     -- types for the same key, e.g. an "id" key that is sometimes a
@@ -83,8 +83,8 @@ data EsScribeCfg = EsScribeCfg {
     -- exposes a querying API, we will try to make deserialization and
     -- querying transparently remove the type annotations if this is
     -- enabled.
-    , essIndexSettings   :: IndexSettings
-    , essIndexSharding   :: IndexShardingPolicy
+    , essIndexSettings :: IndexSettings
+    , essIndexSharding :: IndexShardingPolicy
     } deriving (Typeable)
 
 
@@ -322,7 +322,7 @@ esDateFormat = "yyyy-MM-dd'T'HH:mm:ssZ||yyyy-MM-dd'T'HH:mm:ss.SSSZ||yyyy-MM-dd'T
 
 -------------------------------------------------------------------------------
 mkDocId :: IO DocId
-mkDocId = (DocId . T.decodeUtf8 . toASCIIBytes) `fmap` randomIO
+mkDocId = (DocId . T.decodeUtf8 . toASCIIBytes) `fmap` UUID4.nextRandom
 
 
 -------------------------------------------------------------------------------
