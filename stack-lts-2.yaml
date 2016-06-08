@@ -20,6 +20,9 @@ extra-deps:
   - time-1.5.0.1
   - lens-aeson-1.0.0.5
   - time-locale-compat-0.1.1.1
+  - cryptonite-0.16
+  - memory-0.13
+
 flags:
   katip:
     lib-Werror: true
