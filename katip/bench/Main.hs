@@ -34,6 +34,18 @@ handleScribeBench = bgroup "Katip.Scribes.Handle" [
       env setupEnv $ \ ~(Scribe push, tid) ->
       bench "Bytestring Builder" $
         whnfIO $ push $ exItem tid
+    , bgroup "formatItem"
+      [ bench "with color" $
+          whnf (formatItem True V3) (exItem (ThreadIdText "1"))
+      , bench "without color" $
+          whnf (formatItem False V3) (exItem (ThreadIdText "1"))
+      ]
+    , bgroup "formatItem'"
+      [ bench "with color" $
+          whnf (formatItem' True V3) (exItem (ThreadIdText "1"))
+      , bench "without color" $
+          whnf (formatItem' False V3) (exItem (ThreadIdText "1"))
+      ]
     ]
   where
     setupEnv = do
@@ -73,9 +85,9 @@ instance LogItem ExPayload where
 
 -------------------------------------------------------------------------------
 mkUTCTime :: Integer -> Int -> Int -> DiffTime -> DiffTime -> DiffTime -> UTCTime
-mkUTCTime y mt d h mn s = UTCTime day dt
+mkUTCTime y mt d h mn s = UTCTime dy dt
   where
-    day = fromGregorian y mt d
+    dy = fromGregorian y mt d
     dt = h * 60 * 60 + mn * 60 + s
 
 
