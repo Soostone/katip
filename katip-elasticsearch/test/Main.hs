@@ -163,12 +163,18 @@ instance LogItem ExampleCtx where
 typeAnnotatedTests :: TestTree
 typeAnnotatedTests = testGroup "TypeAnnotated"
   [
-    testCase "annotates values on toJSON" $ do
+    testCase "annotates values on toJSON" $
       toJSON (TypeAnnotated exampleValue) @?= annotatedExampleValue
-  , testCase "deannotates on parseJSON" $ do
+
+  , testCase "annotates values on toObject" $
+      toObject (TypeAnnotated exampleObject) @?= annotatedExampleObject
+
+  , testCase "deannotates on parseJSON" $
       parseEither parseJSON (toJSON exampleValue) @?= Right exampleValue
+
   , testProperty "roundtrips the same as raw" $ \(v :: Value) ->
-      let res = typeAnnotatedValue <$> (parseEither parseJSON (toJSON (TypeAnnotated v)))
+      let res = typeAnnotatedValue
+                <$> parseEither parseJSON (toJSON (TypeAnnotated v))
       in res === Right v
   ]
 
@@ -187,33 +193,41 @@ roundToSundayTests = testGroup "roundToSunday"
   where
     getDOW = view _3 . toWeekDate
 
+
+-------------------------------------------------------------------------------
+exampleObject :: Object
+exampleObject = HM.fromList
+  [ ("a bool", Bool False)
+  , ("a long", Number 24)
+  , ("a double", Number 52.3)
+  , ("a string", String "s")
+  , ("a null", Null)
+  , ("a map", Object (HM.singleton "baz" (Bool True)))
+  ]
+
+
+-------------------------------------------------------------------------------
+annotatedExampleObject :: Object
+annotatedExampleObject = HM.fromList
+  [ ("a map",Object $ HM.fromList [("baz::b", Bool True)])
+  , ("a bool::b", Bool False)
+  , ("a null::n", Null)
+  , ("a string::s", String "s")
+  , ("a double::d", Number 52.3)
+  , ("a long::l", Number 24.0)
+  ]
+
+
 -------------------------------------------------------------------------------
 exampleValue :: Value
-exampleValue = Array $ V.fromList [Null, Object ob]
-  where
-    ob = HM.fromList [ ("a bool", Bool False)
-                     , ("a long", Number 24)
-                     , ("a double", Number 52.3)
-                     , ("a string", String "s")
-                     , ("a null", Null)
-                     , ("a map", Object (HM.singleton "baz" (Bool True)))
-                     ]
+exampleValue = Array $ V.fromList [Null, Object exampleObject]
 
 
 -------------------------------------------------------------------------------
 annotatedExampleValue :: Value
 annotatedExampleValue = Array $ V.fromList
-  [
-    Null
-  , Object $ HM.fromList
-    [
-      ("a map",Object $ HM.fromList [("baz::b", Bool True)])
-    , ("a bool::b", Bool False)
-    , ("a null::n", Null)
-    , ("a string::s", String "s")
-    , ("a double::d", Number 52.3)
-    , ("a long::l", Number 24.0)
-    ]
+  [ Null
+  , Object annotatedExampleObject
   ]
 
 

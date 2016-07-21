@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP                        #-}
+{-# LANGUAGE DefaultSignatures          #-}
 {-# LANGUAGE DeriveFunctor              #-}
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE ExistentialQuantification  #-}
@@ -367,8 +368,9 @@ instance Monoid PayloadSelection where
 -- a ToJSON instance like:
 --
 -- > instance ToObject Foo
-class ToJSON a => ToObject a where
+class ToObject a where
     toObject :: a -> A.Object
+    default toObject :: ToJSON a => a -> A.Object
     toObject v = case toJSON v of
       A.Object o -> o
       _        -> mempty
