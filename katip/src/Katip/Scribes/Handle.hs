@@ -4,11 +4,13 @@ module Katip.Scribes.Handle where
 
 -------------------------------------------------------------------------------
 import           Control.Applicative     as A
+import           Control.Concurrent
+import           Control.Exception       (bracket_)
 import           Control.Monad
 import           Data.Aeson
 import qualified Data.HashMap.Strict     as HM
 import           Data.Monoid
-import Data.Text (Text)
+import           Data.Text               (Text)
 import           Data.Text.Lazy.Builder
 import           Data.Text.Lazy.IO       as T
 import           Data.Time
@@ -62,8 +64,9 @@ mkHandleScribe cs h sev verb = do
     colorize <- case cs of
       ColorIfTerminal -> hIsTerminalDevice h
       ColorLog b -> return b
+    lock <- newMVar ()
     return $ Scribe $ \ i@Item{..} -> do
-      when (permitItem sev i) $
+      when (permitItem sev i) $ bracket_ (takeMVar lock) (putMVar lock ()) $
         T.hPutStrLn h $ toLazyText $ formatItem colorize verb i
 
 
