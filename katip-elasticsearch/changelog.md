@@ -1,3 +1,18 @@
+0.3.0.0
+==============
+* Added zero padding to date-based indices. This shouldn't negatively
+  impact most users but to be safe, this was put behind a breaking
+  version number. Previously, you may see indices
+  `log-index-prefix-2016-1-2`. That index will now be
+  `log-index-prefix-2016-01-02`, so at worst when you deploy, the day
+  of the change will have 2 indices: one zero-padded and one not. If
+  you are using custom index sharding, you will not be affected by
+  this. The reasoning here is that most existing elasticsearch tools
+  such as `curator` expects date indices to be zero padded. By
+  switching to the standard, users can easily get log rotation and
+  other features from `curator` rather than having to roll their own
+  or add them to Katip.
+
 0.2.1.0
 ==============
 

@@ -1,3 +1,16 @@
+0.3.0.0
+=======
+* Switch from `regex-tdfa-rc` to `regex-tdfa`.
+* Add `katipNoLogging` combinator.
+* Add `Semigroup` instances.
+* Drop `ToJSON` superclass requirement fro `ToObject`. Instead,
+  `ToObject` will provide a default instance for types with an
+  instance for `ToJSON`. This gets us to the same place as before
+  without having to add a broader instance for something that's only
+  going to show up in logs as an Object.
+* Add a simple MVar lock for file handle scribes to avoid interleaved
+  log lines from concurrent inputs.
+
 0.2.0.0
 =======
 
