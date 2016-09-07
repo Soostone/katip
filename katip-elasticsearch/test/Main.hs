@@ -100,8 +100,8 @@ esTests = testGroup "elasticsearch scribe"
         $(logT) (ExampleCtx True) mempty InfoS "tomorrow"
         liftIO $ do
           void done
-          todayLogs <- getLogsByIndex (IndexName "katip-elasticsearch-tests-2016-1-2")
-          tomorrowLogs <- getLogsByIndex (IndexName "katip-elasticsearch-tests-2016-1-3")
+          todayLogs <- getLogsByIndex (IndexName "katip-elasticsearch-tests-2016-01-02")
+          tomorrowLogs <- getLogsByIndex (IndexName "katip-elasticsearch-tests-2016-01-03")
           assertBool ("todayLogs has " <> show (length todayLogs) <> " items") (length todayLogs == 1)
           assertBool ("tomorrowLogs has " <> show (length tomorrowLogs) <> " items") (length tomorrowLogs == 1)
           let logToday = head todayLogs
@@ -118,8 +118,8 @@ esTests = testGroup "elasticsearch scribe"
         $(logT) (ExampleCtx True) mempty InfoS "tomorrow"
         liftIO $ do
           void done
-          todayLogs <- getLogsByIndex (IndexName "katip-elasticsearch-tests-2016-2-28") -- rounds back to previous sunday
-          tomorrowLogs <- getLogsByIndex (IndexName "katip-elasticsearch-tests-2016-3-6") -- is on sunday, so uses current date
+          todayLogs <- getLogsByIndex (IndexName "katip-elasticsearch-tests-2016-02-28") -- rounds back to previous sunday
+          tomorrowLogs <- getLogsByIndex (IndexName "katip-elasticsearch-tests-2016-03-06") -- is on sunday, so uses current date
           assertBool ("todayLogs has " <> show (length todayLogs) <> " items") (length todayLogs == 1)
           assertBool ("tomorrowLogs has " <> show (length tomorrowLogs) <> " items") (length tomorrowLogs == 1)
           let logToday = head todayLogs

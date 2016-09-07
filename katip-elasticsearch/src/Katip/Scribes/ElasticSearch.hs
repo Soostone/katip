@@ -75,6 +75,7 @@ import qualified Data.UUID.V4                            as UUID4
 import           Database.Bloodhound
 import           Network.HTTP.Client
 import           Network.HTTP.Types.Status
+import           Text.Printf                             (printf)
 -------------------------------------------------------------------------------
 import           Katip.Core
 import           Katip.Scribes.ElasticSearch.Annotations
@@ -231,8 +232,10 @@ chooseIxn (IndexName ixn) p i =
 
 
 -------------------------------------------------------------------------------
-sis :: Show a => a -> IndexNameSegment
-sis = IndexNameSegment . T.pack . show
+sis :: Integral a => a -> IndexNameSegment
+sis = IndexNameSegment . T.pack . fmt
+  where
+    fmt = printf "%02d" . toInteger
 
 
 -------------------------------------------------------------------------------
