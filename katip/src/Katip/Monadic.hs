@@ -315,7 +315,8 @@ runKatipContextT le ctx ns = flip runReaderT lts . unKatipContextT
 
 -------------------------------------------------------------------------------
 -- | Append a namespace segment to the current namespace for the given
--- monadic action, then restore the previous state afterwards.
+-- monadic action, then restore the previous state
+-- afterwards.
 katipAddNamespace
     :: (Monad m)
     => Namespace
@@ -327,7 +328,15 @@ katipAddNamespace ns (KatipContextT f) =
 
 -------------------------------------------------------------------------------
 -- | Append some context to the current context for the given monadic
--- action, then restore the previous state afterwards.
+-- action, then restore the previous state afterwards. Important note:
+-- be careful using this in a loop. If you're using something like
+-- 'forever' or 'replicateM_' that does explicit sharing to avoid a
+-- memory leak, youll be fine as it will *sequence* calls to
+-- 'katipAddNamespace', so each loop will get the same context
+-- added. If you instead roll your own recursion and you're recursing
+-- in the action you provide, you'll instead accumulate tons of
+-- redundant contexts and even if they all merge on log, they are
+-- stored in a sequence and will leak memory.
 katipAddContext
     :: ( LogItem i
        , Monad m
