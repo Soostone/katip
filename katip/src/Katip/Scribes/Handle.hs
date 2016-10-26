@@ -13,12 +13,11 @@ import           Data.Monoid
 import           Data.Text               (Text)
 import           Data.Text.Lazy.Builder
 import           Data.Text.Lazy.IO       as T
-import           Data.Time
-import qualified Data.Time.Locale.Compat as LC
 import           System.IO
 import           System.IO.Unsafe        (unsafePerformIO)
 -------------------------------------------------------------------------------
 import           Katip.Core
+import           Katip.Format.Time       (formatAsLogTime)
 -------------------------------------------------------------------------------
 
 
@@ -83,7 +82,7 @@ formatItem withColor verb Item{..} =
     maybe mempty (brackets . fromString . locationToString) _itemLoc <>
     fromText " " <> (unLogStr _itemMessage)
   where
-    nowStr = fromString $ formatTime LC.defaultTimeLocale "%Y-%m-%d %H:%M:%S" _itemTime
+    nowStr = fromText (formatAsLogTime _itemTime)
     ks = map brackets $ getKeys verb _itemPayload
     renderSeverity' s = case s of
       EmergencyS -> red $ renderSeverity s

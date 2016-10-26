@@ -37,6 +37,7 @@ library
   exposed-modules:
     Katip
     Katip.Core
+    Katip.Format.Time
     Katip.Monadic
     Katip.Scribes.Handle
 
@@ -63,7 +64,6 @@ library
                , template-haskell >= 2.8 && < 2.12
                , text >= 0.11 && <1.3
                , time >= 1 && < 1.7
-               , time-locale-compat >= 0.1.0.1 && < 0.2
                , transformers >= 0.3 && < 0.6
                , transformers-compat
                , unix >= 2.5 && < 2.8
@@ -97,6 +97,7 @@ test-suite test
                , template-haskell
                , text
                , time
+               , time-locale-compat >= 0.1.0.1 && < 0.2
                , temporary
                , directory
                , regex-tdfa
