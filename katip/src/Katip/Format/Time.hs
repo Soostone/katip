@@ -33,7 +33,7 @@ formatAsLogTime (UTCTime day time) = toText $ TA.run2 $ do
      _ <- writeDay buf 0 day
      TA.unsafeWrite buf 10 0x20 -- space
      _ <- writeTimeOfDay False buf 11 (diffTimeOfDay64 time)
-     pure (buf, 19)
+     return (buf, 19)
   where
      toText (arr, len) = Text arr 0 len
 
@@ -60,7 +60,7 @@ formatAsIso8601 (UTCTime day time) = toText $ TA.run2 $ do
    TA.unsafeWrite buf  10  0x54 -- T
    next <- writeTimeOfDay True buf 11 (diffTimeOfDay64 time)
    TA.unsafeWrite buf next 0x5A -- Z
-   pure (buf, next+1)
+   return (buf, next+1)
   where
      toText (arr, len) = Text arr 0 len
 
@@ -80,7 +80,7 @@ writeDay buf off day =
     TA.unsafeWrite buf (off + 7) 0x2d -- dash
     TA.unsafeWrite buf (off + 8) d1
     TA.unsafeWrite buf (off + 9) d2
-    pure (off + 10)
+    return (off + 10)
   where
     (yr,m,d) = toGregorian day
     (y1, ya) = fromIntegral (abs yr) `quotRem` 1000
@@ -105,7 +105,7 @@ writeTimeOfDay doSubSeconds buf off (TOD hh mm ss) =
     TA.unsafeWrite buf (off + 7) s2
     if doSubSeconds && frac /= 0
     then writeFracSeconds buf (off + 8) frac
-    else pure (off + 8)
+    else return (off + 8)
   where
    T h1 h2 = twoDigits hh
    T m1 m2 = twoDigits mm
@@ -169,17 +169,17 @@ writeTrunc3 :: TA.MArray s -> Int -> Int -> ST s Int
 writeTrunc3 buf off i
     | d == 0 = do
         TA.unsafeWrite buf off (digit d1)
-        pure (off+1)
+        return (off+1)
     | d3 == 0 = do
         TA.unsafeWrite buf off (digit d1)
         TA.unsafeWrite buf (off+1) (digit d2)
-        pure (off+2)
+        return (off+2)
 
     | otherwise = do
         TA.unsafeWrite buf off (digit d1)
         TA.unsafeWrite buf (off+1) (digit d2)
         TA.unsafeWrite buf (off+2) (digit d3)
-        pure (off+3)
+        return (off+3)
   where
     (d1, d) = i `quotRem` 100
     (d2, d3) = d `quotRem` 10
