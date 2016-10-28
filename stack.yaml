@@ -6,7 +6,7 @@ extra-deps:
   - bloodhound-0.11.0.0
   - string-conv-0.1
   - aeson-0.11.1.0
-  - criterion-1.1.0.0
+  - criterion-1.1.1.0
   - attoparsec-0.13.0.1
   - rng-utils-0.2.1
   - retry-0.7.4
