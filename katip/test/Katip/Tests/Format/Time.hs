@@ -77,5 +77,5 @@ newtype ArbUTCTime = ArbUTCTime {
     } deriving (Show)
 
 instance Arbitrary ArbUTCTime where
-    arbitrary = ArbUTCTime . posixSecondsToUTCTime . fromInteger
-                <$> arbitrary
+    arbitrary = fmap (ArbUTCTime . posixSecondsToUTCTime . fromInteger)
+                     arbitrary
