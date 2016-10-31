@@ -90,7 +90,9 @@ test-suite test
   build-depends: base
                , katip
                , aeson
+               , bytestring
                , tasty >= 0.10.1.2
+               , tasty-golden
                , tasty-hunit
                , tasty-quickcheck
                , quickcheck-instances
@@ -102,7 +104,7 @@ test-suite test
                , directory
                , regex-tdfa
                , unordered-containers
-
+               , microlens
 
 benchmark bench
   type: exitcode-stdio-1.0
