@@ -1,0 +1,40 @@
+[2016-06-12 12:34:56][foo][Debug][example][7331][1337][note.deep:some note] message
+[2016-06-12 12:34:56][foo][Info][example][7331][1337][note.deep:some note] message
+[2016-06-12 12:34:56][foo][Notice][example][7331][1337][note.deep:some note] message
+[2016-06-12 12:34:56][foo][Warning][example][7331][1337][note.deep:some note] message
+[2016-06-12 12:34:56][foo][Error][example][7331][1337][note.deep:some note] message
+[2016-06-12 12:34:56][foo][Critical][example][7331][1337][note.deep:some note] message
+[2016-06-12 12:34:56][foo][Alert][example][7331][1337][note.deep:some note] message
+[2016-06-12 12:34:56][foo][Emergency][example][7331][1337][note.deep:some note] message
+[2016-06-12 12:34:56][foo][Info][example][7331][0][note.deep:some note] message
+[2016-06-12 12:34:56][foo][Info][example][7331][1][note.deep:some note] message
+[2016-06-12 12:34:56][foo][Info][example][7331][1337][note.deep:some note] message
+[2016-06-12 12:34:56][foo][Info][example][7331][2147483647][note.deep:some note] message
+[2016-06-12 12:34:56][foo][Info][example][7331][1337][note.deep:some note] message
+[2016-06-12 12:34:56][foo][Info][www.example.com][7331][1337][note.deep:some note] message
+[2016-06-12 12:34:56][foo][Info][127.0.0.1][7331][1337][note.deep:some note] message
+[2016-06-12 12:34:56][foo][Info][example][0][1337][note.deep:some note] message
+[2016-06-12 12:34:56][foo][Info][example][1][1337][note.deep:some note] message
+[2016-06-12 12:34:56][foo][Info][example][1337][1337][note.deep:some note] message
+[2016-06-12 12:34:56][foo][Info][example][2147483647][1337][note.deep:some note] message
+[2016-06-12 12:34:56][foo][Info][example][7331][1337][note.deep:some note] message
+[2016-06-12 12:34:56][foo][Info][example][7331][1337][note.deep:some note] message
+with newline
+[2016-06-12 12:34:56][foo][Info][example][7331][1337][note.deep:some note]  a really long message a really long message a really long message a really long message a really long message a really long message a really long message a really long message a really long message a really long message a really long message a really long message a really long message a really long message a really long message a really long message a really long message a really long message a really long message a really long message a really long message a really long message a really long message a really long message a really long message a really long message a really long message a really long message a really long message a really long message a really long message a really long message a really long message a really long message a really long message a really long message a really long message a really long message a really long message a really long message
+[2016-06-12 12:34:56][foo][Info][example][7331][1337][note.deep:some note] сообщение
+[2016-06-12 12:34:56][foo][Info][example][7331][1337][note.deep:some note] 哈囉世界
+[2000-01-01 00:00:00][foo][Info][example][7331][1337][note.deep:some note] message
+[2123-12-31 23:59:59][foo][Info][example][7331][1337][note.deep:some note] message
+[2016-10-10 01:01:05][foo][Info][example][7331][1337][note.deep:some note] message
+[2100-12-31 12:59:10][foo][Info][example][7331][1337][note.deep:some note] message
+[1982-01-01 12:30:00][foo][Info][example][7331][1337][note.deep:some note] message
+[2016-06-12 12:34:56][foo][Info][example][7331][1337][note.deep:some note] message
+[2016-06-12 12:34:56][foo.bar][Info][example][7331][1337][note.deep:some note] message
+[2016-06-12 12:34:56][фу.бар][Info][example][7331][1337][note.deep:some note] message
+[2016-06-12 12:34:56][with
+newline][Info][example][7331][1337][note.deep:some note] message
+[2016-06-12 12:34:56][foo][Info][example][7331][1337][note.deep:some note] message
+[2016-06-12 12:34:56][foo][Info][example][7331][1337][note.deep:some note][main:Some.Module path/Some/Module.hs:30:1] message
+[2016-06-12 12:34:56][foo][Info][example][7331][1337][note.deep:some note][main:Some.Module путь/Some/Module.hs:3000:9000] message
+[2016-06-12 12:34:56][foo][Info][example][7331][1337][sub:null][text:][num:0.0][float:0.0] message
+[2016-06-12 12:34:56][foo][Info][example][7331][1337][sub.note.deep:some note][text:note][num:10.0][float:5.5] message
