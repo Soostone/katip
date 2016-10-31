@@ -1,3 +1,8 @@
+0.3.1.0
+=======
+* Add support for aeson 1.0.x
+* Add Katip.Format.Time module and use much more efficient time formatting code in the Handle scribe.
+
 0.3.0.0
 =======
 * Switch from `regex-tdfa-rc` to `regex-tdfa`.
