@@ -3,6 +3,24 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+-- | Includes a scribe that can be used to log structured, JSON log
+-- messages to ElasticSearch. These logs can be explored easily using
+-- <https://www.elastic.co/products/kibana kibana> or your tool of
+-- choice.
+--
+-- == __Important Note on Index Settings__
+--
+-- 'defaultEsScribeCfg' inherits a set of default index settings from
+-- the @bloodhound@ package. These settings at this time of writing
+-- set the indices up to have 3 shards and 2 replicas. This is an
+-- arguably reasonable default setting for production but may cause
+-- problems for development. In development, your cluster may be
+-- configured to seek a write quorum greater than 1. If you're running
+-- ElasticSearch on a single node, this could cause your writes to
+-- wait for a bit and then fail due to a lack of quorum. __For development, we recommend setting your replica count to 0 or modifying your write quorum settings__. For production, we recommend reading the
+-- <https://www.elastic.co/guide/en/elasticsearch/guide/current/scale.html ElasticSearch Scaling Guide> and choosing the appropriate settings,
+-- keeping in mind that you can chage replica counts on a live index
+-- but that changing shard counts requires recreating the index.
 module Katip.Scribes.ElasticSearch
     (-- * Building a scribe
       mkEsScribe
@@ -53,10 +71,11 @@ import           Data.Time
 import           Data.Time.Calendar.WeekDate
 import           Data.Typeable
 import           Data.UUID
+import qualified Data.UUID.V4                            as UUID4
 import           Database.Bloodhound
 import           Network.HTTP.Client
 import           Network.HTTP.Types.Status
-import           System.Random
+import           Text.Printf                             (printf)
 -------------------------------------------------------------------------------
 import           Katip.Core
 import           Katip.Scribes.ElasticSearch.Annotations
@@ -64,13 +83,13 @@ import           Katip.Scribes.ElasticSearch.Annotations
 
 
 data EsScribeCfg = EsScribeCfg {
-      essRetryPolicy     :: RetryPolicy
+      essRetryPolicy   :: RetryPolicy
     -- ^ Retry policy when there are errors sending logs to the server
-    , essQueueSize       :: EsQueueSize
+    , essQueueSize     :: EsQueueSize
     -- ^ Maximum size of the bounded log queue
-    , essPoolSize        :: EsPoolSize
+    , essPoolSize      :: EsPoolSize
     -- ^ Worker pool size limit for sending data to the
-    , essAnnotateTypes   :: Bool
+    , essAnnotateTypes :: Bool
     -- ^ Different payload items coexist in the "data" attribute in
     -- ES. It is possible for different payloads to have different
     -- types for the same key, e.g. an "id" key that is sometimes a
@@ -83,8 +102,8 @@ data EsScribeCfg = EsScribeCfg {
     -- exposes a querying API, we will try to make deserialization and
     -- querying transparently remove the type annotations if this is
     -- enabled.
-    , essIndexSettings   :: IndexSettings
-    , essIndexSharding   :: IndexShardingPolicy
+    , essIndexSettings :: IndexSettings
+    , essIndexSharding :: IndexShardingPolicy
     } deriving (Typeable)
 
 
@@ -213,8 +232,10 @@ chooseIxn (IndexName ixn) p i =
 
 
 -------------------------------------------------------------------------------
-sis :: Show a => a -> IndexNameSegment
-sis = IndexNameSegment . T.pack . show
+sis :: Integral a => a -> IndexNameSegment
+sis = IndexNameSegment . T.pack . fmt
+  where
+    fmt = printf "%02d" . toInteger
 
 
 -------------------------------------------------------------------------------
@@ -322,7 +343,7 @@ esDateFormat = "yyyy-MM-dd'T'HH:mm:ssZ||yyyy-MM-dd'T'HH:mm:ss.SSSZ||yyyy-MM-dd'T
 
 -------------------------------------------------------------------------------
 mkDocId :: IO DocId
-mkDocId = (DocId . T.decodeUtf8 . toASCIIBytes) `fmap` randomIO
+mkDocId = (DocId . T.decodeUtf8 . toASCIIBytes) `fmap` UUID4.nextRandom
 
 
 -------------------------------------------------------------------------------

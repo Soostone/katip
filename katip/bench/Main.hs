@@ -12,7 +12,7 @@ import           Control.Concurrent
 import           Control.DeepSeq
 import           Criterion.Main
 import           Data.Aeson
-import           Data.Monoid          as M
+import           Data.Monoid              as M
 import           Data.Time.Calendar
 import           Data.Time.Clock
 import           System.IO
@@ -31,12 +31,15 @@ main = defaultMain [
 -------------------------------------------------------------------------------
 handleScribeBench :: Benchmark
 handleScribeBench = bgroup "Katip.Scribes.Handle" [
-      env setupEnv $ \ ~(Scribe push, tid) ->
+      env setupHandleEnv $ \ ~(Scribe push, tid) ->
       bench "Bytestring Builder" $
         whnfIO $ push $ exItem tid
     ]
-  where
-    setupEnv = do
+
+
+-------------------------------------------------------------------------------
+setupHandleEnv :: IO (Scribe, ThreadIdText)
+setupHandleEnv = do
       scribe <- setup
       tid <- myThreadId
       return (scribe, mkThreadIdText tid)

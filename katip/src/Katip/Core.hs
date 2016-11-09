@@ -1,9 +1,12 @@
+{-# LANGUAGE CPP                        #-}
+{-# LANGUAGE DefaultSignatures          #-}
 {-# LANGUAGE DeriveFunctor              #-}
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE ExistentialQuantification  #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE ImplicitParams             #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE RankNTypes                 #-}
@@ -11,14 +14,17 @@
 {-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE UndecidableInstances       #-}
+#if MIN_VERSION_base(4, 9, 0)
+{-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
+#endif
+-- | This module is not meant to be imported directly and may contain
+-- internal mechanisms that will change without notice.
 module Katip.Core where
 
 -------------------------------------------------------------------------------
 import           Control.Applicative          as A
 import           Control.AutoUpdate
 import           Control.Concurrent
-import           Control.Lens
-import           Control.Monad
 import           Control.Monad.Base
 import           Control.Monad.Catch
 import           Control.Monad.IO.Class
@@ -38,7 +44,7 @@ import           Data.Foldable                as FT
 import qualified Data.HashMap.Strict          as HM
 import           Data.List
 import qualified Data.Map.Strict              as M
-import           Data.Monoid
+import           Data.Semigroup
 import           Data.String
 import           Data.String.Conv
 import           Data.Text                    (Text)
@@ -46,11 +52,26 @@ import qualified Data.Text                    as T
 import qualified Data.Text.Lazy.Builder       as B
 import           Data.Time
 import           GHC.Generics                 hiding (to)
+#if MIN_VERSION_base(4, 8, 0)
+#if !MIN_VERSION_base(4, 9, 0)
+import           GHC.SrcLoc
+#endif
+import           GHC.Stack
+#endif
 import           Language.Haskell.TH
 import qualified Language.Haskell.TH.Syntax   as TH
+import           Lens.Micro
+import           Lens.Micro.TH
 import           Network.HostName
 import           System.Posix
 -------------------------------------------------------------------------------
+
+
+readMay :: Read a => String -> Maybe a
+readMay s = case [x | (x,t) <- reads s, ("","") <- lex t] of
+              [x] -> Just x
+              [] -> Nothing -- no parse
+              _ -> Nothing -- Ambiguous parse
 
 
 -------------------------------------------------------------------------------
@@ -60,7 +81,7 @@ import           System.Posix
 -- IsString/OverloadedStrings, so "foo" will result in Namespace
 -- ["foo"].
 newtype Namespace = Namespace { unNamespace :: [Text] }
-  deriving (Eq,Show,Read,Ord,Generic,ToJSON,FromJSON,Monoid)
+  deriving (Eq,Show,Read,Ord,Generic,ToJSON,FromJSON,Semigroup,Monoid)
 
 instance IsString Namespace where
     fromString s = Namespace [fromString s]
@@ -117,27 +138,25 @@ renderSeverity s = case s of
 
 
 -------------------------------------------------------------------------------
-severityText :: Prism' Text Severity
-severityText = prism renderSeverity toSev
-  where
-    toSev "Debug"     = Right DebugS
-    toSev "Info"      = Right InfoS
-    toSev "Notice"    = Right NoticeS
-    toSev "Warning"   = Right WarningS
-    toSev "Error"     = Right ErrorS
-    toSev "Critical"  = Right CriticalS
-    toSev "Alert"     = Right AlertS
-    toSev "Emergency" = Right EmergencyS
-    toSev x           = Left x
+textToSeverity :: Text -> Maybe Severity
+textToSeverity "Debug"     = Just DebugS
+textToSeverity "Info"      = Just InfoS
+textToSeverity "Notice"    = Just NoticeS
+textToSeverity "Warning"   = Just WarningS
+textToSeverity "Error"     = Just ErrorS
+textToSeverity "Critical"  = Just CriticalS
+textToSeverity "Alert"     = Just AlertS
+textToSeverity "Emergency" = Just EmergencyS
+textToSeverity _           = Nothing
+
 
 instance ToJSON Severity where
-    toJSON s = A.String (s ^. re severityText)
-
+    toJSON s = A.String (renderSeverity s)
 
 instance FromJSON Severity where
     parseJSON = A.withText "Severity" parseSeverity
       where
-        parseSeverity t = case t ^? severityText of
+        parseSeverity t = case textToSeverity t of
           Just x -> return x
           Nothing -> fail $ "Invalid Severity " ++ toS t
 
@@ -150,9 +169,15 @@ newtype LogStr = LogStr { unLogStr :: B.Builder }
 instance IsString LogStr where
     fromString = LogStr . B.fromString
 
+
+instance Semigroup LogStr where
+  (LogStr a) <> (LogStr b) = LogStr (a <> b)
+
+
 instance Monoid LogStr where
-    mappend (LogStr a) (LogStr b) = LogStr (a `mappend` b)
+    mappend = (<>)
     mempty = LogStr mempty
+
 
 instance FromJSON LogStr where
     parseJSON = A.withText "LogStr" parseLogStr
@@ -290,13 +315,12 @@ instance FromJSON a => FromJSON (Item a) where
           <*> (fmap getLocJs <$> o A..: "loc")
 
 
-processIDText :: Prism' Text ProcessID
-processIDText = prism fromProcessID toProcessID
-  where
-    fromProcessID = toS . show
-    toProcessID t = case toS t ^? _Show of
-      Just i -> Right i
-      Nothing -> Left t
+processIDToText :: ProcessID -> Text
+processIDToText = toS . show
+
+
+textToProcessID :: Text -> Maybe ProcessID
+textToProcessID = readMay . toS
 
 
 newtype ProcessIDJs = ProcessIDJs {
@@ -305,13 +329,13 @@ newtype ProcessIDJs = ProcessIDJs {
 
 
 instance ToJSON ProcessIDJs where
-    toJSON (ProcessIDJs p) = A.String (p ^. re processIDText)
+    toJSON (ProcessIDJs p) = A.String (processIDToText p)
 
 
 instance FromJSON ProcessIDJs where
     parseJSON = A.withText "ProcessID" parseProcessID
       where
-        parseProcessID t = case t ^? processIDText of
+        parseProcessID t = case textToProcessID t of
           Just p -> return $ ProcessIDJs p
           Nothing -> fail $ "Invalid ProcessIDJs " ++ toS t
 
@@ -321,12 +345,17 @@ instance FromJSON ProcessIDJs where
 data PayloadSelection
     = AllKeys
     | SomeKeys [Text]
+    deriving (Show, Eq)
+
+instance Semigroup PayloadSelection where
+  AllKeys <> _ = AllKeys
+  _ <> AllKeys = AllKeys
+  SomeKeys as <> SomeKeys bs = SomeKeys (as <> bs)
+
 
 instance Monoid PayloadSelection where
     mempty = SomeKeys []
-    mappend AllKeys _ = AllKeys
-    mappend _ AllKeys = AllKeys
-    mappend (SomeKeys as) (SomeKeys bs) = SomeKeys (as++bs)
+    mappend = (<>)
 
 
 -------------------------------------------------------------------------------
@@ -339,8 +368,9 @@ instance Monoid PayloadSelection where
 -- a ToJSON instance like:
 --
 -- > instance ToObject Foo
-class ToJSON a => ToObject a where
+class ToObject a where
     toObject :: a -> A.Object
+    default toObject :: ToJSON a => a -> A.Object
     toObject v = case toJSON v of
       A.Object o -> o
       _        -> mempty
@@ -389,15 +419,22 @@ instance ToJSON SimpleLogPayload where
     toJSON (SimpleLogPayload as) = object $ map go as
       where go (k, AnyLogPayload v) = k A..= v
 
+
 instance ToObject SimpleLogPayload
+
 
 instance LogItem SimpleLogPayload where
     payloadKeys V0 _ = SomeKeys []
     payloadKeys _ _ = AllKeys
 
+
+instance Semigroup SimpleLogPayload where
+  SimpleLogPayload a <> SimpleLogPayload b = SimpleLogPayload (a <> b)
+
+
 instance Monoid SimpleLogPayload where
     mempty = SimpleLogPayload []
-    SimpleLogPayload a `mappend` SimpleLogPayload b = SimpleLogPayload (a `mappend` b)
+    mappend = (<>)
 
 
 -------------------------------------------------------------------------------
@@ -412,7 +449,7 @@ sl a b = SimpleLogPayload [(a, AnyLogPayload b)]
 payloadObject :: LogItem a => Verbosity -> a -> A.Object
 payloadObject verb a = case FT.foldMap (flip payloadKeys a) [(V0)..verb] of
     AllKeys -> toObject a
-    SomeKeys ks -> HM.filterWithKey (\ k _ -> k `elem` ks) $ toObject a
+    SomeKeys ks -> HM.filterWithKey (\ k _ -> k `FT.elem` ks) $ toObject a
 
 
 -------------------------------------------------------------------------------
@@ -459,11 +496,15 @@ data Scribe = Scribe {
     }
 
 
+instance Semigroup Scribe where
+  (Scribe a) <> (Scribe b) = Scribe $ \ item -> do
+    a item
+    b item
+
+
 instance Monoid Scribe where
     mempty = Scribe $ const $ return ()
-    mappend (Scribe a) (Scribe b) = Scribe $ \ item -> do
-      a item
-      b item
+    mappend = (<>)
 
 
 -------------------------------------------------------------------------------
@@ -476,12 +517,18 @@ permitItem sev i = _itemSeverity i >= sev
 data LogEnv = LogEnv {
       _logEnvHost    :: HostName
     , _logEnvPid     :: ProcessID
-    , _logEnvNs      :: Namespace
+    , _logEnvApp     :: Namespace
+    -- ^ Name of application. This will typically never change. This
+    -- field gets prepended to the namespace of your individual log
+    -- messages. For example, if your app is MyApp and you write a log
+    -- using "logItem" and the namespace "WebServer", the final
+    -- namespace will be "MyApp.WebServer"
     , _logEnvEnv     :: Environment
     , _logEnvTimer   :: IO UTCTime
     -- ^ Action to fetch the timestamp. You can use something like
     -- 'AutoUpdate' for high volume logs but note that this may cause
-    -- some output forms to display logs out of order.
+    -- some output forms to display logs out of order. Alternatively,
+    -- you could just use 'getCurrentTime'.
     , _logEnvScribes :: M.Map Text Scribe
     }
 makeLenses ''LogEnv
@@ -516,7 +563,7 @@ registerScribe
     -> Scribe
     -> LogEnv
     -> LogEnv
-registerScribe nm h = logEnvScribes . at nm .~ Just h
+registerScribe nm h = logEnvScribes %~ M.insert nm h
 
 
 -------------------------------------------------------------------------------
@@ -527,12 +574,15 @@ unregisterScribe
     -- ^ Name of the scribe
     -> LogEnv
     -> LogEnv
-unregisterScribe nm = logEnvScribes . at nm .~ Nothing
+unregisterScribe nm = logEnvScribes %~ M.delete nm
 
 
 -------------------------------------------------------------------------------
 -- | Unregister *all* scribes. Logs will go off into space from this
--- point onward until new scribes are added.
+-- point onward until new scribes are added. Note that you could use
+-- this with `local` if you're using a Reader based stack to
+-- temporarily disable log output. See `katipNoLogging` for an
+-- example.
 clearScribes
     :: LogEnv
     -> LogEnv
@@ -540,8 +590,16 @@ clearScribes = logEnvScribes .~ mempty
 
 
 -------------------------------------------------------------------------------
--- | Monads where katip logging actions can be performed
-class MonadIO m =>  Katip m where
+-- | Monads where katip logging actions can be performed. Katip is the
+-- most basic logging monad. You will typically use this directly if
+-- you either don't want to use namespaces/contexts heavily or if you
+-- want to pass in specific contexts and/or namespaces at each log site.
+--
+-- For something more powerful, look at the docs for 'KatipContext',
+-- which keeps a namespace and merged context. You can write simple
+-- functions that add additional namespacing and merges additional
+-- context on the fly.
+class MonadIO m => Katip m where
     getLogEnv :: m LogEnv
 
 
@@ -616,7 +674,7 @@ logItem a ns loc sev msg = do
     LogEnv{..} <- getLogEnv
     liftIO $ do
       item <- Item
-        <$> pure _logEnvNs
+        <$> pure _logEnvApp
         <*> pure _logEnvEnv
         <*> pure sev
         <*> (mkThreadIdText <$> myThreadId)
@@ -625,9 +683,9 @@ logItem a ns loc sev msg = do
         <*> pure a
         <*> pure msg
         <*> _logEnvTimer
-        <*> pure (_logEnvNs <> ns)
+        <*> pure (_logEnvApp <> ns)
         <*> pure loc
-      forM_ (M.elems _logEnvScribes) $ \ (Scribe h) -> h item
+      FT.forM_ (M.elems _logEnvScribes) $ \ (Scribe h) -> h item
 
 
 -------------------------------------------------------------------------------
@@ -713,9 +771,33 @@ liftLoc (Loc a b c (d1, d2) (e1, e2)) = [|Loc
 
 -------------------------------------------------------------------------------
 -- | For use when you want to include location in your logs. This will
--- fill the 'Maybe Loc' gap in 'logF' of this module.
-getLoc :: Q Exp
-getLoc = [| $(location >>= liftLoc) |]
+-- fill the 'Maybe Loc' gap in 'logF' of this module, and relies on implicit
+-- callstacks when available (GHC > 7.8).
+#if MIN_VERSION_base(4, 8, 0)
+getLoc :: (?loc :: CallStack) => Maybe Loc
+getLoc = case getCallStack ?loc of
+  [] -> Nothing
+  xs -> Just . toLoc . last $ xs
+  where
+    toLoc :: (String, SrcLoc) -> Loc
+    toLoc (_, l) = Loc {
+        loc_filename = srcLocFile l
+      , loc_package  = srcLocPackage l
+      , loc_module   = srcLocModule l
+      , loc_start    = (srcLocStartLine l, srcLocStartCol l)
+      , loc_end      = (srcLocEndLine   l, srcLocEndCol   l)
+      }
+#else
+getLoc :: Maybe Loc
+getLoc = Nothing
+#endif
+
+
+-------------------------------------------------------------------------------
+-- Like `getLoc`, but uses template-haskell and works with older versions of
+-- the compiler (GHC 7.8 or older).
+getLocTH :: ExpQ
+getLocTH = [| $(location >>= liftLoc) |]
 
 
 -------------------------------------------------------------------------------
@@ -723,7 +805,27 @@ getLoc = [| $(location >>= liftLoc) |]
 --
 -- @$(logT) obj mempty InfoS "Hello world"@
 logT :: ExpQ
-logT = [| \ a ns sev msg -> logItem a ns (Just $(getLoc)) sev msg |]
+logT = [| \ a ns sev msg -> logItem a ns (Just $(getLocTH)) sev msg |]
+
+
+-------------------------------------------------------------------------------
+-- | 'Loc'-tagged logging using implicit-callstacks when available.
+--
+-- This function does not require template-haskell as it
+-- automatically uses <https://hackage.haskell.org/package/base-4.8.2.0/docs/GHC-Stack.html#v:getCallStack implicit-callstacks>
+-- when the code is compiled using GHC > 7.8. Using an older version of the
+-- compiler will result in the emission of a log line without any location information,
+-- so be aware of it. Users using GHC <= 7.8 may want to use the template-haskell function
+-- `logT` for maximum compatibility.
+--
+-- @logLoc obj mempty InfoS "Hello world"@
+logLoc :: (Applicative m, LogItem a, Katip m)
+       => a
+       -> Namespace
+       -> Severity
+       -> LogStr
+       -> m ()
+logLoc a ns = logItem a ns getLoc
 
 
 -- taken from the file-location package

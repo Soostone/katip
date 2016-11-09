@@ -7,7 +7,9 @@
 {-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE UndecidableInstances       #-}
-
+#if MIN_VERSION_base(4, 9, 0)
+{-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
+#endif
 -- | Provides support for treating payloads and namespaces as
 -- composable contexts. The common pattern would be to provide a
 -- 'KatipContext' instance for your base monad.
@@ -16,6 +18,7 @@ module Katip.Monadic
     -- * Monadic variants of logging functions from "Katip.Core"
       logFM
     , logTM
+    , logLocM
     , logItemM
     , logExceptionM
 
@@ -28,6 +31,9 @@ module Katip.Monadic
     -- * KatipContextT - Utility transformer that provides Katip and KatipContext instances
     , KatipContextT(..)
     , runKatipContextT
+    , katipAddNamespace
+    , katipAddContext
+    , katipNoLogging
     , KatipContextTState(..)
     ) where
 
@@ -53,8 +59,10 @@ import qualified Control.Monad.Trans.State.Strict  as Strict (StateT)
 import qualified Control.Monad.Trans.Writer.Strict as Strict (WriterT)
 import           Control.Monad.Writer
 import           Data.Aeson
+import qualified Data.Foldable                     as FT
 import qualified Data.HashMap.Strict               as HM
 import           Data.Monoid                       as M
+import           Data.Sequence                     as Seq
 import           Data.Text                         (Text)
 import           Language.Haskell.TH
 -------------------------------------------------------------------------------
@@ -72,17 +80,29 @@ data AnyLogContext where
 -- 'LogContext' instance for combining multiple payload policies. This
 -- is critical for log contexts deep down in a stack to be able to
 -- inject their own context without worrying about other context that
--- has already been set.
-newtype LogContexts = LogContexts [AnyLogContext] deriving (Monoid)
+-- has already been set. Also note that contexts are treated as a
+-- sequence and '<>' will be appended to the right hand side of the
+-- sequence. If there are conflicting keys in the contexts, the /right
+-- side will take precedence/, which is counter to how monoid works
+-- for 'Map' and 'HashMap', so bear that in mind. The reasoning is
+-- that if the user is /sequentially/ adding contexts to the right
+-- side of the sequence, on conflict the intent is to overwrite with
+-- the newer value (i.e. the rightmost value).
+--
+-- Additional note: you should not mappend LogContexts in any sort of
+-- infinite loop, as it retains all data, so that would be a memory
+-- leak.
+newtype LogContexts = LogContexts (Seq AnyLogContext) deriving (Monoid)
 
 instance ToJSON LogContexts where
     toJSON (LogContexts cs) =
-      Object $ mconcat $ map (\(AnyLogContext v) -> toObject v) cs
+      -- flip mappend to get right-biased merge
+      Object $ FT.foldr (flip mappend) mempty $ fmap (\(AnyLogContext v) -> toObject v) cs
 
 instance ToObject LogContexts
 
 instance LogItem LogContexts where
-    payloadKeys verb (LogContexts vs) = mconcat $ map payloadKeys' vs
+    payloadKeys verb (LogContexts vs) = FT.foldr (flip mappend) mempty $ fmap payloadKeys' vs
       where
         -- To ensure AllKeys doesn't leak keys from other values when
         -- combined, we resolve AllKeys to its equivalent SomeKeys
@@ -96,7 +116,7 @@ instance LogItem LogContexts where
 -- | Lift a log context into the generic wrapper so that it can
 -- combine with the existing log context.
 liftPayload :: (LogItem a) => a -> LogContexts
-liftPayload = LogContexts . (:[]) . AnyLogContext
+liftPayload = LogContexts . Seq.singleton . AnyLogContext
 
 
 -------------------------------------------------------------------------------
@@ -139,7 +159,7 @@ deriving instance (Monad m, KatipContext m) => KatipContext (KatipT m)
 -- very low level and you typically can use 'logTM' in its
 -- place. Automaticallysupplies payload and namespace.
 logItemM
-    :: (Applicative m, KatipContext m, Katip m)
+    :: (Applicative m, KatipContext m)
     => Maybe Loc
     -> Severity
     -> LogStr
@@ -155,7 +175,7 @@ logItemM loc sev msg = do
 -- | Log with full context, but without any code
 -- location. Automatically supplies payload and namespace.
 logFM
-  :: (Applicative m, KatipContext m, Katip m)
+  :: (Applicative m, KatipContext m)
   => Severity
   -- ^ Severity of the message
   -> LogStr
@@ -171,9 +191,30 @@ logFM sev msg = do
 -- | 'Loc'-tagged logging when using template-haskell. Automatically
 -- supplies payload and namespace.
 --
--- @$(logt) InfoS "Hello world"@
+-- @$(logTM) InfoS "Hello world"@
 logTM :: ExpQ
-logTM = [| logItemM (Just $(getLoc)) |]
+logTM = [| logItemM (Just $(getLocTH)) |]
+
+
+-------------------------------------------------------------------------------
+-- | 'Loc'-tagged logging when using template-haskell. Automatically
+-- supplies payload and namespace.
+--
+-- Same consideration as `logLoc` applies.
+--
+-- This function does not require template-haskell as it
+-- automatically uses <https://hackage.haskell.org/package/base-4.8.2.0/docs/GHC-Stack.html#v:getCallStack implicit-callstacks>
+-- when the code is compiled using GHC > 7.8. Using an older version of the
+-- compiler will result in the emission of a log line without any location information,
+-- so be aware of it. Users using GHC <= 7.8 may want to use the template-haskell function
+-- `logTM` for maximum compatibility.
+--
+-- @logLocM InfoS "Hello world"@
+logLocM :: (Applicative m, KatipContext m)
+        => Severity
+        -> LogStr
+        -> m ()
+logLocM = logItemM getLoc
 
 
 -------------------------------------------------------------------------------
@@ -270,3 +311,50 @@ runKatipContextT :: (LogItem c) => LogEnv -> c -> Namespace -> KatipContextT m a
 runKatipContextT le ctx ns = flip runReaderT lts . unKatipContextT
   where
     lts = KatipContextTState le (liftPayload ctx) ns
+
+
+-------------------------------------------------------------------------------
+-- | Append a namespace segment to the current namespace for the given
+-- monadic action, then restore the previous state
+-- afterwards.
+katipAddNamespace
+    :: (Monad m)
+    => Namespace
+    -> KatipContextT m a
+    -> KatipContextT m a
+katipAddNamespace ns (KatipContextT f) =
+  KatipContextT (local (\r -> r { ltsNamespace = (ltsNamespace r) <> ns}) f)
+
+
+-------------------------------------------------------------------------------
+-- | Append some context to the current context for the given monadic
+-- action, then restore the previous state afterwards. Important note:
+-- be careful using this in a loop. If you're using something like
+-- 'forever' or 'replicateM_' that does explicit sharing to avoid a
+-- memory leak, youll be fine as it will *sequence* calls to
+-- 'katipAddNamespace', so each loop will get the same context
+-- added. If you instead roll your own recursion and you're recursing
+-- in the action you provide, you'll instead accumulate tons of
+-- redundant contexts and even if they all merge on log, they are
+-- stored in a sequence and will leak memory.
+katipAddContext
+    :: ( LogItem i
+       , Monad m
+       )
+    => i
+    -> KatipContextT m a
+    -> KatipContextT m a
+katipAddContext i (KatipContextT f) =
+  KatipContextT (local (\r -> r { ltsContext = (ltsContext r) <> liftPayload i}) f)
+
+
+-------------------------------------------------------------------------------
+-- | Disable all scribes for the given monadic action, then restore
+-- them afterwards.
+katipNoLogging
+    :: ( Monad m
+       )
+    => KatipContextT m a
+    -> KatipContextT m a
+katipNoLogging (KatipContextT f) =
+  KatipContextT (local (\r -> r { ltsLogEnv = clearScribes (ltsLogEnv r)}) f)

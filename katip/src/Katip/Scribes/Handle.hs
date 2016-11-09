@@ -3,19 +3,21 @@
 module Katip.Scribes.Handle where
 
 -------------------------------------------------------------------------------
-import           Control.Lens
+import           Control.Applicative     as A
+import           Control.Concurrent
+import           Control.Exception       (bracket_)
 import           Control.Monad
-import           Data.Aeson.Lens
+import           Data.Aeson
 import qualified Data.HashMap.Strict     as HM
 import           Data.Monoid
+import           Data.Text               (Text)
 import           Data.Text.Lazy.Builder
 import           Data.Text.Lazy.IO       as T
-import           Data.Time
-import qualified Data.Time.Locale.Compat as LC
 import           System.IO
 import           System.IO.Unsafe        (unsafePerformIO)
 -------------------------------------------------------------------------------
 import           Katip.Core
+import           Katip.Format.Time       (formatAsLogTime)
 -------------------------------------------------------------------------------
 
 
@@ -26,18 +28,17 @@ brackets m = fromText "[" <> m <> fromText "]"
 
 -------------------------------------------------------------------------------
 getKeys :: LogItem s => Verbosity -> s -> [Builder]
-getKeys verb a = payloadObject verb a ^..
-              to HM.toList . traverse . to rendPair
+getKeys verb a = concat (renderPair A.<$> HM.toList (payloadObject verb a))
   where
-    rendPair (k,v) = fromText k <> fromText ":" <> (v ^. _Primitive . to renderPrim)
-
-
--------------------------------------------------------------------------------
-renderPrim :: Primitive -> Builder
-renderPrim (StringPrim t) = fromText t
-renderPrim (NumberPrim s) = fromString (show s)
-renderPrim (BoolPrim b) = fromString (show b)
-renderPrim NullPrim = fromText "null"
+    renderPair :: (Text, Value) -> [Builder]
+    renderPair (k,v) =
+      case v of
+        Object o -> concat [renderPair (k <> "." <> k', v')  | (k', v') <- HM.toList o]
+        String t -> [fromText (k <> ":" <> t)]
+        Number n -> [fromText (k <> ":") <> fromString (show n)]
+        Bool b -> [fromText (k <> ":") <> fromString (show b)]
+        Null -> [fromText (k <> ":null")]
+        _ -> mempty -- Can't think of a sensible way to handle arrays
 
 
 -------------------------------------------------------------------------------
@@ -49,15 +50,22 @@ data ColorStrategy
 
 
 -------------------------------------------------------------------------------
--- | Logs to a file handle such as stdout, stderr, or a file.
+-- | Logs to a file handle such as stdout, stderr, or a file. Contexts
+-- and other information will be flattened out into bracketed
+-- fields. For example:
+--
+-- > [2016-05-11 21:01:15][MyApp][Info][myhost.example.com][1724][ThreadId 1154][main:Helpers.Logging Helpers/Logging.hs:32:7] Started
+-- > [2016-05-11 21:01:15][MyApp.confrabulation][Debug][myhost.example.com][1724][ThreadId 1154][confrab_factor:42.0][main:Helpers.Logging Helpers/Logging.hs:41:9] Confrabulating widgets, with extra namespace and context
+-- > [2016-05-11 21:01:15][MyApp][Info][myhost.example.com][1724][ThreadId 1154][main:Helpers.Logging Helpers/Logging.hs:43:7] Namespace and context are back to normal
 mkHandleScribe :: ColorStrategy -> Handle -> Severity -> Verbosity -> IO Scribe
 mkHandleScribe cs h sev verb = do
     hSetBuffering h LineBuffering
     colorize <- case cs of
       ColorIfTerminal -> hIsTerminalDevice h
       ColorLog b -> return b
+    lock <- newMVar ()
     return $ Scribe $ \ i@Item{..} -> do
-      when (permitItem sev i) $
+      when (permitItem sev i) $ bracket_ (takeMVar lock) (putMVar lock ()) $
         T.hPutStrLn h $ toLazyText $ formatItem colorize verb i
 
 
@@ -74,7 +82,7 @@ formatItem withColor verb Item{..} =
     maybe mempty (brackets . fromString . locationToString) _itemLoc <>
     fromText " " <> (unLogStr _itemMessage)
   where
-    nowStr = fromString $ formatTime LC.defaultTimeLocale "%Y-%m-%d %H:%M:%S" _itemTime
+    nowStr = fromText (formatAsLogTime _itemTime)
     ks = map brackets $ getKeys verb _itemPayload
     renderSeverity' s = case s of
       EmergencyS -> red $ renderSeverity s

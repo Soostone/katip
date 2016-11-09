@@ -1,19 +1,25 @@
 {-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE UndecidableInstances       #-}
 module Main
     ( main
     ) where
 
 
 -------------------------------------------------------------------------------
-import           Control.Lens         hiding ((.=))
+import           Control.Applicative         as A
+import           Control.Lens                hiding ((.=))
+import           Control.Monad.Base
 import           Control.Monad.Reader
+import           Control.Monad.Trans.Control
 import           Data.Aeson
-import           Data.Monoid          as M
-import           System.IO            (stdout)
+import           Data.Monoid                 as M
+import           System.IO                   (stdout)
 -------------------------------------------------------------------------------
 import           Katip
 -------------------------------------------------------------------------------
@@ -38,7 +44,7 @@ makeClassy ''MyState
 -- lens_example for a slightly cleaner and more general pattern.
 main :: IO ()
 main = do
-  le <- initLogEnv "main" "production"
+  le <- initLogEnv "MyApp" "production"
   -- We'll set up a scribe that logs to stdout and will only log item
   -- fields permitted for Verbosity 2 and will throw out Debug
   -- messages entirely. Note that katip provides facilities like
@@ -60,6 +66,8 @@ main = do
       $(logTM) DebugS "Confrabulating widgets, with extra namespace and context"
       confrabulateWidgets
     $(logTM) InfoS "Namespace and context are back to normal"
+    noLogging $
+      $(logTM) DebugS "You'll never see this log message!"
 
 
 -------------------------------------------------------------------------------
@@ -85,8 +93,27 @@ confrabulateWidgets = return ()
 -------------------------------------------------------------------------------
 newtype MyStack m a = MyStack {
       unStack :: ReaderT MyState m a
-    } deriving (MonadReader MyState, Functor, Applicative, Monad, MonadIO)
+    } deriving (MonadReader MyState, Functor, A.Applicative, Monad, MonadIO, MonadTrans)
 
+
+-- MonadBase, MonadTransControl, and MonadBaseControl aren't strictly
+-- needed for this example, but they are commonly required and
+-- MonadTransControl/MonadBaseControl are a pain to implement, so I've
+-- included them. Note that KatipT and KatipContextT already do this work for you.
+instance MonadBase b m => MonadBase b (MyStack m) where
+  liftBase = liftBaseDefault
+
+
+instance MonadTransControl MyStack where
+  type StT MyStack a = StT (ReaderT Int) a
+  liftWith = defaultLiftWith MyStack unStack
+  restoreT = defaultRestoreT MyStack
+
+
+instance MonadBaseControl b m => MonadBaseControl b (MyStack m) where
+  type StM (MyStack m) a = ComposeSt MyStack m a
+  liftBaseWith = defaultLiftBaseWith
+  restoreM = defaultRestoreM
 
 instance (MonadIO m) => Katip (MyStack m) where
   getLogEnv = view msLogEnv
@@ -109,6 +136,12 @@ addContext i = local (\r -> r & msKContext <>~ ctxs)
 -- | Add a layer of namespace to the logs only for the given block
 addNamespace :: (MonadReader r m, HasMyState r) => Namespace -> m a -> m a
 addNamespace ns = local (\r -> r & msKNamespace <>~ ns)
+
+
+-------------------------------------------------------------------------------
+-- | Disable all log output temporarily
+noLogging :: (MonadReader r m, HasMyState r) => m a -> m a
+noLogging = local (\r -> r & msLogEnv %~ clearScribes)
 
 
 -------------------------------------------------------------------------------

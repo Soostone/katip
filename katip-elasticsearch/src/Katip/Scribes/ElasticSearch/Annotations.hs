@@ -31,7 +31,8 @@ instance ToJSON a => ToJSON (TypeAnnotated a) where
   toJSON = annotateValue . toJSON . typeAnnotatedValue
 
 
-instance ToObject a => ToObject (TypeAnnotated a)
+instance ToObject a => ToObject (TypeAnnotated a) where
+  toObject = annotateKeys . toObject . typeAnnotatedValue
 
 
 instance FromJSON a => FromJSON (TypeAnnotated a) where
