@@ -139,15 +139,17 @@ renderSeverity s = case s of
 
 -------------------------------------------------------------------------------
 textToSeverity :: Text -> Maybe Severity
-textToSeverity "Debug"     = Just DebugS
-textToSeverity "Info"      = Just InfoS
-textToSeverity "Notice"    = Just NoticeS
-textToSeverity "Warning"   = Just WarningS
-textToSeverity "Error"     = Just ErrorS
-textToSeverity "Critical"  = Just CriticalS
-textToSeverity "Alert"     = Just AlertS
-textToSeverity "Emergency" = Just EmergencyS
-textToSeverity _           = Nothing
+textToSeverity = go . T.toLower
+  where
+    go "debug"     = Just DebugS
+    go "info"      = Just InfoS
+    go "notice"    = Just NoticeS
+    go "warning"   = Just WarningS
+    go "error"     = Just ErrorS
+    go "critical"  = Just CriticalS
+    go "alert"     = Just AlertS
+    go "emergency" = Just EmergencyS
+    go _           = Nothing
 
 
 instance ToJSON Severity where
