@@ -1,0 +1,20 @@
+resolver: lts-3.22
+packages:
+  - katip
+  - katip-elasticsearch
+extra-deps:
+  - bloodhound-0.12.0.0
+  - string-conv-0.1.2
+  - aeson-0.11.1.0
+  - http-client-0.5.4
+  - fail-4.9.0.0
+  - tagged-0.8.3
+  - uuid-1.3.12
+  - attoparsec-0.13.1.0
+  - retry-0.7.4.2
+  - tasty-0.11.0.4
+flags:
+  katip:
+    lib-Werror: true
+  katip-elasticsearch:
+    lib-Werror: true

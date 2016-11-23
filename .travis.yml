@@ -15,8 +15,10 @@ addons:
 env:
 - ARGS=""
 - ARGS="--stack-yaml=stack-lts-2.yaml"
-- ARGS="--resolver=lts-3"
-- ARGS="--resolver=lts"
+- ARGS="--stack-yaml=stack-lts-3.yaml"
+- ARGS="--stack-yaml=stack-lts-4.yaml"
+- ARGS="--stack-yaml=stack-lts-5.yaml"
+- ARGS="--resolver=lts-6"
 - ARGS="--stack-yaml=stack-nightly.yaml"
 
 before_install:
