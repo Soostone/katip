@@ -18,7 +18,7 @@ module Main
 
 
 -------------------------------------------------------------------------------
-import           Control.Monad          (unless, forever)
+import           Control.Monad          (unless)
 import qualified Data.Aeson             as A
 import qualified Data.HashMap.Strict    as HM
 import qualified Data.String.Conv       as SC
@@ -51,7 +51,7 @@ run mlim = go 0
     go n = do
       K.katipAddContext (SomeContext 1000) $ do
        K.logFM K.InfoS "loop"
-        unless (done n) $ go (n + 1)
+       unless (done n) $ go (n + 1)
     done n = case mlim of
                Nothing -> False
                Just lim -> n >= lim
