@@ -1,3 +1,7 @@
+0.3.0.1
+=======
+* Loosen deps on bloodhound, aeson, and http-client.
+
 0.3.0.0
 ==============
 * Added zero padding to date-based indices. This shouldn't negatively
