@@ -1,3 +1,8 @@
+0.3.1.1
+=======
+* Fix some example code that wasn't building
+* Make FromJSON instance for Severity case insensitive.
+
 0.3.1.0
 =======
 * Add support for aeson 1.0.x
