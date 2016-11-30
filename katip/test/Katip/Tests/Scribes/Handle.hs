@@ -18,7 +18,6 @@ import           Language.Haskell.TH.Syntax (Loc (..))
 import           Lens.Micro                 ((.~))
 import           System.Directory
 import           System.IO
-import           System.IO.Temp
 import           Test.Tasty
 import           Test.Tasty.Golden
 import           Test.Tasty.HUnit
@@ -40,10 +39,10 @@ tests = testGroup "Katip.Scribes.Handle"
        let pat = "\\[[[:digit:]]{4}-[[:digit:]]{2}-[[:digit:]]{2} [[:digit:]]{2}:[[:digit:]]{2}:[[:digit:]]{2}\\]\\[katip-test.test\\]\\[Info\\]\\[.+\\]\\[[[:digit:]]+\\]\\[ThreadId [[:digit:]]+\\]\\[note.deep:some note\\] test message" :: String
        let matches = res =~ pat
        assertBool (res <> " did not match") matches
-  , withResource setupTempFile teardownTempFile $ \setup ->
+  , withResource setupTempFile teardownTempFile $ \setupFn ->
        goldenVsString "Text-golden"
                       "test/Katip/Tests/Scribes/Handle-text.golden"
-                      (setup >>= writeTextLog)
+                      (setupFn >>= writeTextLog)
   ]
 
 
@@ -54,8 +53,8 @@ data DummyLogItem = DummyLogItem {
 
 
 instance ToJSON DummyLogItem where
-  toJSON (DummyLogItem n) = object
-    [ "note" .= object [ "deep" .= n
+  toJSON dli = object
+    [ "note" .= object [ "deep" .= dliNote dli
                        ]
     ]
 
@@ -143,7 +142,7 @@ genItems = concat $
           | s <- [minBound .. maxBound]
     ]
   , [ itemThread .~ (ThreadIdText . T.pack $ show t) $ theItem
-          | t <- [0, 1, 1337, 2147483647]
+          | t <- [0 :: Int, 1, 1337, 2147483647]
     ]
   , [ itemHost .~ h $ theItem
           | h <- ["example", "www.example.com", "127.0.0.1"]

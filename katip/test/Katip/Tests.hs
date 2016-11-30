@@ -11,7 +11,7 @@ module Katip.Tests
 
 
 -------------------------------------------------------------------------------
-import           Control.Applicative
+import           Control.Applicative as A
 import           Data.Aeson
 import qualified Data.HashMap.Strict       as HM
 import           Data.Monoid
@@ -93,7 +93,7 @@ prop_json_cycle a = eitherDecode (encode a) === Right a
 -------------------------------------------------------------------------------
 instance Arbitrary a => Arbitrary (Item a) where
     arbitrary = Item
-      <$> arbitrary
+      A.<$> arbitrary
       <*> arbitrary
       <*> arbitrary
       <*> arbitrary

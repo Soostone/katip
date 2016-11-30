@@ -1,19 +1,20 @@
-
 module Katip.Tests.Format.Time
     ( tests
     ) where
 
+-------------------------------------------------------------------------------
 import           Data.Aeson              (toJSON)
 import qualified Data.Text               as Text
 import           Data.Time
 import           Data.Time.Clock.POSIX
 import qualified Data.Time.Locale.Compat as LC
-
 import           Test.Tasty
 import           Test.Tasty.HUnit
 import           Test.Tasty.QuickCheck
-
+-------------------------------------------------------------------------------
 import           Katip.Format.Time
+-------------------------------------------------------------------------------
+
 
 tests :: TestTree
 tests = testGroup "Katip.Format.Time"
@@ -72,9 +73,8 @@ prop_format_aeson :: UTCTime -> Property
 prop_format_aeson a = toJSON a === toJSON (formatAsIso8601 a)
 
 
-newtype ArbUTCTime = ArbUTCTime {
-      unArbUTCTime :: UTCTime
-    } deriving (Show)
+newtype ArbUTCTime = ArbUTCTime UTCTime
+                   deriving (Show)
 
 instance Arbitrary ArbUTCTime where
     arbitrary = fmap (ArbUTCTime . posixSecondsToUTCTime . fromInteger)
