@@ -1,3 +1,7 @@
+0.3.1.2
+=======
+* Add some missing test files
+
 0.3.1.1
 =======
 * Fix some example code that wasn't building
