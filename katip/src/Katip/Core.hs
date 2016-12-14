@@ -63,7 +63,12 @@ import qualified Language.Haskell.TH.Syntax   as TH
 import           Lens.Micro
 import           Lens.Micro.TH
 import           Network.HostName
+#if mingw32_HOST_OS
+import           Katip.Compat
+#else
 import           System.Posix
+#endif
+
 -------------------------------------------------------------------------------
 
 

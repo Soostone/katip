@@ -68,7 +68,6 @@ library
                , time >= 1 && < 1.7
                , transformers >= 0.3 && < 0.6
                , transformers-compat
-               , unix >= 2.5 && < 2.8
                , unordered-containers >= 0.2 && < 0.3
                , monad-control >= 1.0 && < 1.1
                , mtl >= 2.0 && < 2.3
@@ -83,6 +82,12 @@ library
   ghc-options:        -Wall
   if flag(lib-Werror)
     ghc-options: -Werror
+  if os(windows)
+    build-depends: Win32 >=2.3 && <2.5
+    other-modules: Katip.Compat
+  else
+    build-depends: unix >= 2.5 && <2.8
+
 
 test-suite test
   type: exitcode-stdio-1.0
