@@ -1,3 +1,7 @@
+0.3.1.3
+=======
+* Fix build on windows
+
 0.3.1.2
 =======
 * Add some missing test files

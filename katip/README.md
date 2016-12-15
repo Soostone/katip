@@ -82,3 +82,4 @@ stack.
 * [Michael Xavier](https://github.com/MichaelXavier)
 * [Doug Beardsley](https://github.com/mightybyte)
 * [Leonid Onokhov](https://github.com/sopvop)
+* [Alexander Vershilov](https://github.com/qnikst)
