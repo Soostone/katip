@@ -7,10 +7,11 @@ module Katip.Tests.Scribes.Handle
 import           Control.Monad
 import           Data.Aeson
 import qualified Data.ByteString.Lazy       as BL
+import qualified Data.ByteString.Char8      as B
 import           Data.Monoid
 import           Data.Text                  (Text)
 import qualified Data.Text                  as T
-import qualified Data.Text.IO               as T
+import qualified Data.Text.Encoding         as T
 import qualified Data.Text.Lazy             as LT
 import qualified Data.Text.Lazy.Builder     as LT
 import           Data.Time
@@ -211,13 +212,14 @@ mkUTCTime y mt d h mn s = UTCTime day dt
 -------------------------------------------------------------------------------
 writeTextLog :: (FilePath, Handle) -> IO (BL.ByteString)
 writeTextLog (path, h) = do
-    mapM_ (T.hPutStrLn h . formatOne) genItems
-    mapM_ (T.hPutStrLn h . formatOne) genTypedItems
+    mapM_ (put . formatOne) genItems
+    mapM_ (put . formatOne) genTypedItems
     hClose h
     BL.readFile path
   where
     formatOne :: LogItem a => Item a -> Text
     formatOne = LT.toStrict . LT.toLazyText . formatItem False V3
+    put = B.hPutStrLn h . T.encodeUtf8
 
 setupTempFile :: IO (FilePath, Handle)
 setupTempFile = do
