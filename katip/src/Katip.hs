@@ -150,7 +150,7 @@ webRequestHandler = do
 @
 
 In the above example, doDatabaseThings would overwrite that
-UderIDContext with its own context and namespace. Sometimes this is
+UserIDContext with its own context and namespace. Sometimes this is
 what you want and that's why 'logF' and other functions which only
 require 'Katip' exist. If you are interested in combining log
 contexts and namespaces, see 'KatipContext'.
