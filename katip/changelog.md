@@ -1,3 +1,7 @@
+0.3.1.4
+=======
+* Loosen deps on aeson to allow 1.1.0.0
+
 0.3.1.3
 =======
 * Fix build on windows

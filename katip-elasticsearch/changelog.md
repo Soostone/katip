@@ -1,3 +1,7 @@
+0.3.0.2
+=======
+* Loosen deps on aeson to allow 1.1.0.0
+
 0.3.0.1
 =======
 * Loosen deps on bloodhound, aeson, and http-client.
