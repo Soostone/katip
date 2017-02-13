@@ -826,7 +826,11 @@ logT = [| \ a ns sev msg -> logItem a ns (Just $(getLocTH)) sev msg |]
 -- `logT` for maximum compatibility.
 --
 -- @logLoc obj mempty InfoS "Hello world"@
+#if MIN_VERSION_base(4, 8, 0)
+logLoc :: (Applicative m, LogItem a, Katip m, ?loc :: CallStack)
+#else
 logLoc :: (Applicative m, LogItem a, Katip m)
+#endif
        => a
        -> Namespace
        -> Severity
