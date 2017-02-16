@@ -13,13 +13,14 @@ addons:
 # The different configurations we want to test. You could also do things like
 # change flags or use --stack-yaml to point to a different file.
 env:
-- ARGS=""
 - ARGS="--stack-yaml=stack-lts-2.yaml"
 - ARGS="--stack-yaml=stack-lts-3.yaml"
 - ARGS="--stack-yaml=stack-lts-4.yaml"
 - ARGS="--stack-yaml=stack-lts-5.yaml"
 - ARGS="--resolver=lts-6"
-- ARGS="--resolver=nightly"
+- ARGS="--resolver=lts-7.19"
+- ARGS="--resolver=lts-8"
+- ARGS="--stack-yaml=stack-nightly.yaml"
 
 before_install:
 # Download and unpack the stack executable
