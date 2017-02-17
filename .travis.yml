@@ -12,7 +12,7 @@ addons:
 
 # The different configurations we want to test. You could also do things like
 # change flags or use --stack-yaml to point to a different file.
-matrix
+matrix:
   include:
     - env: ARGS="--stack-yaml=stack-lts-2.yaml"
     - env: ARGS="--stack-yaml=stack-lts-3.yaml"
