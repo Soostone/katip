@@ -21,6 +21,7 @@ extra-deps:
   - memory-0.13
   - rng-utils-0.2.1
   - lens-aeson-1.0.0.5
+  - unagi-chan-0.4.0.0
 flags:
   katip:
     lib-Werror: true

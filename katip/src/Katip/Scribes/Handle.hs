@@ -3,21 +3,21 @@
 module Katip.Scribes.Handle where
 
 -------------------------------------------------------------------------------
-import           Control.Applicative     as A
-import           Control.Concurrent
-import           Control.Exception       (bracket_)
+import           Control.Applicative as A
 import           Control.Monad
 import           Data.Aeson
-import qualified Data.HashMap.Strict     as HM
+import qualified Data.HashMap.Strict as HM
 import           Data.Monoid
-import           Data.Text               (Text)
+import           Data.Text (Text)
 import           Data.Text.Lazy.Builder
-import           Data.Text.Lazy.IO       as T
+import           Data.Text.Lazy.IO as T
 import           System.IO
-import           System.IO.Unsafe        (unsafePerformIO)
+import           System.IO.Unsafe (unsafePerformIO)
+import qualified Control.Concurrent.Chan.Unagi.Bounded as U
+import           Control.Concurrent.Async
 -------------------------------------------------------------------------------
 import           Katip.Core
-import           Katip.Format.Time       (formatAsLogTime)
+import           Katip.Format.Time (formatAsLogTime)
 -------------------------------------------------------------------------------
 
 
@@ -48,6 +48,10 @@ data ColorStrategy
     | ColorIfTerminal
     -- ^ Color if output is a terminal
 
+-------------------------------------------------------------------------------
+data WorkerCmd =
+    NewItem Builder
+  | PoisonPill
 
 -------------------------------------------------------------------------------
 -- | Logs to a file handle such as stdout, stderr, or a file. Contexts
@@ -59,15 +63,25 @@ data ColorStrategy
 -- > [2016-05-11 21:01:15][MyApp][Info][myhost.example.com][1724][ThreadId 1154][main:Helpers.Logging Helpers/Logging.hs:43:7] Namespace and context are back to normal
 mkHandleScribe :: ColorStrategy -> Handle -> Severity -> Verbosity -> IO Scribe
 mkHandleScribe cs h sev verb = do
-    hSetBuffering h LineBuffering
-    colorize <- case cs of
-      ColorIfTerminal -> hIsTerminalDevice h
-      ColorLog b -> return b
-    lock <- newMVar ()
-    return $ Scribe $ \ i@Item{..} -> do
-      when (permitItem sev i) $ bracket_ (takeMVar lock) (putMVar lock ()) $
-        T.hPutStrLn h $ toLazyText $ formatItem colorize verb i
+  (inChan, outChan) <- U.newChan 4096
+  -- TODO: Come up with a good story for resource cleanup.
+  _ <- async $ workerLoop outChan
+  hSetBuffering h LineBuffering
+  colorize <- case cs of
+    ColorIfTerminal -> hIsTerminalDevice h
+    ColorLog b -> return b
+  return $ Scribe $ \i -> when (permitItem sev i) $ do
+    void (U.tryWriteChan inChan (NewItem (formatItem colorize verb i)))
 
+  where
+    workerLoop :: U.OutChan WorkerCmd -> IO ()
+    workerLoop outChan = do
+      newCmd <- U.readChan outChan
+      case newCmd of
+        NewItem b  -> do
+          T.hPutStrLn h $ toLazyText b
+          workerLoop outChan
+        PoisonPill -> return ()
 
 -------------------------------------------------------------------------------
 formatItem :: LogItem a => Bool -> Verbosity -> Item a -> Builder

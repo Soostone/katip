@@ -14,6 +14,7 @@ extra-deps:
   - retry-0.7.4.2
   - tasty-0.11.0.4
   - rng-utils-0.2.1
+  - unagi-chan-0.4.0.0
 flags:
   katip:
     lib-Werror: true

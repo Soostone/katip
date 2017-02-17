@@ -4,6 +4,7 @@ packages:
   - katip-elasticsearch
 extra-deps:
   - bloodhound-0.12.1.0 # this shouldn't be necessary for too much longer
+  - unagi-chan-0.4.0.0
 flags:
   katip:
     lib-Werror: true
