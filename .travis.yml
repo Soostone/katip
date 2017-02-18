@@ -12,15 +12,18 @@ addons:
 
 # The different configurations we want to test. You could also do things like
 # change flags or use --stack-yaml to point to a different file.
-env:
-- ARGS="--stack-yaml=stack-lts-2.yaml"
-- ARGS="--stack-yaml=stack-lts-3.yaml"
-- ARGS="--stack-yaml=stack-lts-4.yaml"
-- ARGS="--stack-yaml=stack-lts-5.yaml"
-- ARGS="--resolver=lts-6"
-- ARGS="--resolver=lts-7.19"
-- ARGS="--resolver=lts-8"
-- ARGS="--stack-yaml=stack-nightly.yaml"
+matrix:
+  include:
+    - env: ARGS="--stack-yaml=stack-lts-2.yaml"
+    - env: ARGS="--stack-yaml=stack-lts-3.yaml"
+    - env: ARGS="--stack-yaml=stack-lts-4.yaml"
+    - env: ARGS="--stack-yaml=stack-lts-5.yaml"
+    - env: ARGS="--resolver=lts-6"
+    - env: ARGS="--resolver=lts-7.19"
+    - env: ARGS="--resolver=lts-8"
+    - env: ARGS="--resolver=nightly"
+  allow_failures:
+    - env: ARGS="--resolver=nightly"
 
 before_install:
 # Download and unpack the stack executable
