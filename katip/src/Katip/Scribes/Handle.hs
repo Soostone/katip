@@ -81,7 +81,7 @@ mkHandleScribe cs h sev verb = do
     stopWorker :: Async () -> U.InChan WorkerCmd -> IO ()
     stopWorker worker inChan = do
       U.writeChan inChan PoisonPill
-      wait worker
+      void $ waitCatch worker
 
     workerLoop :: U.OutChan WorkerCmd -> IO ()
     workerLoop outChan = do
