@@ -34,7 +34,7 @@ main = do
   -- messages entirely. Note that katip provides facilities like
   -- 'unregisterScribe' and 'registerScribe' to make it possible to
   -- hot-swap scribes at runtime if you need to.
-  handleScribe <- mkHandleScribe ColorIfTerminal stdout InfoS V2
+  (handleScribe, finaliser) <- mkHandleScribe ColorIfTerminal stdout InfoS V2
   let le' = registerScribe "stdout" handleScribe le
   let s = MyState M.mempty mempty le'
   runStack s $ do
@@ -52,7 +52,7 @@ main = do
     $(logTM) InfoS "Namespace and context are back to normal"
     noLogging $
       $(logTM) DebugS "You'll never see this log message!"
-
+  finaliser
 
 -------------------------------------------------------------------------------
 newtype ConfrabLogCTX = ConfrabLogCTX Int
