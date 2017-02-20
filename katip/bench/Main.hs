@@ -4,6 +4,7 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Main
     ( main
+    , getFinaliser
     ) where
 
 
@@ -31,14 +32,14 @@ main = defaultMain [
 -------------------------------------------------------------------------------
 handleScribeBench :: Benchmark
 handleScribeBench = bgroup "Katip.Scribes.Handle" [
-      env setupHandleEnv $ \ ~(Scribe push, tid) ->
+      env setupHandleEnv $ \ ~((Scribe push, _), tid) ->
       bench "Bytestring Builder" $
-        whnfIO $ push $ exItem tid
+        whnfIO $ (push (exItem tid))
     ]
 
 
 -------------------------------------------------------------------------------
-setupHandleEnv :: IO (Scribe, ThreadIdText)
+setupHandleEnv :: IO ((Scribe, Finaliser), ThreadIdText)
 setupHandleEnv = do
       scribe <- setup
       tid <- myThreadId
@@ -83,15 +84,20 @@ mkUTCTime y mt d h mn s = UTCTime day dt
 
 
 -------------------------------------------------------------------------------
-setup :: IO Scribe
+setup :: IO (Scribe, Finaliser)
 setup = do
   h <- openFile "/dev/null" WriteMode
-  mkHandleScribe ColorIfTerminal h DebugS V0
+  (s, f) <- mkHandleScribe ColorIfTerminal h DebugS V0
+  return (s, F f)
 
 
 -------------------------------------------------------------------------------
 deriving instance NFData ThreadIdText
 
+newtype Finaliser = F { getFinaliser :: IO () }
 
 instance NFData Scribe where
   rnf (Scribe _) = ()
+
+instance NFData Finaliser where
+  rnf (F _) = ()

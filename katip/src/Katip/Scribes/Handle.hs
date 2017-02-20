@@ -5,6 +5,7 @@ module Katip.Scribes.Handle where
 -------------------------------------------------------------------------------
 import           Control.Applicative as A
 import           Control.Monad
+import           Control.Exception (onException)
 import           Data.Aeson
 import qualified Data.HashMap.Strict as HM
 import           Data.Monoid
@@ -61,19 +62,27 @@ data WorkerCmd =
 -- > [2016-05-11 21:01:15][MyApp][Info][myhost.example.com][1724][ThreadId 1154][main:Helpers.Logging Helpers/Logging.hs:32:7] Started
 -- > [2016-05-11 21:01:15][MyApp.confrabulation][Debug][myhost.example.com][1724][ThreadId 1154][confrab_factor:42.0][main:Helpers.Logging Helpers/Logging.hs:41:9] Confrabulating widgets, with extra namespace and context
 -- > [2016-05-11 21:01:15][MyApp][Info][myhost.example.com][1724][ThreadId 1154][main:Helpers.Logging Helpers/Logging.hs:43:7] Namespace and context are back to normal
-mkHandleScribe :: ColorStrategy -> Handle -> Severity -> Verbosity -> IO Scribe
+--
+-- Returns the newly-created `Scribe` together with a finaliser the user needs to run to perform resource cleanup.
+mkHandleScribe :: ColorStrategy -> Handle -> Severity -> Verbosity -> IO (Scribe, IO ())
 mkHandleScribe cs h sev verb = do
   (inChan, outChan) <- U.newChan 4096
-  -- TODO: Come up with a good story for resource cleanup.
-  _ <- async $ workerLoop outChan
-  hSetBuffering h LineBuffering
-  colorize <- case cs of
-    ColorIfTerminal -> hIsTerminalDevice h
-    ColorLog b -> return b
-  return $ Scribe $ \i -> when (permitItem sev i) $ do
-    void (U.tryWriteChan inChan (NewItem (formatItem colorize verb i)))
+  worker <- async $ workerLoop outChan
+  flip onException (stopWorker worker inChan) $ do
+    hSetBuffering h LineBuffering
+    colorize <- case cs of
+      ColorIfTerminal -> hIsTerminalDevice h
+      ColorLog b -> return b
+    let scribe = Scribe $ \i ->
+          when (permitItem sev i) $ void (U.tryWriteChan inChan (NewItem (formatItem colorize verb i)))
+    return (scribe, stopWorker worker inChan)
 
   where
+    stopWorker :: Async () -> U.InChan WorkerCmd -> IO ()
+    stopWorker worker inChan = do
+      U.writeChan inChan PoisonPill
+      wait worker
+
     workerLoop :: U.OutChan WorkerCmd -> IO ()
     workerLoop outChan = do
       newCmd <- U.readChan outChan
@@ -114,10 +123,11 @@ formatItem withColor verb Item{..} =
 
 -------------------------------------------------------------------------------
 -- | An implicit environment to enable logging directly ouf of the IO monad.
+-- Be careful as this LogEnv won't perform any resource cleanup for you.
 _ioLogEnv :: LogEnv
 _ioLogEnv = unsafePerformIO $ do
     le <- initLogEnv "io" "io"
-    lh <- mkHandleScribe ColorIfTerminal stdout DebugS V3
+    (lh, _) <- mkHandleScribe ColorIfTerminal stdout DebugS V3
     return $ registerScribe "stdout" lh le
 {-# NOINLINE _ioLogEnv #-}
 

@@ -33,8 +33,9 @@ tests :: TestTree
 tests = testGroup "Katip.Scribes.Handle"
   [
     withResource setup teardown $ \setupScribe -> testCase "logs the correct data" $ do
-       (path, h, le) <- setupScribe
+       (path, h, fin, le) <- setupScribe
        runKatipT le $ logItem dummyLogItem "test" Nothing InfoS "test message"
+       fin
        hClose h
        res <- readFile path
        let pat = "\\[[[:digit:]]{4}-[[:digit:]]{2}-[[:digit:]]{2} [[:digit:]]{2}:[[:digit:]]{2}:[[:digit:]]{2}\\]\\[katip-test.test\\]\\[Info\\]\\[.+\\]\\[[[:digit:]]+\\]\\[ThreadId [[:digit:]]+\\]\\[note.deep:some note\\] test message" :: String
@@ -73,18 +74,18 @@ dummyLogItem = DummyLogItem "some note"
 
 
 -------------------------------------------------------------------------------
-setup :: IO (FilePath, Handle, LogEnv)
+setup :: IO (FilePath, Handle, IO (), LogEnv)
 setup = do
   tempDir <- getTemporaryDirectory
   (fp, h) <- openTempFile tempDir "katip.log"
-  s <- mkHandleScribe (ColorLog False) h DebugS V3
+  (s, finaliser) <- mkHandleScribe (ColorLog False) h DebugS V3
   le <- initLogEnv "katip-test" "test"
-  return (fp, h, registerScribe "handle" s le)
+  return (fp, h, finaliser, registerScribe "handle" s le)
 
 
 -------------------------------------------------------------------------------
-teardown :: (FilePath, Handle, LogEnv) -> IO ()
-teardown (_, h, _) = do
+teardown :: (FilePath, Handle, IO (), LogEnv) -> IO ()
+teardown (_, h, _, _) = do
   chk <- hIsOpen h
   when chk $ hClose h
 
