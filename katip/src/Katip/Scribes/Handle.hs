@@ -3,21 +3,22 @@
 module Katip.Scribes.Handle where
 
 -------------------------------------------------------------------------------
-import           Control.Applicative     as A
-import           Control.Concurrent
-import           Control.Exception       (bracket_)
+import           Control.Applicative as A
 import           Control.Monad
+import           Control.Exception (onException)
 import           Data.Aeson
-import qualified Data.HashMap.Strict     as HM
+import qualified Data.HashMap.Strict as HM
 import           Data.Monoid
-import           Data.Text               (Text)
+import           Data.Text (Text)
 import           Data.Text.Lazy.Builder
-import           Data.Text.Lazy.IO       as T
+import           Data.Text.Lazy.IO as T
 import           System.IO
-import           System.IO.Unsafe        (unsafePerformIO)
+import           System.IO.Unsafe (unsafePerformIO)
+import qualified Control.Concurrent.Chan.Unagi.Bounded as U
+import           Control.Concurrent.Async
 -------------------------------------------------------------------------------
 import           Katip.Core
-import           Katip.Format.Time       (formatAsLogTime)
+import           Katip.Format.Time (formatAsLogTime)
 -------------------------------------------------------------------------------
 
 
@@ -48,6 +49,10 @@ data ColorStrategy
     | ColorIfTerminal
     -- ^ Color if output is a terminal
 
+-------------------------------------------------------------------------------
+data WorkerCmd =
+    NewItem Builder
+  | PoisonPill
 
 -------------------------------------------------------------------------------
 -- | Logs to a file handle such as stdout, stderr, or a file. Contexts
@@ -57,17 +62,35 @@ data ColorStrategy
 -- > [2016-05-11 21:01:15][MyApp][Info][myhost.example.com][1724][ThreadId 1154][main:Helpers.Logging Helpers/Logging.hs:32:7] Started
 -- > [2016-05-11 21:01:15][MyApp.confrabulation][Debug][myhost.example.com][1724][ThreadId 1154][confrab_factor:42.0][main:Helpers.Logging Helpers/Logging.hs:41:9] Confrabulating widgets, with extra namespace and context
 -- > [2016-05-11 21:01:15][MyApp][Info][myhost.example.com][1724][ThreadId 1154][main:Helpers.Logging Helpers/Logging.hs:43:7] Namespace and context are back to normal
-mkHandleScribe :: ColorStrategy -> Handle -> Severity -> Verbosity -> IO Scribe
+--
+-- Returns the newly-created `Scribe` together with a finaliser the user needs to run to perform resource cleanup.
+mkHandleScribe :: ColorStrategy -> Handle -> Severity -> Verbosity -> IO (Scribe, IO ())
 mkHandleScribe cs h sev verb = do
+  (inChan, outChan) <- U.newChan 4096
+  worker <- async $ workerLoop outChan
+  flip onException (stopWorker worker inChan) $ do
     hSetBuffering h LineBuffering
     colorize <- case cs of
       ColorIfTerminal -> hIsTerminalDevice h
       ColorLog b -> return b
-    lock <- newMVar ()
-    return $ Scribe $ \ i@Item{..} -> do
-      when (permitItem sev i) $ bracket_ (takeMVar lock) (putMVar lock ()) $
-        T.hPutStrLn h $ toLazyText $ formatItem colorize verb i
+    let scribe = Scribe $ \i ->
+          when (permitItem sev i) $ void (U.tryWriteChan inChan (NewItem (formatItem colorize verb i)))
+    return (scribe, stopWorker worker inChan)
 
+  where
+    stopWorker :: Async () -> U.InChan WorkerCmd -> IO ()
+    stopWorker worker inChan = do
+      U.writeChan inChan PoisonPill
+      void $ waitCatch worker
+
+    workerLoop :: U.OutChan WorkerCmd -> IO ()
+    workerLoop outChan = do
+      newCmd <- U.readChan outChan
+      case newCmd of
+        NewItem b  -> do
+          T.hPutStrLn h $ toLazyText b
+          workerLoop outChan
+        PoisonPill -> return ()
 
 -------------------------------------------------------------------------------
 formatItem :: LogItem a => Bool -> Verbosity -> Item a -> Builder
@@ -100,10 +123,11 @@ formatItem withColor verb Item{..} =
 
 -------------------------------------------------------------------------------
 -- | An implicit environment to enable logging directly ouf of the IO monad.
+-- Be careful as this LogEnv won't perform any resource cleanup for you.
 _ioLogEnv :: LogEnv
 _ioLogEnv = unsafePerformIO $ do
     le <- initLogEnv "io" "io"
-    lh <- mkHandleScribe ColorIfTerminal stdout DebugS V3
+    (lh, _) <- mkHandleScribe ColorIfTerminal stdout DebugS V3
     return $ registerScribe "stdout" lh le
 {-# NOINLINE _ioLogEnv #-}
 

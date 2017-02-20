@@ -2,7 +2,8 @@ resolver: lts-7.9
 packages:
   - katip
   - katip-elasticsearch
-extra-deps: []
+extra-deps:
+  - unagi-chan-0.4.0.0
 flags:
   katip:
     lib-Werror: true

@@ -8,6 +8,7 @@ extra-deps:
   - aeson-0.11.1.0
   - http-client-0.5.4
   - rng-utils-0.2.1
+  - unagi-chan-0.4.0.0
 flags:
   katip:
     lib-Werror: true
