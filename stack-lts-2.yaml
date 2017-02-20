@@ -22,6 +22,7 @@ extra-deps:
   - rng-utils-0.2.1
   - lens-aeson-1.0.0.5
   - unagi-chan-0.4.0.0
+  - atomic-primops-0.8.0.4
 flags:
   katip:
     lib-Werror: true
