@@ -4,7 +4,6 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Main
     ( main
-    , getFinaliser
     ) where
 
 
@@ -94,7 +93,7 @@ setup = do
 -------------------------------------------------------------------------------
 deriving instance NFData ThreadIdText
 
-newtype Finaliser = F { getFinaliser :: IO () }
+newtype Finaliser = F (IO ())
 
 instance NFData Scribe where
   rnf (Scribe _) = ()
