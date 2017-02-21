@@ -18,7 +18,6 @@ import           Data.Aeson
 import           Data.Aeson.Lens
 import           Data.Aeson.Types
 import qualified Data.HashMap.Strict         as HM
-import qualified Data.Map                    as M
 import           Data.Monoid
 import           Data.Scientific
 import           Data.Time
@@ -254,21 +253,24 @@ bh = withBH defaultManagerSettings svr
 
 -------------------------------------------------------------------------------
 withTestLogging
-  :: IO (Scribe, IO a) -> (IO Reply -> KatipT IO b) -> IO b
+  :: IO (Scribe, IO ()) -> (IO Reply -> KatipT IO b) -> IO b
 withTestLogging = withTestLogging' id
 
 
 -------------------------------------------------------------------------------
 withTestLogging'
   :: (LogEnv -> LogEnv)
-  -> IO (Scribe, IO a)
+  -> IO (Scribe, IO ())
   -> (IO Reply -> KatipT IO b)
   -> IO b
 withTestLogging' modEnv setup f = do
   (scr, done) <- setup
   le <- modEnv <$> initLogEnv ns env
-  let done' = done >> bh (refreshIndex ixn)
-  runKatipT le { _logEnvScribes = M.singleton "es" scr} (f done')
+  le' <- registerScribe "es" scr (defaultScribeSettings done) le
+  let done' = do
+        _ <- clearScribes le'
+        bh (refreshIndex ixn)
+  runKatipT le' (f done')
   where
     ns = Namespace ["katip-test"]
     env = Environment "test"

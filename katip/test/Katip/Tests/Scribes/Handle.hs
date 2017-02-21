@@ -40,7 +40,7 @@ tests = testGroup "Katip.Scribes.Handle"
        res <- readFile path
        let pat = "\\[[[:digit:]]{4}-[[:digit:]]{2}-[[:digit:]]{2} [[:digit:]]{2}:[[:digit:]]{2}:[[:digit:]]{2}\\]\\[katip-test.test\\]\\[Info\\]\\[.+\\]\\[[[:digit:]]+\\]\\[ThreadId [[:digit:]]+\\]\\[note.deep:some note\\] test message" :: String
        let matches = res =~ pat
-       assertBool (res <> " did not match") matches
+       assertBool (show res <> " did not match") matches
   , withResource setupTempFile teardownTempFile $ \setupFn ->
        goldenVsString "Text-golden"
                       "test/Katip/Tests/Scribes/Handle-text.golden"
@@ -80,7 +80,8 @@ setup = do
   (fp, h) <- openTempFile tempDir "katip.log"
   (s, finaliser) <- mkHandleScribe (ColorLog False) h DebugS V3
   le <- initLogEnv "katip-test" "test"
-  return (fp, h, finaliser, registerScribe "handle" s le)
+  le' <- registerScribe "handle" s (defaultScribeSettings finaliser) le
+  return (fp, h, void (clearScribes le'), le')
 
 
 -------------------------------------------------------------------------------

@@ -65,6 +65,7 @@ import           Data.Monoid                       as M
 import           Data.Sequence                     as Seq
 import           Data.Text                         (Text)
 import           Language.Haskell.TH
+import           Lens.Micro
 -------------------------------------------------------------------------------
 import           Katip.Core
 -------------------------------------------------------------------------------
@@ -357,4 +358,4 @@ katipNoLogging
     => KatipContextT m a
     -> KatipContextT m a
 katipNoLogging (KatipContextT f) =
-  KatipContextT (local (\r -> r { ltsLogEnv = clearScribes (ltsLogEnv r)}) f)
+  KatipContextT (local (\r -> r { ltsLogEnv = set logEnvScribes mempty (ltsLogEnv r)}) f)

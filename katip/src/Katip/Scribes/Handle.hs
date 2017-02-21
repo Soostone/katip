@@ -50,9 +50,10 @@ data ColorStrategy
     -- ^ Color if output is a terminal
 
 -------------------------------------------------------------------------------
+--TODO: probably drop this stuff since katip does buffering and this isn't doing concurrent writer workers?
 data WorkerCmd =
-    NewItem Builder
-  | PoisonPill
+    HNewItem Builder
+  | HPoisonPill
 
 -------------------------------------------------------------------------------
 -- | Logs to a file handle such as stdout, stderr, or a file. Contexts
@@ -74,23 +75,23 @@ mkHandleScribe cs h sev verb = do
       ColorIfTerminal -> hIsTerminalDevice h
       ColorLog b -> return b
     let scribe = Scribe $ \i ->
-          when (permitItem sev i) $ void (U.tryWriteChan inChan (NewItem (formatItem colorize verb i)))
+          when (permitItem sev i) $ void (U.tryWriteChan inChan (HNewItem (formatItem colorize verb i)))
     return (scribe, stopWorker worker inChan)
 
   where
     stopWorker :: Async () -> U.InChan WorkerCmd -> IO ()
     stopWorker worker inChan = do
-      U.writeChan inChan PoisonPill
+      U.writeChan inChan HPoisonPill
       void $ waitCatch worker
 
     workerLoop :: U.OutChan WorkerCmd -> IO ()
     workerLoop outChan = do
       newCmd <- U.readChan outChan
       case newCmd of
-        NewItem b  -> do
+        HNewItem b  -> do
           T.hPutStrLn h $ toLazyText b
           workerLoop outChan
-        PoisonPill -> return ()
+        HPoisonPill -> return ()
 
 -------------------------------------------------------------------------------
 formatItem :: LogItem a => Bool -> Verbosity -> Item a -> Builder
@@ -127,8 +128,8 @@ formatItem withColor verb Item{..} =
 _ioLogEnv :: LogEnv
 _ioLogEnv = unsafePerformIO $ do
     le <- initLogEnv "io" "io"
-    (lh, _) <- mkHandleScribe ColorIfTerminal stdout DebugS V3
-    return $ registerScribe "stdout" lh le
+    (lh, finalizer) <- mkHandleScribe ColorIfTerminal stdout DebugS V3
+    registerScribe "stdout" lh (defaultScribeSettings finalizer) le
 {-# NOINLINE _ioLogEnv #-}
 
 

@@ -40,6 +40,8 @@ module Katip
     , Scribe (..)
     , LogEnv (..)
     , SimpleLogPayload, sl
+    , defaultScribeSettings --TODO: lenses and whatnot to avoid breakage
+    , ScribeSettings(..)
 
     -- ** @lens@-compatible Lenses
     , itemApp

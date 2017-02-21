@@ -5,6 +5,7 @@
 {-# LANGUAGE ExistentialQuantification  #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE GADTs                      #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ImplicitParams             #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
@@ -22,9 +23,12 @@
 module Katip.Core where
 
 -------------------------------------------------------------------------------
-import           Control.Applicative          as A
+import           Control.Applicative                   as A
 import           Control.AutoUpdate
 import           Control.Concurrent
+import qualified Control.Concurrent.Async              as Async
+import qualified Control.Concurrent.Chan.Unagi.Bounded as UB
+import           Control.Monad                         (void)
 import           Control.Monad.Base
 import           Control.Monad.Catch
 import           Control.Monad.IO.Class
@@ -37,21 +41,21 @@ import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.Resource
 import           Control.Monad.Trans.State
 import           Control.Monad.Trans.Writer
-import           Data.Aeson                   (FromJSON (..), ToJSON (..),
-                                               object)
-import qualified Data.Aeson                   as A
-import           Data.Foldable                as FT
-import qualified Data.HashMap.Strict          as HM
+import           Data.Aeson                            (FromJSON (..),
+                                                        ToJSON (..), object)
+import qualified Data.Aeson                            as A
+import           Data.Foldable                         as FT
+import qualified Data.HashMap.Strict                   as HM
 import           Data.List
-import qualified Data.Map.Strict              as M
+import qualified Data.Map.Strict                       as M
 import           Data.Semigroup
 import           Data.String
 import           Data.String.Conv
-import           Data.Text                    (Text)
-import qualified Data.Text                    as T
-import qualified Data.Text.Lazy.Builder       as B
+import           Data.Text                             (Text)
+import qualified Data.Text                             as T
+import qualified Data.Text.Lazy.Builder                as B
 import           Data.Time
-import           GHC.Generics                 hiding (to)
+import           GHC.Generics                          hiding (to)
 #if MIN_VERSION_base(4, 8, 0)
 #if !MIN_VERSION_base(4, 9, 0)
 import           GHC.SrcLoc
@@ -59,7 +63,7 @@ import           GHC.SrcLoc
 import           GHC.Stack
 #endif
 import           Language.Haskell.TH
-import qualified Language.Haskell.TH.Syntax   as TH
+import qualified Language.Haskell.TH.Syntax            as TH
 import           Lens.Micro
 import           Lens.Micro.TH
 import           Network.HostName
@@ -75,8 +79,8 @@ import           System.Posix
 readMay :: Read a => String -> Maybe a
 readMay s = case [x | (x,t) <- reads s, ("","") <- lex t] of
               [x] -> Just x
-              [] -> Nothing -- no parse
-              _ -> Nothing -- Ambiguous parse
+              []  -> Nothing -- no parse
+              _   -> Nothing -- Ambiguous parse
 
 
 -------------------------------------------------------------------------------
@@ -132,13 +136,13 @@ data Verbosity = V0 | V1 | V2 | V3
 -------------------------------------------------------------------------------
 renderSeverity :: Severity -> Text
 renderSeverity s = case s of
-      DebugS -> "Debug"
-      InfoS -> "Info"
-      NoticeS -> "Notice"
-      WarningS -> "Warning"
-      ErrorS -> "Error"
-      CriticalS -> "Critical"
-      AlertS -> "Alert"
+      DebugS     -> "Debug"
+      InfoS      -> "Info"
+      NoticeS    -> "Notice"
+      WarningS   -> "Warning"
+      ErrorS     -> "Error"
+      CriticalS  -> "Critical"
+      AlertS     -> "Alert"
       EmergencyS -> "Emergency"
 
 
@@ -164,7 +168,7 @@ instance FromJSON Severity where
     parseJSON = A.withText "Severity" parseSeverity
       where
         parseSeverity t = case textToSeverity t of
-          Just x -> return x
+          Just x  -> return x
           Nothing -> fail $ "Invalid Severity " ++ toS t
 
 
@@ -343,7 +347,7 @@ instance FromJSON ProcessIDJs where
     parseJSON = A.withText "ProcessID" parseProcessID
       where
         parseProcessID t = case textToProcessID t of
-          Just p -> return $ ProcessIDJs p
+          Just p  -> return $ ProcessIDJs p
           Nothing -> fail $ "Invalid ProcessIDJs " ++ toS t
 
 
@@ -380,7 +384,7 @@ class ToObject a where
     default toObject :: ToJSON a => a -> A.Object
     toObject v = case toJSON v of
       A.Object o -> o
-      _        -> mempty
+      _          -> mempty
 
 instance ToObject ()
 instance ToObject A.Object
@@ -432,7 +436,7 @@ instance ToObject SimpleLogPayload
 
 instance LogItem SimpleLogPayload where
     payloadKeys V0 _ = SomeKeys []
-    payloadKeys _ _ = AllKeys
+    payloadKeys _ _  = AllKeys
 
 
 instance Semigroup SimpleLogPayload where
@@ -455,7 +459,7 @@ sl a b = SimpleLogPayload [(a, AnyLogPayload b)]
 -- automatically bubble higher verbosity levels to lower ones.
 payloadObject :: LogItem a => Verbosity -> a -> A.Object
 payloadObject verb a = case FT.foldMap (flip payloadKeys a) [(V0)..verb] of
-    AllKeys -> toObject a
+    AllKeys     -> toObject a
     SomeKeys ks -> HM.filterWithKey (\ k _ -> k `FT.elem` ks) $ toObject a
 
 
@@ -498,9 +502,9 @@ itemJson verb a = toJSON $ a & itemPayload %~ payloadObject verb
 -- down gracefully before returning. This can be hooked into your
 -- application's shutdown routine to ensure you never miss any log
 -- messages on shutdown.
-data Scribe = Scribe {
-      liPush :: forall a. LogItem a => Item a -> IO ()
-    }
+newtype Scribe = Scribe {
+     liPush :: forall a. LogItem a => Item a -> IO ()
+   }
 
 
 instance Semigroup Scribe where
@@ -512,6 +516,19 @@ instance Semigroup Scribe where
 instance Monoid Scribe where
     mempty = Scribe $ const $ return ()
     mappend = (<>)
+
+
+-------------------------------------------------------------------------------
+data ScribeHandle = ScribeHandle {
+      shFinalizer :: IO ()
+    , shChan      :: UB.InChan WorkerMessage
+    }
+
+
+-------------------------------------------------------------------------------
+data WorkerMessage where
+  NewItem    :: LogItem a => Item a -> WorkerMessage
+  PoisonPill :: WorkerMessage
 
 
 -------------------------------------------------------------------------------
@@ -536,7 +553,7 @@ data LogEnv = LogEnv {
     -- 'AutoUpdate' for high volume logs but note that this may cause
     -- some output forms to display logs out of order. Alternatively,
     -- you could just use 'getCurrentTime'.
-    , _logEnvScribes :: M.Map Text Scribe
+    , _logEnvScribes :: M.Map Text ScribeHandle
     }
 makeLenses ''LogEnv
 
@@ -568,20 +585,70 @@ registerScribe
     :: Text
     -- ^ Name the scribe
     -> Scribe
+    -> ScribeSettings
     -> LogEnv
-    -> LogEnv
-registerScribe nm h = logEnvScribes %~ M.insert nm h
+    -> IO LogEnv
+registerScribe nm scribe ScribeSettings {..} le = do
+  (inChan, outChan) <- UB.newChan scribeBufferSize
+  worker <- spawnScribeWorker scribe outChan
+  let fin = do
+        UB.writeChan inChan PoisonPill
+        -- wait for our worker to finish final write
+        void (Async.waitCatch worker)
+        --TODO: safe exceptions
+        -- wait for scribe to finish final write
+        scribeFinalizer
+
+  let sh = ScribeHandle fin inChan
+  return (le & logEnvScribes %~ M.insert nm sh)
+
+
+-------------------------------------------------------------------------------
+--TODO: should do some reasonable exception handling in the scribe, don't want to crash the loop
+spawnScribeWorker :: Scribe -> UB.OutChan WorkerMessage -> IO (Async.Async ())
+spawnScribeWorker (Scribe write) outChan = Async.async go
+  where
+    go = do
+      newCmd <- UB.readChan outChan
+      case newCmd of
+        NewItem a  -> do
+          write a
+          go
+        PoisonPill -> return ()
+
+
+-------------------------------------------------------------------------------
+data ScribeSettings = ScribeSettings {
+      scribeFinalizer  :: IO ()
+    -- ^ Provide a *blocking* finalizer to call when your scribe is
+    -- removed. If this is not relevant to your scribe, return () is
+    -- fine.
+    , scribeBufferSize :: Int
+    }
+
+
+--TODO: standardize on american or british spelling of finali{z,s}er
+-- | Reasonable defaults for a scribe. No-op finalizer and a buffer
+-- size of 4096.
+defaultScribeSettings
+  :: IO ()
+  -- ^ Finalizer
+  -> ScribeSettings
+defaultScribeSettings fin = ScribeSettings fin 4096
 
 
 -------------------------------------------------------------------------------
 -- | Remove a scribe from the list. All future log calls will no
--- longer use this scribe. If the given scribe doesn't exist, its a no-op.
+-- longer use this scribe. If there is a finalizer, it will be called
+-- in a blocking manner.
 unregisterScribe
     :: Text
     -- ^ Name of the scribe
     -> LogEnv
-    -> LogEnv
-unregisterScribe nm = logEnvScribes %~ M.delete nm
+    -> IO LogEnv
+unregisterScribe nm le = do
+  maybe (return ()) shFinalizer (M.lookup nm (_logEnvScribes le))
+  return (le & logEnvScribes %~ M.delete nm)
 
 
 -------------------------------------------------------------------------------
@@ -592,8 +659,9 @@ unregisterScribe nm = logEnvScribes %~ M.delete nm
 -- example.
 clearScribes
     :: LogEnv
-    -> LogEnv
-clearScribes = logEnvScribes .~ mempty
+    -> IO LogEnv
+clearScribes le =
+  foldrM unregisterScribe le (M.keys (_logEnvScribes le))
 
 
 -------------------------------------------------------------------------------
@@ -692,7 +760,7 @@ logItem a ns loc sev msg = do
         <*> _logEnvTimer
         <*> pure (_logEnvApp <> ns)
         <*> pure loc
-      FT.forM_ (M.elems _logEnvScribes) $ \ (Scribe h) -> h item
+      FT.forM_ (M.elems _logEnvScribes) $ \ ScribeHandle {..} -> UB.tryWriteChan shChan (NewItem item)
 
 
 -------------------------------------------------------------------------------
@@ -755,14 +823,14 @@ instance TH.Lift Verbosity where
 
 
 instance TH.Lift Severity where
-    lift DebugS = [| DebugS |]
-    lift InfoS  = [| InfoS |]
-    lift NoticeS  = [| NoticeS |]
-    lift WarningS  = [| WarningS |]
-    lift ErrorS  = [| ErrorS |]
+    lift DebugS     = [| DebugS |]
+    lift InfoS      = [| InfoS |]
+    lift NoticeS    = [| NoticeS |]
+    lift WarningS   = [| WarningS |]
+    lift ErrorS     = [| ErrorS |]
     lift CriticalS  = [| CriticalS |]
-    lift AlertS  = [| AlertS |]
-    lift EmergencyS  = [| EmergencyS |]
+    lift AlertS     = [| AlertS |]
+    lift EmergencyS = [| EmergencyS |]
 
 
 -- | Lift a location into an Exp.
