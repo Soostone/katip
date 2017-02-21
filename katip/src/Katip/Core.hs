@@ -502,26 +502,29 @@ itemJson verb a = toJSON $ a & itemPayload %~ payloadObject verb
 -- down gracefully before returning. This can be hooked into your
 -- application's shutdown routine to ensure you never miss any log
 -- messages on shutdown.
-newtype Scribe = Scribe {
+data Scribe = Scribe {
      liPush :: forall a. LogItem a => Item a -> IO ()
+   , scribeFinalizer :: IO ()
+   -- ^ Provide a *blocking* finalizer to call when your scribe is
+   -- removed. If this is not relevant to your scribe, return () is
+   -- fine.
    }
 
 
 instance Semigroup Scribe where
-  (Scribe a) <> (Scribe b) = Scribe $ \ item -> do
-    a item
-    b item
+  (Scribe pushA finA) <> (Scribe pushB finB) =
+    Scribe (\item -> pushA item >> pushB item) (finA >> finB)
 
 
 instance Monoid Scribe where
-    mempty = Scribe $ const $ return ()
+    mempty = Scribe (const (return ())) (return ())
     mappend = (<>)
 
 
 -------------------------------------------------------------------------------
 data ScribeHandle = ScribeHandle {
-      shFinalizer :: IO ()
-    , shChan      :: UB.InChan WorkerMessage
+      shScribe :: Scribe
+    , shChan   :: UB.InChan WorkerMessage
     }
 
 
@@ -597,16 +600,16 @@ registerScribe nm scribe ScribeSettings {..} le = do
         void (Async.waitCatch worker)
         --TODO: safe exceptions
         -- wait for scribe to finish final write
-        scribeFinalizer
+        scribeFinalizer scribe
 
-  let sh = ScribeHandle fin inChan
+  let sh = ScribeHandle (scribe { scribeFinalizer = fin }) inChan
   return (le & logEnvScribes %~ M.insert nm sh)
 
 
 -------------------------------------------------------------------------------
 --TODO: should do some reasonable exception handling in the scribe, don't want to crash the loop
 spawnScribeWorker :: Scribe -> UB.OutChan WorkerMessage -> IO (Async.Async ())
-spawnScribeWorker (Scribe write) outChan = Async.async go
+spawnScribeWorker (Scribe write _) outChan = Async.async go
   where
     go = do
       newCmd <- UB.readChan outChan
@@ -619,22 +622,15 @@ spawnScribeWorker (Scribe write) outChan = Async.async go
 
 -------------------------------------------------------------------------------
 data ScribeSettings = ScribeSettings {
-      scribeFinalizer  :: IO ()
-    -- ^ Provide a *blocking* finalizer to call when your scribe is
-    -- removed. If this is not relevant to your scribe, return () is
-    -- fine.
-    , scribeBufferSize :: Int
+      scribeBufferSize :: Int
     }
 
 
 --TODO: standardize on american or british spelling of finali{z,s}er
--- | Reasonable defaults for a scribe. No-op finalizer and a buffer
+-- | Reasonable defaults for a scribe. Buffer
 -- size of 4096.
-defaultScribeSettings
-  :: IO ()
-  -- ^ Finalizer
-  -> ScribeSettings
-defaultScribeSettings fin = ScribeSettings fin 4096
+defaultScribeSettings :: ScribeSettings
+defaultScribeSettings = ScribeSettings 4096
 
 
 -------------------------------------------------------------------------------
@@ -647,7 +643,7 @@ unregisterScribe
     -> LogEnv
     -> IO LogEnv
 unregisterScribe nm le = do
-  maybe (return ()) shFinalizer (M.lookup nm (_logEnvScribes le))
+  maybe (return ()) (scribeFinalizer . shScribe) (M.lookup nm (_logEnvScribes le))
   return (le & logEnvScribes %~ M.delete nm)
 
 

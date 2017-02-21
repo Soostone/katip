@@ -3,22 +3,21 @@
 module Katip.Scribes.Handle where
 
 -------------------------------------------------------------------------------
-import           Control.Applicative as A
+import           Control.Applicative                   as A
+import           Control.Concurrent
+import           Control.Exception                     (bracket_)
 import           Control.Monad
-import           Control.Exception (onException)
 import           Data.Aeson
-import qualified Data.HashMap.Strict as HM
+import qualified Data.HashMap.Strict                   as HM
 import           Data.Monoid
-import           Data.Text (Text)
+import           Data.Text                             (Text)
 import           Data.Text.Lazy.Builder
-import           Data.Text.Lazy.IO as T
+import           Data.Text.Lazy.IO                     as T
 import           System.IO
-import           System.IO.Unsafe (unsafePerformIO)
-import qualified Control.Concurrent.Chan.Unagi.Bounded as U
-import           Control.Concurrent.Async
+import           System.IO.Unsafe                      (unsafePerformIO)
 -------------------------------------------------------------------------------
 import           Katip.Core
-import           Katip.Format.Time (formatAsLogTime)
+import           Katip.Format.Time                     (formatAsLogTime)
 -------------------------------------------------------------------------------
 
 
@@ -50,12 +49,6 @@ data ColorStrategy
     -- ^ Color if output is a terminal
 
 -------------------------------------------------------------------------------
---TODO: probably drop this stuff since katip does buffering and this isn't doing concurrent writer workers?
-data WorkerCmd =
-    HNewItem Builder
-  | HPoisonPill
-
--------------------------------------------------------------------------------
 -- | Logs to a file handle such as stdout, stderr, or a file. Contexts
 -- and other information will be flattened out into bracketed
 -- fields. For example:
@@ -65,33 +58,18 @@ data WorkerCmd =
 -- > [2016-05-11 21:01:15][MyApp][Info][myhost.example.com][1724][ThreadId 1154][main:Helpers.Logging Helpers/Logging.hs:43:7] Namespace and context are back to normal
 --
 -- Returns the newly-created `Scribe` together with a finaliser the user needs to run to perform resource cleanup.
-mkHandleScribe :: ColorStrategy -> Handle -> Severity -> Verbosity -> IO (Scribe, IO ())
+mkHandleScribe :: ColorStrategy -> Handle -> Severity -> Verbosity -> IO Scribe
 mkHandleScribe cs h sev verb = do
-  (inChan, outChan) <- U.newChan 4096
-  worker <- async $ workerLoop outChan
-  flip onException (stopWorker worker inChan) $ do
     hSetBuffering h LineBuffering
     colorize <- case cs of
       ColorIfTerminal -> hIsTerminalDevice h
-      ColorLog b -> return b
-    let scribe = Scribe $ \i ->
-          when (permitItem sev i) $ void (U.tryWriteChan inChan (HNewItem (formatItem colorize verb i)))
-    return (scribe, stopWorker worker inChan)
+      ColorLog b      -> return b
+    lock <- newMVar ()
+    let logger i@Item{..} = do
+          when (permitItem sev i) $ bracket_ (takeMVar lock) (putMVar lock ()) $
+            T.hPutStrLn h $ toLazyText $ formatItem colorize verb i
+    return $ Scribe logger (return ()) --TODO: maybe do a hFlush?
 
-  where
-    stopWorker :: Async () -> U.InChan WorkerCmd -> IO ()
-    stopWorker worker inChan = do
-      U.writeChan inChan HPoisonPill
-      void $ waitCatch worker
-
-    workerLoop :: U.OutChan WorkerCmd -> IO ()
-    workerLoop outChan = do
-      newCmd <- U.readChan outChan
-      case newCmd of
-        HNewItem b  -> do
-          T.hPutStrLn h $ toLazyText b
-          workerLoop outChan
-        HPoisonPill -> return ()
 
 -------------------------------------------------------------------------------
 formatItem :: LogItem a => Bool -> Verbosity -> Item a -> Builder
@@ -114,7 +92,7 @@ formatItem withColor verb Item{..} =
       CriticalS  -> red $ renderSeverity s
       ErrorS     -> red $ renderSeverity s
       WarningS   -> yellow $ renderSeverity s
-      _         -> renderSeverity s
+      _          -> renderSeverity s
     red = colorize "31"
     yellow = colorize "33"
     colorize c s
@@ -128,8 +106,8 @@ formatItem withColor verb Item{..} =
 _ioLogEnv :: LogEnv
 _ioLogEnv = unsafePerformIO $ do
     le <- initLogEnv "io" "io"
-    (lh, finalizer) <- mkHandleScribe ColorIfTerminal stdout DebugS V3
-    registerScribe "stdout" lh (defaultScribeSettings finalizer) le
+    lh <- mkHandleScribe ColorIfTerminal stdout DebugS V3
+    registerScribe "stdout" lh defaultScribeSettings le
 {-# NOINLINE _ioLogEnv #-}
 
 

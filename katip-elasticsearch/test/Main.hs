@@ -46,7 +46,7 @@ main = defaultMain $ testGroup "katip-elasticsearch"
 
 
 -------------------------------------------------------------------------------
-setupSearch :: (EsScribeCfg -> EsScribeCfg) -> IO (Scribe, IO ())
+setupSearch :: (EsScribeCfg -> EsScribeCfg) -> IO Scribe
 setupSearch modScribeCfg = do
     bh dropESSchema
     mgr <- newManager defaultManagerSettings
@@ -58,22 +58,21 @@ setupSearch modScribeCfg = do
 
 
 -------------------------------------------------------------------------------
-teardownSearch :: (Scribe, IO ()) -> IO ()
-teardownSearch (_, finalizer) = do
-  finalizer
+teardownSearch :: IO ()
+teardownSearch = do
   bh $ do
     when False $ dropESSchema
-    when False $ dropESSTemplate --TODO: drop
+    when False $ dropESSTemplate
 
 
 -------------------------------------------------------------------------------
-withSearch :: (IO (Scribe, IO ()) -> TestTree) -> TestTree
+withSearch :: (IO Scribe -> TestTree) -> TestTree
 withSearch = withSearch' id
 
 
 -------------------------------------------------------------------------------
-withSearch' :: (EsScribeCfg -> EsScribeCfg) -> (IO (Scribe, IO ()) -> TestTree) -> TestTree
-withSearch' modScribeCfg = withResource (setupSearch modScribeCfg) teardownSearch
+withSearch' :: (EsScribeCfg -> EsScribeCfg) -> (IO Scribe -> TestTree) -> TestTree
+withSearch' modScribeCfg = withResource (setupSearch modScribeCfg) (const teardownSearch)
 
 
 -------------------------------------------------------------------------------
@@ -253,20 +252,20 @@ bh = withBH defaultManagerSettings svr
 
 -------------------------------------------------------------------------------
 withTestLogging
-  :: IO (Scribe, IO ()) -> (IO Reply -> KatipT IO b) -> IO b
+  :: IO Scribe -> (IO Reply -> KatipT IO b) -> IO b
 withTestLogging = withTestLogging' id
 
 
 -------------------------------------------------------------------------------
 withTestLogging'
   :: (LogEnv -> LogEnv)
-  -> IO (Scribe, IO ())
+  -> IO Scribe
   -> (IO Reply -> KatipT IO b)
   -> IO b
 withTestLogging' modEnv setup f = do
-  (scr, done) <- setup
+  scr <- setup
   le <- modEnv <$> initLogEnv ns env
-  le' <- registerScribe "es" scr (defaultScribeSettings done) le
+  le' <- registerScribe "es" scr defaultScribeSettings le
   let done' = do
         _ <- clearScribes le'
         bh (refreshIndex ixn)

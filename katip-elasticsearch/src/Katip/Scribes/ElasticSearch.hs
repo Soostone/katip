@@ -261,8 +261,7 @@ mkEsScribe
     -> MappingName
     -> Severity
     -> Verbosity
-    -> IO (Scribe, IO ())
-    -- ^ Returns a finalizer that will gracefully flush all remaining logs before shutting down workers
+    -> IO Scribe
 mkEsScribe cfg@EsScribeCfg {..} env ix mapping sev verb = do
   q <- newTBMQueueIO $ unEsQueueSize essQueueSize
   endSig <- newEmptyMVar
@@ -290,11 +289,11 @@ mkEsScribe cfg@EsScribeCfg {..} env ix mapping sev verb = do
     mapM_ waitCatch workers
     putMVar endSig ()
 
-  let scribe = Scribe $ \ i ->
+  let logger i =
         when (_itemSeverity i >= sev) $
           void $ atomically $ tryWriteTBMQueue q (chooseIxn ix essIndexSharding i, itemJson' i)
   let finalizer = putMVar endSig () >> takeMVar endSig
-  return (scribe, finalizer)
+  return (Scribe logger finalizer)
   where
     tplName = TemplateName ixn
     shardingEnabled = case essIndexSharding of
