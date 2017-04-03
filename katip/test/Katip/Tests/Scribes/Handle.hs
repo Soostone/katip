@@ -36,6 +36,7 @@ tests = testGroup "Katip.Scribes.Handle"
        (path, h, fin, le) <- setupScribe
        runKatipT le $ logItem dummyLogItem "test" Nothing InfoS "test message"
        fin
+       runKatipT le $ logItem dummyLogItem "test" Nothing InfoS "wont make it in"
        hClose h
        res <- readFile path
        let pat = "\\[[[:digit:]]{4}-[[:digit:]]{2}-[[:digit:]]{2} [[:digit:]]{2}:[[:digit:]]{2}:[[:digit:]]{2}\\]\\[katip-test.test\\]\\[Info\\]\\[.+\\]\\[[[:digit:]]+\\]\\[ThreadId [[:digit:]]+\\]\\[note.deep:some note\\] test message" :: String
