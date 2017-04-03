@@ -28,15 +28,14 @@ import           Katip
 -- lens_example for a slightly cleaner and more general pattern.
 main :: IO ()
 main = do
-  le <- initLogEnv "MyApp" "production"
   -- We'll set up a scribe that logs to stdout and will only log item
   -- fields permitted for Verbosity 2 and will throw out Debug
   -- messages entirely. Note that katip provides facilities like
   -- 'unregisterScribe' and 'registerScribe' to make it possible to
   -- hot-swap scribes at runtime if you need to.
-  (handleScribe, finaliser) <- mkHandleScribe ColorIfTerminal stdout InfoS V2
-  let le' = registerScribe "stdout" handleScribe le
-  let s = MyState M.mempty mempty le'
+  handleScribe <- mkHandleScribe ColorIfTerminal stdout InfoS V2
+  le <- registerScribe "stdout" handleScribe defaultScribeSettings =<< initLogEnv "MyApp" "production"
+  let s = MyState M.mempty mempty le
   runStack s $ do
     $(logTM) InfoS "Started"
     -- this will add "confrabulation" to the current namespace, making
@@ -52,7 +51,9 @@ main = do
     $(logTM) InfoS "Namespace and context are back to normal"
     noLogging $
       $(logTM) DebugS "You'll never see this log message!"
-  finaliser
+  -- This blocking call flushes all in-flight messages through
+  -- handlers and then finalizes each scribe.
+  void (closeScribes le)
 
 -------------------------------------------------------------------------------
 newtype ConfrabLogCTX = ConfrabLogCTX Int
