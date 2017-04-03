@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns               #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE StandaloneDeriving         #-}
@@ -10,11 +11,13 @@ module Main
 -------------------------------------------------------------------------------
 import           Control.Concurrent
 import           Control.DeepSeq
+import           Control.Exception.Safe
+import           Control.Monad
 import           Criterion.Main
 import           Data.Aeson
-import           Data.Monoid              as M
-import           Data.Time.Calendar
-import           Data.Time.Clock
+import           Data.Monoid            as M
+import           System.Directory
+import           System.FilePath
 import           System.IO
 import           System.Posix
 -------------------------------------------------------------------------------
@@ -30,36 +33,42 @@ main = defaultMain [
 
 -------------------------------------------------------------------------------
 handleScribeBench :: Benchmark
-handleScribeBench = bgroup "Katip.Scribes.Handle" [
-      env setupHandleEnv $ \ ~((Scribe push, _), tid) ->
-      bench "Bytestring Builder" $
-        whnfIO $ (push (exItem tid))
-    ]
+handleScribeBench = bgroup "Katip.Scribes.Handle" $
+  flip map destinations $ \dest -> bgroup (show dest) [
+   -- This is variably wildly on disk performance but should be a
+   -- better test since a push test basically just tests how fast your
+   -- queue structure is.
+     bench "full env, flush 1000 writes" $
+       whnfIO $ do
+         le <- setupHandleLogEnv dest
+         runKatipT le $ replicateM_ 1000 $ logItem ExPayload "namespace" Nothing InfoS "example"
+         closeScribes le
+   ]
+  where
+    destinations = [DevNull, TempFile]
+    --destinations = [DevNull]
 
 
 -------------------------------------------------------------------------------
-setupHandleEnv :: IO ((Scribe, Finaliser), ThreadIdText)
-setupHandleEnv = do
-      scribe <- setup
-      tid <- myThreadId
-      return (scribe, mkThreadIdText tid)
+data HandleDest = DevNull | TempFile deriving (Show, Eq)
 
 
 -------------------------------------------------------------------------------
-exItem :: ThreadIdText -> Item ExPayload
-exItem tid = Item {
-      _itemApp = Namespace ["app"]
-    , _itemEnv = Environment "production"
-    , _itemSeverity = WarningS
-    , _itemThread = tid
-    , _itemHost = "example"
-    , _itemProcess = CPid 123
-    , _itemPayload = ExPayload
-    , _itemMessage = "message"
-    , _itemTime = mkUTCTime 2015 3 14 1 5 9
-    , _itemNamespace = Namespace ["foo"]
-    , _itemLoc = Nothing
-    }
+instance NFData LogEnv where
+  rnf (LogEnv !_ !_ !_ !_ !_ !_) = ()
+
+setupHandleLogEnv :: HandleDest -> IO LogEnv
+setupHandleLogEnv hd = do
+  (scr, _) <- setupHandleEnv hd
+  registerScribe "handle" scr defaultScribeSettings =<< initLogEnv "katip-bench" "bench"
+
+
+-------------------------------------------------------------------------------
+setupHandleEnv :: HandleDest -> IO (Scribe, ThreadIdText)
+setupHandleEnv dest = do
+  scribe <- setup dest
+  tid <- myThreadId
+  return (scribe, mkThreadIdText tid)
 
 
 -------------------------------------------------------------------------------
@@ -75,28 +84,21 @@ instance LogItem ExPayload where
 
 
 -------------------------------------------------------------------------------
-mkUTCTime :: Integer -> Int -> Int -> DiffTime -> DiffTime -> DiffTime -> UTCTime
-mkUTCTime y mt d h mn s = UTCTime day dt
-  where
-    day = fromGregorian y mt d
-    dt = h * 60 * 60 + mn * 60 + s
-
-
--------------------------------------------------------------------------------
-setup :: IO (Scribe, Finaliser)
-setup = do
-  h <- openFile "/dev/null" WriteMode
-  (s, f) <- mkHandleScribe ColorIfTerminal h DebugS V0
-  return (s, F f)
+setup :: HandleDest -> IO Scribe
+setup dest = do
+  outFile <- case dest of
+    TempFile -> do
+      tmp <- getTemporaryDirectory
+      return (tmp </> "katip-bench.log")
+    DevNull -> return ("/dev/null")
+  h <- openFile outFile WriteMode
+  s <- mkHandleScribe ColorIfTerminal h DebugS V0
+  let cleanupHandle = hClose h `finally` (when (dest == TempFile) (removeLink outFile))
+  return s { scribeFinalizer = scribeFinalizer s `finally` cleanupHandle}
 
 
 -------------------------------------------------------------------------------
 deriving instance NFData ThreadIdText
 
-newtype Finaliser = F (IO ())
-
 instance NFData Scribe where
-  rnf (Scribe _) = ()
-
-instance NFData Finaliser where
-  rnf (F _) = ()
+  rnf (Scribe a b) = (a :: Item ExPayload -> IO ()) `seq` b `seq` ()

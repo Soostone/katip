@@ -40,8 +40,8 @@ module Katip.Monadic
 
 -------------------------------------------------------------------------------
 import           Control.Applicative
+import           Control.Exception.Safe
 import           Control.Monad.Base
-import           Control.Monad.Catch
 import           Control.Monad.Error.Class
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
@@ -228,7 +228,7 @@ logExceptionM
     => m a                      -- ^ Main action to run
     -> Severity                 -- ^ Severity
     -> m a
-logExceptionM action sev = action `catchAll` \e -> f e >> throwM e
+logExceptionM action sev = action `catchAny` \e -> f e >> throwM e
   where
     f e = logFM sev (msg e)
     msg e = ls ("An exception has occured: " :: Text) M.<> showLS e

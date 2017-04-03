@@ -267,7 +267,7 @@ withTestLogging' modEnv setup f = do
   le <- modEnv <$> initLogEnv ns env
   le' <- registerScribe "es" scr defaultScribeSettings le
   let done' = do
-        _ <- clearScribes le'
+        _ <- closeScribes le'
         bh (refreshIndex ixn)
   runKatipT le' (f done')
   where

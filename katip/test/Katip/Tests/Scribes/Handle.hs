@@ -81,7 +81,7 @@ setup = do
   s <- mkHandleScribe (ColorLog False) h DebugS V3
   le <- initLogEnv "katip-test" "test"
   le' <- registerScribe "handle" s defaultScribeSettings le
-  return (fp, h, void (clearScribes le'), le')
+  return (fp, h, void (closeScribes le'), le')
 
 
 -------------------------------------------------------------------------------

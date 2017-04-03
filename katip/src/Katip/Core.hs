@@ -27,10 +27,11 @@ import           Control.Applicative                   as A
 import           Control.AutoUpdate
 import           Control.Concurrent
 import qualified Control.Concurrent.Async              as Async
-import qualified Control.Concurrent.Chan.Unagi.Bounded as UB
-import           Control.Monad                         (void)
+import           Control.Concurrent.STM
+import qualified Control.Concurrent.STM.TBQueue as BQ
+import           Control.Exception.Safe
+import           Control.Monad                         (unless, void)
 import           Control.Monad.Base
-import           Control.Monad.Catch
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Control
@@ -38,7 +39,7 @@ import           Control.Monad.Trans.Either
 import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.Reader
-import           Control.Monad.Trans.Resource
+import           Control.Monad.Trans.Resource          (ResourceT)
 import           Control.Monad.Trans.State
 import           Control.Monad.Trans.Writer
 import           Data.Aeson                            (FromJSON (..),
@@ -503,7 +504,7 @@ itemJson verb a = toJSON $ a & itemPayload %~ payloadObject verb
 -- application's shutdown routine to ensure you never miss any log
 -- messages on shutdown.
 data Scribe = Scribe {
-     liPush :: forall a. LogItem a => Item a -> IO ()
+     liPush          :: forall a. LogItem a => Item a -> IO ()
    , scribeFinalizer :: IO ()
    -- ^ Provide a *blocking* finalizer to call when your scribe is
    -- removed. If this is not relevant to your scribe, return () is
@@ -513,7 +514,7 @@ data Scribe = Scribe {
 
 instance Semigroup Scribe where
   (Scribe pushA finA) <> (Scribe pushB finB) =
-    Scribe (\item -> pushA item >> pushB item) (finA >> finB)
+    Scribe (\item -> pushA item >> pushB item) (finA `finally` finB)
 
 
 instance Monoid Scribe where
@@ -524,7 +525,7 @@ instance Monoid Scribe where
 -------------------------------------------------------------------------------
 data ScribeHandle = ScribeHandle {
       shScribe :: Scribe
-    , shChan   :: UB.InChan WorkerMessage
+    , shChan :: BQ.TBQueue WorkerMessage
     }
 
 
@@ -592,41 +593,42 @@ registerScribe
     -> LogEnv
     -> IO LogEnv
 registerScribe nm scribe ScribeSettings {..} le = do
-  (inChan, outChan) <- UB.newChan scribeBufferSize
-  worker <- spawnScribeWorker scribe outChan
+  queue <- atomically (BQ.newTBQueue _scribeBufferSize)
+  worker <- spawnScribeWorker scribe queue
   let fin = do
-        UB.writeChan inChan PoisonPill
+        atomically (BQ.writeTBQueue queue PoisonPill)
         -- wait for our worker to finish final write
         void (Async.waitCatch worker)
-        --TODO: safe exceptions
         -- wait for scribe to finish final write
-        scribeFinalizer scribe
+        void (tryAny (scribeFinalizer scribe))
 
-  let sh = ScribeHandle (scribe { scribeFinalizer = fin }) inChan
+  let sh = ScribeHandle (scribe { scribeFinalizer = fin }) queue
   return (le & logEnvScribes %~ M.insert nm sh)
 
 
 -------------------------------------------------------------------------------
---TODO: should do some reasonable exception handling in the scribe, don't want to crash the loop
-spawnScribeWorker :: Scribe -> UB.OutChan WorkerMessage -> IO (Async.Async ())
-spawnScribeWorker (Scribe write _) outChan = Async.async go
+spawnScribeWorker :: Scribe -> BQ.TBQueue WorkerMessage -> IO (Async.Async ())
+spawnScribeWorker (Scribe write _) queue = Async.async go
   where
     go = do
-      newCmd <- UB.readChan outChan
+      newCmd <- atomically (BQ.readTBQueue queue)
       case newCmd of
         NewItem a  -> do
-          write a
+          -- Swallow any direct exceptions from the
+          -- scribe. safe-exceptions won't catch async exceptions.
+          void (tryAny (write a))
           go
         PoisonPill -> return ()
 
 
 -------------------------------------------------------------------------------
 data ScribeSettings = ScribeSettings {
-      scribeBufferSize :: Int
+      _scribeBufferSize :: Int
     }
 
+makeLenses ''ScribeSettings
 
---TODO: standardize on american or british spelling of finali{z,s}er
+
 -- | Reasonable defaults for a scribe. Buffer
 -- size of 4096.
 defaultScribeSettings :: ScribeSettings
@@ -634,30 +636,52 @@ defaultScribeSettings = ScribeSettings 4096
 
 
 -------------------------------------------------------------------------------
--- | Remove a scribe from the list. All future log calls will no
--- longer use this scribe. If there is a finalizer, it will be called
--- in a blocking manner.
+-- | Remove a scribe from the environment. This does *not* finalize
+-- the scribe. This mainly only makes sense to use with something like
+-- MonadReader's @local@ function to temporarily disavow a single
+-- logger for a block of code.
 unregisterScribe
     :: Text
     -- ^ Name of the scribe
     -> LogEnv
+    -> LogEnv
+unregisterScribe nm =  logEnvScribes %~ M.delete nm
+
+
+-------------------------------------------------------------------------------
+-- | Unregister *all* scribes. Note that this is *not* for closing or
+-- finalizing scribes, use 'closeScribes' for that. This mainly only
+-- makes sense to use with something like MonadReader's @local@
+-- function to temporarily disavow any loggers for a block of code.
+clearScribes
+    :: LogEnv
+    -> LogEnv
+clearScribes = logEnvScribes .~ mempty
+
+
+-------------------------------------------------------------------------------
+-- | Finalize a scribe. The scribe is removed from the environment,
+-- its finalizer is called and it can never be written to again.
+closeScribe
+    :: Text
+    -- ^ Name of the scribe
+    -> LogEnv
     -> IO LogEnv
-unregisterScribe nm le = do
+closeScribe nm le = do
   maybe (return ()) (scribeFinalizer . shScribe) (M.lookup nm (_logEnvScribes le))
   return (le & logEnvScribes %~ M.delete nm)
 
 
 -------------------------------------------------------------------------------
--- | Unregister *all* scribes. Logs will go off into space from this
--- point onward until new scribes are added. Note that you could use
--- this with `local` if you're using a Reader based stack to
--- temporarily disable log output. See `katipNoLogging` for an
--- example.
-clearScribes
+-- | Call this at the end of your program. This is a blocking call
+-- that stop writing to a scribe's queue, waits for the queue to
+-- empty, finalizes each scribe in the log environment and then
+-- removes it.
+closeScribes
     :: LogEnv
     -> IO LogEnv
-clearScribes le =
-  foldrM unregisterScribe le (M.keys (_logEnvScribes le))
+closeScribes le =
+  foldrM closeScribe le (M.keys (_logEnvScribes le))
 
 
 -------------------------------------------------------------------------------
@@ -756,8 +780,20 @@ logItem a ns loc sev msg = do
         <*> _logEnvTimer
         <*> pure (_logEnvApp <> ns)
         <*> pure loc
-      FT.forM_ (M.elems _logEnvScribes) $ \ ScribeHandle {..} -> UB.tryWriteChan shChan (NewItem item)
+      FT.forM_ (M.elems _logEnvScribes) $ \ ScribeHandle {..} -> atomically (tryWriteTBQueue shChan (NewItem item))
+      --TODO: if we use tbqueue, write an atomic tryWriteTBQueue
 
+
+-------------------------------------------------------------------------------
+tryWriteTBQueue
+    :: TBQueue a
+    -> a
+    -> STM Bool
+    -- ^ Did we write?
+tryWriteTBQueue q a = do
+  full <- isFullTBQueue q
+  unless full (writeTBQueue q a)
+  return (not full)
 
 -------------------------------------------------------------------------------
 -- | Log with full context, but without any code location.
@@ -788,7 +824,7 @@ logException
     -> Severity                 -- ^ Severity
     -> m b                      -- ^ Main action being run
     -> m b
-logException a ns sev action = action `catchAll` \e -> f e >> throwM e
+logException a ns sev action = action `catchAny` \e -> f e >> throwM e
   where
     f e = logF a ns sev (msg e)
     msg e = ls (T.pack "An exception has occured: ") <> showLS e

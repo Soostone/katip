@@ -41,7 +41,9 @@ module Katip
     , LogEnv (..)
     , SimpleLogPayload, sl
     , defaultScribeSettings --TODO: lenses and whatnot to avoid breakage
-    , ScribeSettings(..)
+    , ScribeSettings
+    , scribeBufferSize
+    , _scribeBufferSize
 
     -- ** @lens@-compatible Lenses
     , itemApp
@@ -69,8 +71,12 @@ module Katip
     -- * Initializing Loggers
     , initLogEnv
     , registerScribe
+    -- * Dropping scribes temporarily
     , unregisterScribe
     , clearScribes
+    -- * Finalizing scribes at shutdown
+    , closeScribes
+    , closeScribe
 
     -- * Logging Functions
     , LogStr (..)

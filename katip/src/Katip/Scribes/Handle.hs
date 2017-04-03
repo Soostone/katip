@@ -57,7 +57,7 @@ data ColorStrategy
 -- > [2016-05-11 21:01:15][MyApp.confrabulation][Debug][myhost.example.com][1724][ThreadId 1154][confrab_factor:42.0][main:Helpers.Logging Helpers/Logging.hs:41:9] Confrabulating widgets, with extra namespace and context
 -- > [2016-05-11 21:01:15][MyApp][Info][myhost.example.com][1724][ThreadId 1154][main:Helpers.Logging Helpers/Logging.hs:43:7] Namespace and context are back to normal
 --
--- Returns the newly-created `Scribe` together with a finaliser the user needs to run to perform resource cleanup.
+-- Returns the newly-created `Scribe`. The finalizer flushes the handle.
 mkHandleScribe :: ColorStrategy -> Handle -> Severity -> Verbosity -> IO Scribe
 mkHandleScribe cs h sev verb = do
     hSetBuffering h LineBuffering
@@ -68,7 +68,7 @@ mkHandleScribe cs h sev verb = do
     let logger i@Item{..} = do
           when (permitItem sev i) $ bracket_ (takeMVar lock) (putMVar lock ()) $
             T.hPutStrLn h $ toLazyText $ formatItem colorize verb i
-    return $ Scribe logger (return ()) --TODO: maybe do a hFlush?
+    return $ Scribe logger (hFlush h)
 
 
 -------------------------------------------------------------------------------
