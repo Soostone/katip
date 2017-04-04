@@ -117,6 +117,9 @@ test-suite test
                , regex-tdfa
                , unordered-containers
                , microlens
+               , containers
+               , stm
+               , safe-exceptions
   ghc-options: -Wall
   if flag(lib-Werror)
     ghc-options: -Werror

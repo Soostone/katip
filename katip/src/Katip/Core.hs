@@ -600,7 +600,7 @@ registerScribe nm scribe ScribeSettings {..} le = do
         -- wait for our worker to finish final write
         void (Async.waitCatch worker)
         -- wait for scribe to finish final write
-        void (tryAny (scribeFinalizer scribe))
+        void (scribeFinalizer scribe)
 
   let sh = ScribeHandle (scribe { scribeFinalizer = fin }) queue
   return (le & logEnvScribes %~ M.insert nm sh)
@@ -661,7 +661,9 @@ clearScribes = logEnvScribes .~ mempty
 
 -------------------------------------------------------------------------------
 -- | Finalize a scribe. The scribe is removed from the environment,
--- its finalizer is called and it can never be written to again.
+-- its finalizer is called and it can never be written to again. Note
+-- that this will throw any exceptions yoru finalizer will throw, and
+-- that LogEnv is immutable, so it will not be removed in that case.
 closeScribe
     :: Text
     -- ^ Name of the scribe
@@ -676,12 +678,17 @@ closeScribe nm le = do
 -- | Call this at the end of your program. This is a blocking call
 -- that stop writing to a scribe's queue, waits for the queue to
 -- empty, finalizes each scribe in the log environment and then
--- removes it.
+-- removes it. Finalizers are all run even if one of them throws, but
+-- the exception will be re-thrown at the end.
 closeScribes
     :: LogEnv
     -> IO LogEnv
-closeScribes le =
-  foldrM closeScribe le (M.keys (_logEnvScribes le))
+closeScribes le = do
+  -- We want to run every finalizer here so we'll not save
+  -- intermediate logenvs and just clear scribes at the end.
+  let actions = [void (closeScribe k le) | k <- M.keys (_logEnvScribes le)]
+  foldr finally (return ()) actions
+  return (le & logEnvScribes .~ mempty)
 
 
 -------------------------------------------------------------------------------
@@ -781,7 +788,6 @@ logItem a ns loc sev msg = do
         <*> pure (_logEnvApp <> ns)
         <*> pure loc
       FT.forM_ (M.elems _logEnvScribes) $ \ ScribeHandle {..} -> atomically (tryWriteTBQueue shChan (NewItem item))
-      --TODO: if we use tbqueue, write an atomic tryWriteTBQueue
 
 
 -------------------------------------------------------------------------------
