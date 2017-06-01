@@ -57,11 +57,11 @@ import           Control.Monad.Trans.RWS           (RWST)
 import qualified Control.Monad.Trans.RWS.Strict    as Strict (RWST)
 import qualified Control.Monad.Trans.State.Strict  as Strict (StateT)
 import qualified Control.Monad.Trans.Writer.Strict as Strict (WriterT)
-import           Control.Monad.Writer
+import           Control.Monad.Writer              hiding ((<>))
 import           Data.Aeson
 import qualified Data.Foldable                     as FT
 import qualified Data.HashMap.Strict               as HM
-import           Data.Monoid                       as M
+import           Data.Semigroup                    as Semi
 import           Data.Sequence                     as Seq
 import           Data.Text                         (Text)
 import           Language.Haskell.TH
@@ -92,7 +92,7 @@ data AnyLogContext where
 -- Additional note: you should not mappend LogContexts in any sort of
 -- infinite loop, as it retains all data, so that would be a memory
 -- leak.
-newtype LogContexts = LogContexts (Seq AnyLogContext) deriving (Monoid)
+newtype LogContexts = LogContexts (Seq AnyLogContext) deriving (Monoid, Semigroup)
 
 instance ToJSON LogContexts where
     toJSON (LogContexts cs) =
@@ -230,7 +230,7 @@ logExceptionM
 logExceptionM action sev = action `catchAll` \e -> f e >> throwM e
   where
     f e = logFM sev (msg e)
-    msg e = ls ("An exception has occured: " :: Text) M.<> showLS e
+    msg e = ls ("An exception has occured: " :: Text) Semi.<> showLS e
 
 
 -------------------------------------------------------------------------------
