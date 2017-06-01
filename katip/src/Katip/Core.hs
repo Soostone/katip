@@ -493,7 +493,7 @@ itemJson verb a = toJSON $ a & itemPayload %~ payloadObject verb
 -- Handle scribe does.
 --
 -- 2. Return a finalizing function that tells the scribe to shut
--- down. @katip-elasticsearch@'s @mkEsScribe@ returns a @IO (Scribe,
+-- down. @katip-elasticsearch@'s @mkEsScribe@ returns an @IO (Scribe,
 -- IO ())@. The finalizer will flush any queued log messages and shut
 -- down gracefully before returning. This can be hooked into your
 -- application's shutdown routine to ensure you never miss any log
