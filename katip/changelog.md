@@ -1,3 +1,7 @@
+0.3.1.5
+=======
+* Add Semigroup instance for LogStr.
+
 0.3.1.4
 =======
 * Loosen deps on aeson to allow 1.1.0.0
