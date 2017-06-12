@@ -25,7 +25,7 @@ import           Katip
 
 
 -- | An example of advanced katip usage. Be sure to check out
--- lens_example for a slightly cleaner and more general pattern.
+-- example_lens.hs for a slightly cleaner and more general pattern.
 main :: IO ()
 main = do
   le <- initLogEnv "MyApp" "production"
