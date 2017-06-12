@@ -169,7 +169,7 @@ instance FromJSON Severity where
 
 
 -------------------------------------------------------------------------------
--- | Log message with Builder unerneath; use '<>' to concat in O(1).
+-- | Log message with Builder underneath; use '<>' to concat in O(1).
 newtype LogStr = LogStr { unLogStr :: B.Builder }
     deriving (Generic, Show)
 
