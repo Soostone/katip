@@ -193,7 +193,7 @@ instance FromJSON LogStr where
 
 -------------------------------------------------------------------------------
 -- | Pack any string-like thing into a 'LogStr'. This will
--- automatically work on 'String', 'ByteString, 'Text' and any of the
+-- automatically work on 'String', 'ByteString', 'Text' and any of the
 -- lazy variants.
 logStr :: StringConv a Text => a -> LogStr
 logStr t = LogStr (B.fromText $ toS t)
