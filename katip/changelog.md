@@ -1,3 +1,7 @@
+0.4.0.0
+=======
+* Drop unsafe _ioLogEnv for safe ioLogEnv
+
 0.3.1.5
 =======
 * Add Semigroup instance for LogStr.
