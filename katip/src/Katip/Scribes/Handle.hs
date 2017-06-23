@@ -13,7 +13,6 @@ import           Data.Text (Text)
 import           Data.Text.Lazy.Builder
 import           Data.Text.Lazy.IO as T
 import           System.IO
-import           System.IO.Unsafe (unsafePerformIO)
 import qualified Control.Concurrent.Chan.Unagi.Bounded as U
 import           Control.Concurrent.Async
 -------------------------------------------------------------------------------
@@ -122,17 +121,12 @@ formatItem withColor verb Item{..} =
 
 
 -------------------------------------------------------------------------------
--- | An implicit environment to enable logging directly ouf of the IO monad.
--- Be careful as this LogEnv won't perform any resource cleanup for you.
-_ioLogEnv :: LogEnv
-_ioLogEnv = unsafePerformIO $ do
-    le <- initLogEnv "io" "io"
-    (lh, _) <- mkHandleScribe ColorIfTerminal stdout DebugS V3
-    return $ registerScribe "stdout" lh le
-{-# NOINLINE _ioLogEnv #-}
-
-
--- -------------------------------------------------------------------------------
--- -- | A default IO instance to make prototype development easy. User
--- -- your own 'Monad' for production.
--- instance Katip IO where getLogEnv = return _ioLogEnv
+-- | Provides a simple log environment with 1 scribe going to
+-- stdout. This is a decent example of how to build a LogEnv and is
+-- best for scripts that just need a quick, reasonable set up to log
+-- to stdout.
+ioLogEnv :: Severity -> Verbosity -> IO LogEnv
+ioLogEnv sev verb = do
+  le <- initLogEnv "io" "io"
+  (lh, _) <- mkHandleScribe ColorIfTerminal stdout sev verb
+  return $ registerScribe "stdout" lh le
