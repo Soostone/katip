@@ -1,3 +1,7 @@
+0.3.1.0
+=======
+* Widen dependency on katip
+
 0.3.0.2
 =======
 * Loosen deps on aeson to allow 1.1.0.0
