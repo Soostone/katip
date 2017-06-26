@@ -35,8 +35,12 @@ import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.Resource
-import           Control.Monad.Trans.State
-import           Control.Monad.Trans.Writer
+import           Control.Monad.Trans.State.Lazy (StateT)
+import qualified Control.Monad.Trans.State.Strict as Strict (StateT)
+import           Control.Monad.Trans.Writer.Lazy (WriterT)
+import qualified Control.Monad.Trans.Writer.Strict as Strict (WriterT)
+import           Control.Monad.Trans.RWS.Lazy (RWST)
+import qualified Control.Monad.Trans.RWS.Strict as Strict (RWST)
 import           Data.Aeson                   (FromJSON (..), ToJSON (..),
                                                object)
 import qualified Data.Aeson                   as A
@@ -623,12 +627,22 @@ instance Katip m => Katip (ExceptT s m) where
 instance Katip m => Katip (MaybeT m) where
     getLogEnv = lift getLogEnv
 
-
 instance Katip m => Katip (StateT s m) where
     getLogEnv = lift getLogEnv
 
+instance (Katip m, Monoid w) => Katip (RWST r w s m) where
+    getLogEnv = lift getLogEnv
+
+instance (Katip m, Monoid w) => Katip (Strict.RWST r w s m) where
+    getLogEnv = lift getLogEnv
+
+instance Katip m => Katip (Strict.StateT s m) where
+    getLogEnv = lift getLogEnv
 
 instance (Katip m, Monoid s) => Katip (WriterT s m) where
+    getLogEnv = lift getLogEnv
+
+instance (Katip m, Monoid s) => Katip (Strict.WriterT s m) where
     getLogEnv = lift getLogEnv
 
 instance (Katip m) => Katip (ResourceT m) where
