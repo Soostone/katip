@@ -40,8 +40,7 @@ makeClassy ''MyState
 
 
 -------------------------------------------------------------------------------
--- | An example of advanced katip usage. Be sure to check out
--- lens_example for a slightly cleaner and more general pattern.
+-- | An example of advanced katip usage with Lens.
 main :: IO ()
 main = do
   -- We'll set up a scribe that logs to stdout and will only log item

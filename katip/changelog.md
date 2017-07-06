@@ -1,3 +1,16 @@
+0.4.1.0
+=======
+* Add Katip instances for Strict StateT, WriterT, RWST.
+* Add Katip instances for Lazy RWST.
+
+0.4.0.0
+=======
+* Drop unsafe _ioLogEnv for safe ioLogEnv
+
+0.3.1.5
+=======
+* Add Semigroup instance for LogStr.
+
 0.3.1.4
 =======
 * Loosen deps on aeson to allow 1.1.0.0

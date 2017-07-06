@@ -40,13 +40,17 @@ import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.Resource          (ResourceT)
-import           Control.Monad.Trans.State
-import           Control.Monad.Trans.Writer
-import           Data.Aeson                            (FromJSON (..),
-                                                        ToJSON (..), object)
-import qualified Data.Aeson                            as A
-import           Data.Foldable                         as FT
-import qualified Data.HashMap.Strict                   as HM
+import           Control.Monad.Trans.State.Lazy (StateT)
+import qualified Control.Monad.Trans.State.Strict as Strict (StateT)
+import           Control.Monad.Trans.Writer.Lazy (WriterT)
+import qualified Control.Monad.Trans.Writer.Strict as Strict (WriterT)
+import           Control.Monad.Trans.RWS.Lazy (RWST)
+import qualified Control.Monad.Trans.RWS.Strict as Strict (RWST)
+import           Data.Aeson                   (FromJSON (..), ToJSON (..),
+                                               object)
+import qualified Data.Aeson                   as A
+import           Data.Foldable                as FT
+import qualified Data.HashMap.Strict          as HM
 import           Data.List
 import qualified Data.Map.Strict                       as M
 import           Data.Semigroup
@@ -174,7 +178,7 @@ instance FromJSON Severity where
 
 
 -------------------------------------------------------------------------------
--- | Log message with Builder unerneath; use '<>' to concat in O(1).
+-- | Log message with Builder underneath; use '<>' to concat in O(1).
 newtype LogStr = LogStr { unLogStr :: B.Builder }
     deriving (Generic, Show)
 
@@ -198,7 +202,7 @@ instance FromJSON LogStr where
 
 -------------------------------------------------------------------------------
 -- | Pack any string-like thing into a 'LogStr'. This will
--- automatically work on 'String', 'ByteString, 'Text' and any of the
+-- automatically work on 'String', 'ByteString', 'Text' and any of the
 -- lazy variants.
 logStr :: StringConv a Text => a -> LogStr
 logStr t = LogStr (B.fromText $ toS t)
@@ -498,7 +502,7 @@ itemJson verb a = toJSON $ a & itemPayload %~ payloadObject verb
 -- Handle scribe does.
 --
 -- 2. Return a finalizing function that tells the scribe to shut
--- down. @katip-elasticsearch@'s @mkEsScribe@ returns a @IO (Scribe,
+-- down. @katip-elasticsearch@'s @mkEsScribe@ returns an @IO (Scribe,
 -- IO ())@. The finalizer will flush any queued log messages and shut
 -- down gracefully before returning. This can be hooked into your
 -- application's shutdown routine to ensure you never miss any log
@@ -718,12 +722,22 @@ instance Katip m => Katip (ExceptT s m) where
 instance Katip m => Katip (MaybeT m) where
     getLogEnv = lift getLogEnv
 
-
 instance Katip m => Katip (StateT s m) where
     getLogEnv = lift getLogEnv
 
+instance (Katip m, Monoid w) => Katip (RWST r w s m) where
+    getLogEnv = lift getLogEnv
+
+instance (Katip m, Monoid w) => Katip (Strict.RWST r w s m) where
+    getLogEnv = lift getLogEnv
+
+instance Katip m => Katip (Strict.StateT s m) where
+    getLogEnv = lift getLogEnv
 
 instance (Katip m, Monoid s) => Katip (WriterT s m) where
+    getLogEnv = lift getLogEnv
+
+instance (Katip m, Monoid s) => Katip (Strict.WriterT s m) where
     getLogEnv = lift getLogEnv
 
 instance (Katip m) => Katip (ResourceT m) where

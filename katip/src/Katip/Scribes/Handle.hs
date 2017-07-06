@@ -3,21 +3,20 @@
 module Katip.Scribes.Handle where
 
 -------------------------------------------------------------------------------
-import           Control.Applicative                   as A
+import           Control.Applicative    as A
 import           Control.Concurrent
-import           Control.Exception                     (bracket_)
+import           Control.Exception      (bracket_)
 import           Control.Monad
 import           Data.Aeson
-import qualified Data.HashMap.Strict                   as HM
+import qualified Data.HashMap.Strict    as HM
 import           Data.Monoid
-import           Data.Text                             (Text)
+import           Data.Text              (Text)
 import           Data.Text.Lazy.Builder
-import           Data.Text.Lazy.IO                     as T
+import           Data.Text.Lazy.IO      as T
 import           System.IO
-import           System.IO.Unsafe                      (unsafePerformIO)
 -------------------------------------------------------------------------------
 import           Katip.Core
-import           Katip.Format.Time                     (formatAsLogTime)
+import           Katip.Format.Time      (formatAsLogTime)
 -------------------------------------------------------------------------------
 
 
@@ -100,18 +99,12 @@ formatItem withColor verb Item{..} =
       | otherwise = s
 
 
--------------------------------------------------------------------------------
--- | An implicit environment to enable logging directly ouf of the IO monad.
--- Be careful as this LogEnv won't perform any resource cleanup for you.
-_ioLogEnv :: LogEnv
-_ioLogEnv = unsafePerformIO $ do
-    le <- initLogEnv "io" "io"
-    lh <- mkHandleScribe ColorIfTerminal stdout DebugS V3
-    registerScribe "stdout" lh defaultScribeSettings le
-{-# NOINLINE _ioLogEnv #-}
-
-
--- -------------------------------------------------------------------------------
--- -- | A default IO instance to make prototype development easy. User
--- -- your own 'Monad' for production.
--- instance Katip IO where getLogEnv = return _ioLogEnv
+-- | Provides a simple log environment with 1 scribe going to
+-- stdout. This is a decent example of how to build a LogEnv and is
+-- best for scripts that just need a quick, reasonable set up to log
+-- to stdout.
+ioLogEnv :: Severity -> Verbosity -> IO LogEnv
+ioLogEnv sev verb = do
+  le <- initLogEnv "io" "io"
+  lh <- mkHandleScribe ColorIfTerminal stdout sev verb
+  registerScribe "stdout" lh defaultScribeSettings le

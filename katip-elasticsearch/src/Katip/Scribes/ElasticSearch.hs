@@ -155,7 +155,7 @@ defaultEsScribeCfg = EsScribeCfg {
 -- advisable.
 --
 -- * CustomSharding: supply your own function that decomposes an item
--- into its index name heirarchy which will be appended to the index
+-- into its index name hierarchy which will be appended to the index
 -- name. So for instance if your function return ["arbitrary",
 -- "prefix"], the index will be @foo-arbitrary-prefix@ and the index
 -- template will be set to match @foo-*@. In general, you want to use
