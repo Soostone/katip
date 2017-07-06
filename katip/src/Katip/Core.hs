@@ -691,7 +691,7 @@ closeScribes le = do
   -- We want to run every finalizer here so we'll not save
   -- intermediate logenvs and just clear scribes at the end.
   let actions = [void (closeScribe k le) | k <- M.keys (_logEnvScribes le)]
-  foldr finally (return ()) actions
+  FT.foldr finally (return ()) actions
   return (le & logEnvScribes .~ mempty)
 
 
