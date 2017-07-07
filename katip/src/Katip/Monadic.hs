@@ -47,16 +47,16 @@ import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.Monad.State
 import           Control.Monad.Trans.Control
-import           Control.Monad.Trans.Either        (EitherT)
-import           Control.Monad.Trans.Except        (ExceptT)
-import           Control.Monad.Trans.Identity      (IdentityT)
-import           Control.Monad.Trans.List          (ListT)
-import           Control.Monad.Trans.Maybe         (MaybeT)
-import           Control.Monad.Trans.Resource      (ResourceT)
-import           Control.Monad.Trans.RWS           (RWST)
-import qualified Control.Monad.Trans.RWS.Strict    as Strict (RWST)
-import qualified Control.Monad.Trans.State.Strict  as Strict (StateT)
-import qualified Control.Monad.Trans.Writer.Strict as Strict (WriterT)
+import           Control.Monad.Trans.Either        (EitherT, mapEitherT)
+import           Control.Monad.Trans.Except        (ExceptT, mapExceptT)
+import           Control.Monad.Trans.Identity      (IdentityT, mapIdentityT)
+import           Control.Monad.Trans.List          (ListT, mapListT)
+import           Control.Monad.Trans.Maybe         (MaybeT, mapMaybeT)
+import           Control.Monad.Trans.Resource      (ResourceT, transResourceT)
+import           Control.Monad.Trans.RWS           (RWST, mapRWST)
+import qualified Control.Monad.Trans.RWS.Strict    as Strict (RWST, mapRWST)
+import qualified Control.Monad.Trans.State.Strict  as Strict (StateT, mapStateT)
+import qualified Control.Monad.Trans.Writer.Strict as Strict (WriterT, mapWriterT)
 import           Control.Monad.Writer              hiding ((<>))
 import           Data.Aeson
 import qualified Data.Foldable                     as FT
@@ -121,76 +121,113 @@ liftPayload = LogContexts . Seq.singleton . AnyLogContext
 
 
 -------------------------------------------------------------------------------
--- | A monadic context that has an inherant way to get logging
--- context and namespace. Examples include a web application monad or
--- database monad.
+-- | A monadic context that has an inherant way to get logging context
+-- and namespace. Examples include a web application monad or database
+-- monad. The @local@ variants are just like @local@ from Reader and
+-- indeed you can easily implement them with @local@ if you happen to
+-- be using a Reader in your monad. These give us 'katipAddNamespace'
+-- and 'katipAddContext' that works with *any* 'KatipContext', as
+-- opposed to making users have to implement these functions on their
+-- own in each app.
 class Katip m => KatipContext m where
   getKatipContext :: m LogContexts
-  getKatipNamespace   :: m Namespace
+  -- | Temporarily modify the current context for the duration of the
+  -- supplied monad. Used in 'katipAddContext'
+  localKatipContext :: (LogContexts -> LogContexts) -> m a -> m a
+  getKatipNamespace :: m Namespace
+  -- | Temporarily modify the current namespace for the duration of the
+  -- supplied monad. Used in 'katipAddContext'
+  localKatipNamespace :: (Namespace -> Namespace) -> m a -> m a
 
 instance (KatipContext m, Katip (IdentityT m)) => KatipContext (IdentityT m) where
   getKatipContext = lift getKatipContext
+  localKatipContext = mapIdentityT . localKatipContext
   getKatipNamespace = lift getKatipNamespace
+  localKatipNamespace = mapIdentityT . localKatipNamespace
 
 
 instance (KatipContext m, Katip (MaybeT m)) => KatipContext (MaybeT m) where
   getKatipContext = lift getKatipContext
+  localKatipContext = mapMaybeT . localKatipContext
   getKatipNamespace = lift getKatipNamespace
+  localKatipNamespace = mapMaybeT . localKatipNamespace
 
 
 instance (KatipContext m, Katip (EitherT e m)) => KatipContext (EitherT e m) where
   getKatipContext = lift getKatipContext
+  localKatipContext = mapEitherT . localKatipContext
   getKatipNamespace = lift getKatipNamespace
+  localKatipNamespace = mapEitherT . localKatipNamespace
 
 
 instance (KatipContext m, Katip (ListT m)) => KatipContext (ListT m) where
   getKatipContext = lift getKatipContext
+  localKatipContext = mapListT . localKatipContext
   getKatipNamespace = lift getKatipNamespace
+  localKatipNamespace = mapListT . localKatipNamespace
 
 
 instance (KatipContext m, Katip (ReaderT r m)) => KatipContext (ReaderT r m) where
   getKatipContext = lift getKatipContext
+  localKatipContext = mapReaderT . localKatipContext
   getKatipNamespace = lift getKatipNamespace
+  localKatipNamespace = mapReaderT . localKatipNamespace
 
 
 instance (KatipContext m, Katip (ResourceT m)) => KatipContext (ResourceT m) where
   getKatipContext = lift getKatipContext
+  localKatipContext = transResourceT . localKatipContext
   getKatipNamespace = lift getKatipNamespace
+  localKatipNamespace = transResourceT . localKatipNamespace
 
 
 instance (KatipContext m, Katip (Strict.StateT s m)) => KatipContext (Strict.StateT s m) where
   getKatipContext = lift getKatipContext
+  localKatipContext = Strict.mapStateT . localKatipContext
   getKatipNamespace = lift getKatipNamespace
+  localKatipNamespace = Strict.mapStateT . localKatipNamespace
 
 
 instance (KatipContext m, Katip (StateT s m)) => KatipContext (StateT s m) where
   getKatipContext = lift getKatipContext
+  localKatipContext = mapStateT . localKatipContext
   getKatipNamespace = lift getKatipNamespace
+  localKatipNamespace = mapStateT . localKatipNamespace
 
 
 instance (KatipContext m, Katip (ExceptT e m)) => KatipContext (ExceptT e m) where
   getKatipContext = lift getKatipContext
+  localKatipContext = mapExceptT . localKatipContext
   getKatipNamespace = lift getKatipNamespace
+  localKatipNamespace = mapExceptT . localKatipNamespace
 
 
 instance (Monoid w, KatipContext m, Katip (Strict.WriterT w m)) => KatipContext (Strict.WriterT w m) where
   getKatipContext = lift getKatipContext
+  localKatipContext = Strict.mapWriterT . localKatipContext
   getKatipNamespace = lift getKatipNamespace
+  localKatipNamespace = Strict.mapWriterT . localKatipNamespace
 
 
 instance (Monoid w, KatipContext m, Katip (WriterT w m)) => KatipContext (WriterT w m) where
   getKatipContext = lift getKatipContext
+  localKatipContext = mapWriterT . localKatipContext
   getKatipNamespace = lift getKatipNamespace
+  localKatipNamespace = mapWriterT . localKatipNamespace
 
 
 instance (Monoid w, KatipContext m, Katip (Strict.RWST r w s m)) => KatipContext (Strict.RWST r w s m) where
   getKatipContext = lift getKatipContext
+  localKatipContext = Strict.mapRWST . localKatipContext
   getKatipNamespace = lift getKatipNamespace
+  localKatipNamespace = Strict.mapRWST . localKatipNamespace
 
 
 instance (Monoid w, KatipContext m, Katip (RWST r w s m)) => KatipContext (RWST r w s m) where
   getKatipContext = lift getKatipContext
+  localKatipContext = mapRWST . localKatipContext
   getKatipNamespace = lift getKatipNamespace
+  localKatipNamespace = mapRWST . localKatipNamespace
 
 
 deriving instance (Monad m, KatipContext m) => KatipContext (KatipT m)
@@ -343,7 +380,9 @@ instance (MonadIO m) => Katip (KatipContextT m) where
 
 instance (MonadIO m) => KatipContext (KatipContextT m) where
   getKatipContext = KatipContextT $ ReaderT $ \lts -> return (ltsContext lts)
+  localKatipContext f (KatipContextT m) = KatipContextT $ local (\s -> s { ltsContext = f (ltsContext s)}) m
   getKatipNamespace = KatipContextT $ ReaderT $ \lts -> return (ltsNamespace lts)
+  localKatipNamespace f (KatipContextT m) = KatipContextT $ local (\s -> s { ltsNamespace = f (ltsNamespace s)}) m
 
 
 -------------------------------------------------------------------------------
@@ -358,12 +397,11 @@ runKatipContextT le ctx ns = flip runReaderT lts . unKatipContextT
 -- monadic action, then restore the previous state
 -- afterwards.
 katipAddNamespace
-    :: (Monad m)
+    :: (KatipContext m)
     => Namespace
-    -> KatipContextT m a
-    -> KatipContextT m a
-katipAddNamespace ns (KatipContextT f) =
-  KatipContextT (local (\r -> r { ltsNamespace = (ltsNamespace r) <> ns}) f)
+    -> m a
+    -> m a
+katipAddNamespace ns = localKatipNamespace (<> ns)
 
 
 -------------------------------------------------------------------------------
@@ -379,13 +417,12 @@ katipAddNamespace ns (KatipContextT f) =
 -- stored in a sequence and will leak memory.
 katipAddContext
     :: ( LogItem i
-       , Monad m
+       , KatipContext m
        )
     => i
-    -> KatipContextT m a
-    -> KatipContextT m a
-katipAddContext i (KatipContextT f) =
-  KatipContextT (local (\r -> r { ltsContext = (ltsContext r) <> liftPayload i}) f)
+    -> m a
+    -> m a
+katipAddContext i = localKatipContext (<> (liftPayload i))
 
 
 -------------------------------------------------------------------------------
