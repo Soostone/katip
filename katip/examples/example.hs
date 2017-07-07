@@ -45,11 +45,11 @@ main = do
     -- use this to stack up various contextual details throughout your
     -- code and they will be flattened out and combined in the log
     -- output.
-    addNamespace "confrabulation" $ addContext (ConfrabLogCTX 42) $ do
+    katipAddNamespace "confrabulation" $ katipAddContext (ConfrabLogCTX 42) $ do
       $(logTM) DebugS "Confrabulating widgets, with extra namespace and context"
       confrabulateWidgets
     $(logTM) InfoS "Namespace and context are back to normal"
-    noLogging $
+    katipNoLogging $
       $(logTM) DebugS "You'll never see this log message!"
   -- This blocking call flushes all in-flight messages through
   -- handlers and then finalizes each scribe.
@@ -111,31 +111,14 @@ instance MonadBaseControl b m => MonadBaseControl b (MyStack m) where
 
 instance (MonadIO m) => Katip (MyStack m) where
   getLogEnv = asks msLogEnv
+  localLogEnv f (MyStack m) = MyStack (local (\s -> s { msLogEnv = f (msLogEnv s)}) m)
 
 
 instance (MonadIO m) => KatipContext (MyStack m) where
   getKatipContext = asks msKContext
+  localKatipContext f (MyStack m) = MyStack (local (\s -> s { msKContext = f (msKContext s)}) m)
   getKatipNamespace = asks msKNamespace
-
-
--------------------------------------------------------------------------------
--- | Merge some context into the log only for the given block
-addContext :: (LogItem i, MonadReader MyState m) => i -> m a -> m a
-addContext i = local (\r -> r { msKContext = msKContext r <> ctxs })
-  where
-    ctxs = liftPayload i
-
-
--------------------------------------------------------------------------------
--- | Add a layer of namespace to the logs only for the given block
-addNamespace :: (MonadReader MyState m) => Namespace -> m a -> m a
-addNamespace ns = local (\r -> r { msKNamespace = msKNamespace r <> ns })
-
-
--------------------------------------------------------------------------------
--- | Disable all log output temporarily
-noLogging :: (MonadReader MyState m) => m a -> m a
-noLogging = local (\r -> r { msLogEnv = clearScribes (msLogEnv r)})
+  localKatipNamespace f (MyStack m) = MyStack (local (\s -> s { msKNamespace = f (msKNamespace s)}) m)
 
 
 -------------------------------------------------------------------------------

@@ -60,11 +60,11 @@ main = do
     -- use this to stack up various contextual details throughout your
     -- code and they will be flattened out and combined in the log
     -- output.
-    addNamespace "confrabulation" $ addContext (ConfrabLogCTX 42) $ do
+    katipAddNamespace "confrabulation" $ katipAddContext (ConfrabLogCTX 42) $ do
       $(logTM) DebugS "Confrabulating widgets, with extra namespace and context"
       confrabulateWidgets
     $(logTM) InfoS "Namespace and context are back to normal"
-    noLogging $
+    katipNoLogging $
       $(logTM) DebugS "You'll never see this log message!"
   -- This blocking call flushes all in-flight messages through
   -- handlers and then finalizes each scribe.
@@ -118,31 +118,14 @@ instance MonadBaseControl b m => MonadBaseControl b (MyStack m) where
 
 instance (MonadIO m) => Katip (MyStack m) where
   getLogEnv = view msLogEnv
+  localLogEnv f (MyStack m) = MyStack (local (over msLogEnv f) m)
 
 
 instance (MonadIO m) => KatipContext (MyStack m) where
   getKatipContext = view msKContext
+  localKatipContext f (MyStack m) = MyStack (local (over msKContext f) m)
   getKatipNamespace = view msKNamespace
-
-
--------------------------------------------------------------------------------
--- | Merge some context into the log only for the given block
-addContext :: (LogItem i, MonadReader r m, HasMyState r) => i -> m a -> m a
-addContext i = local (\r -> r & msKContext <>~ ctxs)
-  where
-    ctxs = liftPayload i
-
-
--------------------------------------------------------------------------------
--- | Add a layer of namespace to the logs only for the given block
-addNamespace :: (MonadReader r m, HasMyState r) => Namespace -> m a -> m a
-addNamespace ns = local (\r -> r & msKNamespace <>~ ns)
-
-
--------------------------------------------------------------------------------
--- | Disable all log output temporarily
-noLogging :: (MonadReader r m, HasMyState r) => m a -> m a
-noLogging = local (\r -> r & msLogEnv %~ clearScribes)
+  localKatipNamespace f (MyStack m) = MyStack (local (over msKNamespace f) m)
 
 
 -------------------------------------------------------------------------------
