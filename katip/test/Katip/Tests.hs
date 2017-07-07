@@ -115,7 +115,7 @@ brokenScribe scribeNum = do
 
 
 -------------------------------------------------------------------------------
-data BrokenScribeError = ScribeBroken Int deriving (Show)
+data BrokenScribeError = ScribeBroken Int deriving (Show, Typeable)
 
 
 instance Exception BrokenScribeError
