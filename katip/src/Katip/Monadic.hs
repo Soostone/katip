@@ -128,30 +128,70 @@ class Katip m => KatipContext m where
   getKatipContext :: m LogContexts
   getKatipNamespace   :: m Namespace
 
---TODO: is this INLINABLE?
-#define TRANS(T) \
-  instance (KatipContext m, Katip (T m)) => KatipContext (T m) where \
-    getKatipContext = lift getKatipContext; \
-    getKatipNamespace = lift getKatipNamespace
+instance (KatipContext m, Katip (IdentityT m)) => KatipContext (IdentityT m) where
+  getKatipContext = lift getKatipContext
+  getKatipNamespace = lift getKatipNamespace
 
-#define TRANS_CTX(CTX, T) \
-  instance (CTX, KatipContext m, Katip (T m)) => KatipContext (T m) where \
-    getKatipContext = lift getKatipContext; \
-    getKatipNamespace = lift getKatipNamespace
 
-TRANS(IdentityT)
-TRANS(MaybeT)
-TRANS(EitherT e)
-TRANS(ListT)
-TRANS(ReaderT r)
-TRANS(ResourceT)
-TRANS(Strict.StateT s)
-TRANS(StateT s)
-TRANS(ExceptT s)
-TRANS_CTX(Monoid w, Strict.WriterT w)
-TRANS_CTX(Monoid w,        WriterT w)
-TRANS_CTX(Monoid w, Strict.RWST r w s)
-TRANS_CTX(Monoid w,        RWST r w s)
+instance (KatipContext m, Katip (MaybeT m)) => KatipContext (MaybeT m) where
+  getKatipContext = lift getKatipContext
+  getKatipNamespace = lift getKatipNamespace
+
+
+instance (KatipContext m, Katip (EitherT e m)) => KatipContext (EitherT e m) where
+  getKatipContext = lift getKatipContext
+  getKatipNamespace = lift getKatipNamespace
+
+
+instance (KatipContext m, Katip (ListT m)) => KatipContext (ListT m) where
+  getKatipContext = lift getKatipContext
+  getKatipNamespace = lift getKatipNamespace
+
+
+instance (KatipContext m, Katip (ReaderT r m)) => KatipContext (ReaderT r m) where
+  getKatipContext = lift getKatipContext
+  getKatipNamespace = lift getKatipNamespace
+
+
+instance (KatipContext m, Katip (ResourceT m)) => KatipContext (ResourceT m) where
+  getKatipContext = lift getKatipContext
+  getKatipNamespace = lift getKatipNamespace
+
+
+instance (KatipContext m, Katip (Strict.StateT s m)) => KatipContext (Strict.StateT s m) where
+  getKatipContext = lift getKatipContext
+  getKatipNamespace = lift getKatipNamespace
+
+
+instance (KatipContext m, Katip (StateT s m)) => KatipContext (StateT s m) where
+  getKatipContext = lift getKatipContext
+  getKatipNamespace = lift getKatipNamespace
+
+
+instance (KatipContext m, Katip (ExceptT e m)) => KatipContext (ExceptT e m) where
+  getKatipContext = lift getKatipContext
+  getKatipNamespace = lift getKatipNamespace
+
+
+instance (Monoid w, KatipContext m, Katip (Strict.WriterT w m)) => KatipContext (Strict.WriterT w m) where
+  getKatipContext = lift getKatipContext
+  getKatipNamespace = lift getKatipNamespace
+
+
+instance (Monoid w, KatipContext m, Katip (WriterT w m)) => KatipContext (WriterT w m) where
+  getKatipContext = lift getKatipContext
+  getKatipNamespace = lift getKatipNamespace
+
+
+instance (Monoid w, KatipContext m, Katip (Strict.RWST r w s m)) => KatipContext (Strict.RWST r w s m) where
+  getKatipContext = lift getKatipContext
+  getKatipNamespace = lift getKatipNamespace
+
+
+instance (Monoid w, KatipContext m, Katip (RWST r w s m)) => KatipContext (RWST r w s m) where
+  getKatipContext = lift getKatipContext
+  getKatipNamespace = lift getKatipNamespace
+
 
 deriving instance (Monad m, KatipContext m) => KatipContext (KatipT m)
 
@@ -169,7 +209,6 @@ logItemM loc sev msg = do
     ctx <- getKatipContext
     ns <- getKatipNamespace
     logItem ctx ns loc sev msg
-
 
 
 -------------------------------------------------------------------------------
