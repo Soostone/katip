@@ -5,6 +5,7 @@
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE StandaloneDeriving         #-}
+{-# LANGUAGE TemplateHaskell            #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Katip.Tests
     ( tests
@@ -49,6 +50,7 @@ tests = testGroup "Katip"
   , logContextsTests
   , closeScribeTests
   , closeScribesTests
+  , loggingTests
   ]
 
 
@@ -95,6 +97,45 @@ closeScribeTests = testGroup "closeScribe"
         Left (ScribeBroken scribeNo) -> scribeNo @?= 1
         Right _ -> assertFailure "Expected to throw a ScribeBroken but it did not"
   ]
+
+
+-------------------------------------------------------------------------------
+loggingTests :: TestTree
+loggingTests = testGroup "logging"
+  [ testCase "logs in order with contexts, namespaces, etc" $ do
+      (le, items) <- recordingEnv
+      runKatipContextT le (sl "base_context" (42 :: Int)) "base_namespace" $ do
+        $(logTM) InfoS "basic log"
+        katipNoLogging $ do
+          $(logTM) InfoS "you cant see this"
+        katipAddNamespace "added" $ do
+          katipAddNamespace "namespace" $ do
+            $(logTM) InfoS "with namespaces"
+          katipAddContext (sl "additional" True) $ do
+            $(logTM) InfoS "additional context"
+      _ <- closeScribes le
+      summary <- fmap summarizeItem <$> readTVarIO items
+      let baseCtx = HM.singleton "base_context" (Number 42)
+      let baseNS = "tests" <> "base_namespace"
+      summary @?=
+        [ (baseNS, baseCtx, "basic log")
+        , (baseNS <> "added" <> "namespace", baseCtx, "with namespaces")
+        , (baseNS <> "added", HM.insert "additional" (Bool True) baseCtx, "additional context")
+        ]
+  ]
+  where
+    recordingEnv :: IO (LogEnv, TVar [Item Object])
+    recordingEnv = do
+      items <- newTVarIO mempty
+      let scribe = Scribe
+            { liPush = \i -> atomically (modifyTVar' items (<> [toObject <$> i]))
+            , scribeFinalizer = return ()
+            }
+      le1 <- initLogEnv "tests" "test"
+      le2 <- registerScribe "recorder" scribe defaultScribeSettings le1
+      return (le2, items)
+    summarizeItem :: Item Object -> (Namespace, Object, LogStr)
+    summarizeItem Item {..} = (_itemNamespace, _itemPayload, _itemMessage)
 
 
 -------------------------------------------------------------------------------
