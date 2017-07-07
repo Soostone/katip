@@ -39,13 +39,13 @@ import           Control.Monad.Trans.Either
 import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.Reader
-import           Control.Monad.Trans.Resource          (ResourceT)
-import           Control.Monad.Trans.State.Lazy (StateT)
-import qualified Control.Monad.Trans.State.Strict as Strict (StateT)
-import           Control.Monad.Trans.Writer.Lazy (WriterT)
-import qualified Control.Monad.Trans.Writer.Strict as Strict (WriterT)
-import           Control.Monad.Trans.RWS.Lazy (RWST)
-import qualified Control.Monad.Trans.RWS.Strict as Strict (RWST)
+import           Control.Monad.Trans.Resource          (ResourceT, transResourceT)
+import           Control.Monad.Trans.State.Lazy (StateT, mapStateT)
+import qualified Control.Monad.Trans.State.Strict as Strict (StateT, mapStateT)
+import           Control.Monad.Trans.Writer.Lazy (WriterT, mapWriterT)
+import qualified Control.Monad.Trans.Writer.Strict as Strict (WriterT, mapWriterT)
+import           Control.Monad.Trans.RWS.Lazy (RWST, mapRWST)
+import qualified Control.Monad.Trans.RWS.Strict as Strict (RWST, mapRWST)
 import           Data.Aeson                   (FromJSON (..), ToJSON (..),
                                                object)
 import qualified Data.Aeson                   as A
@@ -705,43 +705,69 @@ closeScribes le = do
 -- which keeps a namespace and merged context. You can write simple
 -- functions that add additional namespacing and merges additional
 -- context on the fly.
+--
+-- 'localLogEnv' was added to allow for lexically-scoped modifications
+-- of the log env that are reverted when the supplied monad
+-- completes. 'katipNoLogging', for example, uses this to temporarily
+-- pause log outputs.
 class MonadIO m => Katip m where
     getLogEnv :: m LogEnv
+    localLogEnv :: (LogEnv -> LogEnv) -> m a -> m a
 
 
 instance Katip m => Katip (ReaderT s m) where
     getLogEnv = lift getLogEnv
+    localLogEnv = mapReaderT . localLogEnv
 
 
 instance Katip m => Katip (EitherT s m) where
     getLogEnv = lift getLogEnv
+    localLogEnv = mapEitherT . localLogEnv
+
 
 instance Katip m => Katip (ExceptT s m) where
     getLogEnv = lift getLogEnv
+    localLogEnv = mapExceptT . localLogEnv
+
 
 instance Katip m => Katip (MaybeT m) where
     getLogEnv = lift getLogEnv
+    localLogEnv = mapMaybeT . localLogEnv
+
 
 instance Katip m => Katip (StateT s m) where
     getLogEnv = lift getLogEnv
+    localLogEnv = mapStateT . localLogEnv
+
 
 instance (Katip m, Monoid w) => Katip (RWST r w s m) where
     getLogEnv = lift getLogEnv
+    localLogEnv = mapRWST . localLogEnv
+
 
 instance (Katip m, Monoid w) => Katip (Strict.RWST r w s m) where
     getLogEnv = lift getLogEnv
+    localLogEnv = Strict.mapRWST . localLogEnv
+
 
 instance Katip m => Katip (Strict.StateT s m) where
     getLogEnv = lift getLogEnv
+    localLogEnv = Strict.mapStateT . localLogEnv
+
 
 instance (Katip m, Monoid s) => Katip (WriterT s m) where
     getLogEnv = lift getLogEnv
+    localLogEnv = mapWriterT . localLogEnv
+
 
 instance (Katip m, Monoid s) => Katip (Strict.WriterT s m) where
     getLogEnv = lift getLogEnv
+    localLogEnv = Strict.mapWriterT . localLogEnv
+
 
 instance (Katip m) => Katip (ResourceT m) where
     getLogEnv = lift getLogEnv
+    localLogEnv = transResourceT . localLogEnv
 
 
 -------------------------------------------------------------------------------
@@ -753,6 +779,7 @@ newtype KatipT m a = KatipT { unKatipT :: ReaderT LogEnv m a }
 
 instance MonadIO m => Katip (KatipT m) where
     getLogEnv = KatipT ask
+    localLogEnv f (KatipT m) = KatipT $ local f m
 
 
 instance MonadTransControl KatipT where
@@ -773,6 +800,17 @@ instance (MonadBaseControl b m) => MonadBaseControl b (KatipT m) where
 -- | Execute 'KatipT' on a log env.
 runKatipT :: LogEnv -> KatipT m a -> m a
 runKatipT le (KatipT f) = runReaderT f le
+
+
+-------------------------------------------------------------------------------
+-- | Disable all scribes for the given monadic action, then restore
+-- them afterwards. Works in any Katip monad.
+katipNoLogging
+    :: ( Katip m
+       )
+    => m a
+    -> m a
+katipNoLogging = localLogEnv (\le -> set logEnvScribes mempty le)
 
 
 -------------------------------------------------------------------------------

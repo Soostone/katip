@@ -33,7 +33,6 @@ module Katip.Monadic
     , runKatipContextT
     , katipAddNamespace
     , katipAddContext
-    , katipNoLogging
     , KatipContextTState(..)
     ) where
 
@@ -56,7 +55,8 @@ import           Control.Monad.Trans.Resource      (ResourceT, transResourceT)
 import           Control.Monad.Trans.RWS           (RWST, mapRWST)
 import qualified Control.Monad.Trans.RWS.Strict    as Strict (RWST, mapRWST)
 import qualified Control.Monad.Trans.State.Strict  as Strict (StateT, mapStateT)
-import qualified Control.Monad.Trans.Writer.Strict as Strict (WriterT, mapWriterT)
+import qualified Control.Monad.Trans.Writer.Strict as Strict (WriterT,
+                                                              mapWriterT)
 import           Control.Monad.Writer              hiding ((<>))
 import           Data.Aeson
 import qualified Data.Foldable                     as FT
@@ -65,7 +65,6 @@ import           Data.Semigroup                    as Semi
 import           Data.Sequence                     as Seq
 import           Data.Text                         (Text)
 import           Language.Haskell.TH
-import           Lens.Micro
 -------------------------------------------------------------------------------
 import           Katip.Core
 -------------------------------------------------------------------------------
@@ -376,6 +375,7 @@ instance (MonadReader r m) => MonadReader r (KatipContextT m) where
 
 instance (MonadIO m) => Katip (KatipContextT m) where
   getLogEnv = KatipContextT $ ReaderT $ \lts -> return (ltsLogEnv lts)
+  localLogEnv f (KatipContextT m) = KatipContextT (local (\s -> s { ltsLogEnv = f (ltsLogEnv s)}) m)
 
 
 instance (MonadIO m) => KatipContext (KatipContextT m) where
@@ -423,15 +423,3 @@ katipAddContext
     -> m a
     -> m a
 katipAddContext i = localKatipContext (<> (liftPayload i))
-
-
--------------------------------------------------------------------------------
--- | Disable all scribes for the given monadic action, then restore
--- them afterwards.
-katipNoLogging
-    :: ( Monad m
-       )
-    => KatipContextT m a
-    -> KatipContextT m a
-katipNoLogging (KatipContextT f) =
-  KatipContextT (local (\r -> r { ltsLogEnv = set logEnvScribes mempty (ltsLogEnv r)}) f)
