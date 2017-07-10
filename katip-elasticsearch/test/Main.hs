@@ -22,13 +22,15 @@ import           Data.Monoid
 import           Data.Scientific
 import           Data.Time
 import           Data.Time.Calendar.WeekDate
+import           Data.Typeable
 import qualified Data.Vector                 as V
-import           Database.Bloodhound         hiding (key)
+import qualified Database.V1.Bloodhound      as V1
 import           Network.HTTP.Client
 import           Network.HTTP.Types.Status
 import           Test.QuickCheck.Instances   ()
 import           Test.Tasty
 import           Test.Tasty.HUnit
+import           Test.Tasty.Options
 import           Test.Tasty.QuickCheck
 -------------------------------------------------------------------------------
 import           Katip
@@ -37,24 +39,39 @@ import           Katip.Scribes.ElasticSearch
 
 
 main :: IO ()
-main = defaultMain $ testGroup "katip-elasticsearch"
+main = defaultMain $ askOption $ \vers -> testGroup "katip-elasticsearch"
   [
-    esTests
+    esTests vers
   , typeAnnotatedTests
   , roundToSundayTests
   ]
 
 
 -------------------------------------------------------------------------------
-setupSearch :: (EsScribeCfg -> EsScribeCfg) -> IO Scribe
+data TestWithESVersion = TestV1
+                       | TestV5
+                       deriving (Typeable)
+
+
+instance IsOption TestWithESVersion where
+  defaultValue = TestV1
+  parseValue "1" = Just TestV1
+  parseValue "5" = Just TestV5
+  parseValue _   = Nothing
+  optionName = "es-version"
+  optionHelp = "Version of ES to test against, either 1 or 5, defaulting to 1."
+
+
+-------------------------------------------------------------------------------
+setupSearch :: (EsScribeCfg ESV1 -> EsScribeCfg ESV1) -> IO Scribe
 setupSearch modScribeCfg = do
     bh dropESSchema
     mgr <- newManager defaultManagerSettings
-    mkEsScribe cfg (mkBHEnv svr mgr) ixn mn DebugS V3
+    mkEsScribe cfg (V1.mkBHEnv svr mgr) ixn mn DebugS V3
   where
-    cfg = modScribeCfg (defaultEsScribeCfg { essAnnotateTypes = True
-                                           , essIndexSettings = ixs
-                                           })
+    cfg = modScribeCfg (defaultEsScribeCfgV1 { essAnnotateTypes = True
+                                             , essIndexSettings = ixs
+                                             })
 
 
 -------------------------------------------------------------------------------
@@ -71,13 +88,14 @@ withSearch = withSearch' id
 
 
 -------------------------------------------------------------------------------
-withSearch' :: (EsScribeCfg -> EsScribeCfg) -> (IO Scribe -> TestTree) -> TestTree
+withSearch' :: (EsScribeCfg ESV1 -> EsScribeCfg ESV1) -> (IO Scribe -> TestTree) -> TestTree
 withSearch' modScribeCfg = withResource (setupSearch modScribeCfg) (const teardownSearch)
 
 
 -------------------------------------------------------------------------------
-esTests :: TestTree
-esTests = testGroup "elasticsearch scribe"
+--TODO: switch off version
+esTests :: TestWithESVersion -> TestTree
+esTests _ = testGroup "elasticsearch scribe"
   [
     withSearch' (\c -> c { essIndexSharding = NoIndexSharding}) $ \setup -> testCase "it flushes to elasticsearch" $ withTestLogging setup $ \done -> do
        $(logT) (ExampleCtx True) mempty InfoS "A test message"
@@ -98,8 +116,8 @@ esTests = testGroup "elasticsearch scribe"
         $(logT) (ExampleCtx True) mempty InfoS "tomorrow"
         liftIO $ do
           void done
-          todayLogs <- getLogsByIndex (IndexName "katip-elasticsearch-tests-2016-01-02")
-          tomorrowLogs <- getLogsByIndex (IndexName "katip-elasticsearch-tests-2016-01-03")
+          todayLogs <- getLogsByIndex (V1.IndexName "katip-elasticsearch-tests-2016-01-02")
+          tomorrowLogs <- getLogsByIndex (V1.IndexName "katip-elasticsearch-tests-2016-01-03")
           assertBool ("todayLogs has " <> show (length todayLogs) <> " items") (length todayLogs == 1)
           assertBool ("tomorrowLogs has " <> show (length tomorrowLogs) <> " items") (length tomorrowLogs == 1)
           let logToday = head todayLogs
@@ -116,8 +134,8 @@ esTests = testGroup "elasticsearch scribe"
         $(logT) (ExampleCtx True) mempty InfoS "tomorrow"
         liftIO $ do
           void done
-          todayLogs <- getLogsByIndex (IndexName "katip-elasticsearch-tests-2016-02-28") -- rounds back to previous sunday
-          tomorrowLogs <- getLogsByIndex (IndexName "katip-elasticsearch-tests-2016-03-06") -- is on sunday, so uses current date
+          todayLogs <- getLogsByIndex (V1.IndexName "katip-elasticsearch-tests-2016-02-28") -- rounds back to previous sunday
+          tomorrowLogs <- getLogsByIndex (V1.IndexName "katip-elasticsearch-tests-2016-03-06") -- is on sunday, so uses current date
           assertBool ("todayLogs has " <> show (length todayLogs) <> " items") (length todayLogs == 1)
           assertBool ("tomorrowLogs has " <> show (length tomorrowLogs) <> " items") (length tomorrowLogs == 1)
           let logToday = head todayLogs
@@ -235,24 +253,24 @@ getLogs = getLogsByIndex ixn
 
 
 -------------------------------------------------------------------------------
-getLogsByIndex :: IndexName -> IO [Value]
+getLogsByIndex :: V1.IndexName -> IO [Value]
 getLogsByIndex i = do
   r <- bh $ do
-    void (refreshIndex i)
-    searchByIndex i (mkSearch Nothing Nothing)
+    void (V1.refreshIndex i)
+    V1.searchByIndex i (V1.mkSearch Nothing Nothing)
   let actualCode = statusCode (responseStatus r)
   assertBool ("search by " <> show i <> " " <> show actualCode <> " /= 200") (actualCode == 200)
   return $ responseBody r ^.. key "hits" . key "hits" . values
 
 
 -------------------------------------------------------------------------------
-bh :: BH IO a -> IO a
-bh = withBH defaultManagerSettings svr
+bh :: V1.BH IO a -> IO a
+bh = V1.withBH defaultManagerSettings svr
 
 
 -------------------------------------------------------------------------------
 withTestLogging
-  :: IO Scribe -> (IO Reply -> KatipT IO b) -> IO b
+  :: IO Scribe -> (IO V1.Reply -> KatipT IO b) -> IO b
 withTestLogging = withTestLogging' id
 
 
@@ -260,7 +278,7 @@ withTestLogging = withTestLogging' id
 withTestLogging'
   :: (LogEnv -> LogEnv)
   -> IO Scribe
-  -> (IO Reply -> KatipT IO b)
+  -> (IO V1.Reply -> KatipT IO b)
   -> IO b
 withTestLogging' modEnv setup f = do
   scr <- setup
@@ -268,7 +286,7 @@ withTestLogging' modEnv setup f = do
   le' <- registerScribe "es" scr defaultScribeSettings le
   let done' = do
         _ <- closeScribes le'
-        bh (refreshIndex ixn)
+        bh (V1.refreshIndex ixn)
   runKatipT le' (f done')
   where
     ns = Namespace ["katip-test"]
@@ -276,33 +294,33 @@ withTestLogging' modEnv setup f = do
 
 
 -------------------------------------------------------------------------------
-svr :: Server
-svr = Server "http://localhost:9200"
+svr :: V1.Server
+svr = V1.Server "http://localhost:9200"
 
 
 -------------------------------------------------------------------------------
-ixn :: IndexName
-ixn = IndexName "katip-elasticsearch-tests"
+ixn :: V1.IndexName
+ixn = V1.IndexName "katip-elasticsearch-tests"
 
 
 -------------------------------------------------------------------------------
-ixs :: IndexSettings
-ixs = defaultIndexSettings { indexShards = ShardCount 1
-                           , indexReplicas = ReplicaCount 1}
+ixs :: V1.IndexSettings
+ixs = V1.defaultIndexSettings { V1.indexShards = V1.ShardCount 1
+                              , V1.indexReplicas = V1.ReplicaCount 1}
 
 -------------------------------------------------------------------------------
-mn :: MappingName
-mn = MappingName "logs"
-
-
--------------------------------------------------------------------------------
-dropESSchema :: BH IO ()
-dropESSchema = void $ deleteIndex (IndexName "katip-elasticsearch-tests*")
+mn :: V1.MappingName
+mn = V1.MappingName "logs"
 
 
 -------------------------------------------------------------------------------
-dropESSTemplate :: BH IO ()
-dropESSTemplate = void $ deleteTemplate (TemplateName "katip-elasticsearch-tests")
+dropESSchema :: V1.BH IO ()
+dropESSchema = void $ V1.deleteIndex (V1.IndexName "katip-elasticsearch-tests*")
+
+
+-------------------------------------------------------------------------------
+dropESSTemplate :: V1.BH IO ()
+dropESSTemplate = void $ V1.deleteTemplate (V1.TemplateName "katip-elasticsearch-tests")
 
 
 -------------------------------------------------------------------------------

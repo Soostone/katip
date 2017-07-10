@@ -2,7 +2,8 @@ resolver: lts-8.21
 packages:
   - katip
   - katip-elasticsearch
-extra-deps: []
+extra-deps:
+  - bloodhound-0.14.0.0
 flags:
   katip:
     lib-Werror: true
