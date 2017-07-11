@@ -9,7 +9,7 @@ addons:
   apt:
     packages:
     - libgmp-dev
-    - default-jre # needed for java 8
+    - oracle-java8-installer
 
 # The different configurations we want to test. You could also do things like
 # change flags or use --stack-yaml to point to a different file.
@@ -23,7 +23,7 @@ matrix:
     # - env: ARGS="--resolver=lts-7" ESVERSION=1.5.2 ESURL=https://download.elastic.co/elasticsearch/elasticsearch ESTESTARGS="--es-version 1"
     # - env: ARGS="--resolver=lts-8" ESVERSION=1.5.2 ESURL=https://download.elastic.co/elasticsearch/elasticsearch ESTESTARGS="--es-version 1"
     # - env: ARGS="--resolver=nightly" ESVERSION=1.5.2 ESURL=https://download.elastic.co/elasticsearch/elasticsearch ESTESTARGS="--es-version 1"
-    - env: ARGS="--resolver=nightly" ESVERSION=5.5.0 ESURL=https://artifacts.elastic.co/downloads/elasticsearch ESTESTARGS="--es-version 5"
+    - env: ARGS="--resolver=nightly" ESVERSION=5.5.0 ESURL=https://artifacts.elastic.co/downloads/elasticsearch ESTESTARGS="--es-version 5" ES_JAVA_OPTS="-Xms500m -Xmx750m"
 
 before_install:
 # Download and unpack the stack executable
@@ -34,6 +34,8 @@ before_install:
 install:
   - wget --no-check-certificate $ESURL/elasticsearch-$ESVERSION.tar.gz
   - tar xzf elasticsearch-$ESVERSION.tar.gz
+  # set up a repo for snapshot testing. Required in ES >= 1.6
+  - echo "path.repo = [\"/tmp\"]" >> ./elasticsearch-$ESVER/elasticsearch.yml
   - ./elasticsearch-$ESVERSION/bin/elasticsearch &
 
 
