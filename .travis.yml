@@ -14,16 +14,15 @@ addons:
 # change flags or use --stack-yaml to point to a different file.
 matrix:
   include:
-    - env: ARGS="--stack-yaml=stack-lts-2.yaml"
-    - env: ARGS="--stack-yaml=stack-lts-3.yaml"
-    - env: ARGS="--stack-yaml=stack-lts-4.yaml"
-    - env: ARGS="--stack-yaml=stack-lts-5.yaml"
-    - env: ARGS="--resolver=lts-6"
-    - env: ARGS="--resolver=lts-7.19"
-    - env: ARGS="--resolver=lts-8"
-    - env: ARGS="--resolver=nightly"
-  allow_failures:
-    - env: ARGS="--resolver=nightly"
+    - env: ARGS="--stack-yaml=stack-lts-2.yaml" ESVERSION=1.5.2 ESURL=https://download.elastic.co/elasticsearch/elasticsearch/ ESTESTARGS="--es-version 1"
+    - env: ARGS="--stack-yaml=stack-lts-3.yaml" ESVERSION=1.5.2 ESURL=https://download.elastic.co/elasticsearch/elasticsearch/ ESTESTARGS="--es-version 1"
+    - env: ARGS="--stack-yaml=stack-lts-4.yaml" ESVERSION=1.5.2 ESURL=https://download.elastic.co/elasticsearch/elasticsearch/ ESTESTARGS="--es-version 1"
+    - env: ARGS="--stack-yaml=stack-lts-5.yaml" ESVERSION=1.5.2 ESURL=https://download.elastic.co/elasticsearch/elasticsearch/ ESTESTARGS="--es-version 1"
+    - env: ARGS="--resolver=lts-6" ESVERSION=1.5.2 ESURL=https://download.elastic.co/elasticsearch/elasticsearch/ ESTESTARGS="--es-version 1"
+    - env: ARGS="--resolver=lts-7.19" ESVERSION=1.5.2 ESURL=https://download.elastic.co/elasticsearch/elasticsearch/ ESTESTARGS="--es-version 1"
+    - env: ARGS="--resolver=lts-8" ESVERSION=1.5.2 ESURL=https://download.elastic.co/elasticsearch/elasticsearch/ ESTESTARGS="--es-version 1"
+    - env: ARGS="--resolver=nightly" ESVERSION=1.5.2 ESURL=https://download.elastic.co/elasticsearch/elasticsearch/ ESTESTARGS="--es-version 1"
+    - env: ARGS="--resolver=nightly" ESVERSION=5.5.0 ESURL=https://download.elastic.co/downloads/elasticsearch/ ESTESTARGS="--es-version 5"
 
 before_install:
 # Download and unpack the stack executable
@@ -32,9 +31,9 @@ before_install:
 - travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
 
 install:
-  - wget --no-check-certificate https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch-1.5.2.tar.gz
-  - tar xzf elasticsearch-1.5.2.tar.gz
-  - ./elasticsearch-1.5.2/bin/elasticsearch &
+  - wget --no-check-certificate $ESURL/elasticsearch-$ESVERSION.tar.gz
+  - tar xzf elasticsearch-$ESVERSION.tar.gz
+  - ./elasticsearch-$ESVERSION/bin/elasticsearch &
 
 
 # This line does all of the work: installs GHC if necessary, build the library,
@@ -42,9 +41,10 @@ install:
 # around some quirks in Travis's terminal implementation.
 script:
   - stack $ARGS setup
-  - stack $ARGS test $BUILDFLAGS --no-terminal --haddock --no-haddock-deps
+  - stack $ARGS test katip:test --no-terminal --haddock --no-haddock-deps
+  - stack $ARGS test katip-elasticsearch:test --no-terminal --test-arguments=$ESTESTARGS
   - stack $ARGS bench
-  - stack $ARGS build $BUILDFLAGS
+  - stack $ARGS build
   - for f in katip/examples/*.hs; do stack $ARGS ghc -- -Wall -Werror $f -o /dev/null; done
   - stack $ARGS sdist
 
