@@ -3,7 +3,7 @@ packages:
   - katip
   - katip-elasticsearch
 extra-deps:
-  - bloodhound-0.12.0.0
+  - bloodhound-0.14.0.0
   - string-conv-0.1.2
   - aeson-0.11.1.0
   - http-client-0.5.4

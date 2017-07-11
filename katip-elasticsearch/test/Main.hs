@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveDataTypeable  #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE KindSignatures      #-}
 {-# LANGUAGE OverloadedStrings   #-}
@@ -25,6 +26,7 @@ import           Data.ByteString.Lazy                    (ByteString)
 import qualified Data.HashMap.Strict                     as HM
 import           Data.Monoid
 import           Data.Scientific
+import           Data.Tagged
 import           Data.Text                               (Text)
 import           Data.Time
 import           Data.Time.Calendar.WeekDate
@@ -70,8 +72,8 @@ instance IsOption TestWithESVersion where
   parseValue "1" = Just TestV1
   parseValue "5" = Just TestV5
   parseValue _   = Nothing
-  optionName = "es-version"
-  optionHelp = "Version of ES to test against, either 1 or 5, defaulting to 1."
+  optionName = Tagged "es-version"
+  optionHelp = Tagged "Version of ES to test against, either 1 or 5, defaulting to 1."
 
 
 class ESVersion v => TestESVersion v where
@@ -145,7 +147,10 @@ instance TestESVersion ESV5 where
 
 -------------------------------------------------------------------------------
 setupSearch
-  :: forall proxy v. (TestESVersion v, MonadIO (BH v IO))
+  :: forall proxy v. ( TestESVersion v
+                     , MonadIO (BH v IO)
+                     , Functor (BH v IO)
+                     )
   => proxy v
   -> (EsScribeCfg v -> EsScribeCfg v)
   -> IO Scribe
@@ -163,7 +168,13 @@ setupSearch prx modScribeCfg = do
 
 
 -------------------------------------------------------------------------------
-teardownSearch :: (TestESVersion v, Monad (BH v IO)) => proxy v -> IO ()
+teardownSearch
+  :: ( TestESVersion v
+     , Monad (BH v IO)
+     , Functor (BH v IO)
+     )
+  => proxy v
+  -> IO ()
 teardownSearch prx = do
   bh prx $ do
     dropESSchema prx
@@ -174,6 +185,7 @@ teardownSearch prx = do
 withSearch
   :: ( TestESVersion v
      , MonadIO (BH v IO)
+     , Functor (BH v IO)
      )
   => proxy v
   -> (IO Scribe -> TestTree)
@@ -185,6 +197,7 @@ withSearch = withSearch' id
 withSearch'
   :: ( TestESVersion v
      , MonadIO (BH v IO)
+     , Functor (BH v IO)
      )
   => (EsScribeCfg v -> EsScribeCfg v)
   -> proxy v
@@ -197,6 +210,7 @@ withSearch' modScribeCfg prx = withResource (setupSearch prx modScribeCfg) (cons
 esTests
   :: ( TestESVersion v
      , MonadIO (BH v IO)
+     , Functor (BH v IO)
      , Show (IndexName v)
      )
   => proxy v
@@ -357,6 +371,7 @@ annotatedExampleValue = Array $ V.fromList
 getLogs
   :: ( TestESVersion v
      , Monad (BH v IO)
+     , Functor (BH v IO)
      , Show (IndexName v)
      )
   => proxy v
@@ -368,6 +383,7 @@ getLogs prx = getLogsByIndex prx (ixn prx)
 getLogsByIndex
   :: ( TestESVersion v
      , Monad (BH v IO)
+     , Functor (BH v IO)
      , Show (IndexName v)
      )
   => proxy v
@@ -449,6 +465,7 @@ mn prx = toMappingName prx "logs"
 dropESSchema
   :: ( TestESVersion v
      , Monad (BH v IO)
+     , Functor (BH v IO)
      )
   => proxy v
   -> BH v IO ()
@@ -459,6 +476,7 @@ dropESSchema prx = void $ deleteIndex prx (toIndexName prx "katip-elasticsearch-
 dropESSTemplate
   :: ( TestESVersion v
      , Monad (BH v IO)
+     , Functor (BH v IO)
      )
   => proxy v
   -> BH v IO ()

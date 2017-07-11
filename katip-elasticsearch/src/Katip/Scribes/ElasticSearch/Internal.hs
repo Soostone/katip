@@ -242,6 +242,7 @@ instance Exception EsScribeSetupError
 mkEsScribe
     :: forall v. ( ESVersion v
                  , MonadIO (BH v IO)
+                 , Functor (BH v IO)
                  )
     => EsScribeCfg v
     -> BHEnv v

@@ -99,6 +99,7 @@ test-suite test
     , time
     , stm
     , bytestring
+    , tagged
 
   if flag(lib-Werror)
     ghc-options: -Wall -Werror
