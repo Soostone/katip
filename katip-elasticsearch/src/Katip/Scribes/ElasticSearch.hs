@@ -1,7 +1,8 @@
 -- | Includes a scribe that can be used to log structured, JSON log
 -- messages to ElasticSearch. These logs can be explored easily using
 -- <https://www.elastic.co/products/kibana kibana> or your tool of
--- choice.
+-- choice. Supports ElasticSearch servers with version 1.x or 5.x by
+-- way of different configs.
 --
 -- == __Important Note on Index Settings__
 --
@@ -25,6 +26,9 @@ module Katip.Scribes.ElasticSearch
     , mkEsQueueSize
     , EsPoolSize
     , mkEsPoolSize
+    , IndexShardingPolicy(..)
+    , IndexNameSegment(..)
+    -- ** EsScribeCfg and fields
     , EsScribeCfg
     , essRetryPolicy
     , essQueueSize
@@ -32,15 +36,12 @@ module Katip.Scribes.ElasticSearch
     , essAnnotateTypes
     , essIndexSettings
     , essIndexSharding
-    , IndexShardingPolicy(..)
-    , IndexNameSegment(..)
     , defaultEsScribeCfg
     , defaultEsScribeCfgV1
     , defaultEsScribeCfgV5
     -- * Utilities
     , mkDocId
     , module Katip.Scribes.ElasticSearch.Annotations
-    , roundToSunday
     ) where
 
 

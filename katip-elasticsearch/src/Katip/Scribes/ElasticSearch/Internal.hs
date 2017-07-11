@@ -47,6 +47,10 @@ import           Katip.Scribes.ElasticSearch.Annotations
 -------------------------------------------------------------------------------
 
 
+-- | EsScribeCfg now carries a type variable for the version of
+-- ElasticSearch it targets, either 'ESV1' or 'ESV5'. You can use
+-- 'defaultEsScribeCfgV1' and 'defaultESScribeCfgV5' for a good
+-- starting point depending on the ES version you have.
 data EsScribeCfg v = EsScribeCfg {
       essRetryPolicy   :: RetryPolicy
     -- ^ Retry policy when there are errors sending logs to the server
@@ -68,6 +72,9 @@ data EsScribeCfg v = EsScribeCfg {
     -- querying transparently remove the type annotations if this is
     -- enabled.
     , essIndexSettings :: IndexSettings v
+    -- ^ This will be the IndexSettings type from the appropriate
+    -- bloodhound module, either @Database.V1.Bloodhound@ or
+    -- @Database.V5.Bloodhound@
     , essIndexSharding :: IndexShardingPolicy
     } deriving (Typeable)
 
@@ -239,6 +246,12 @@ instance Exception EsScribeSetupError
 
 
 -------------------------------------------------------------------------------
+-- | The Any field tagged with a @v@ corresponds to the type of the
+-- same name in the corresponding @bloodhound@ module. For instance,
+-- if you are configuring for ElasticSearch version 1, import
+-- @Database.V1.Bloodhound@ and @BHEnv v@ will refer to @BHEnv@ from
+-- that module, @IndexName v@ will repsond to @IndexName@ from that
+-- module, etc.
 mkEsScribe
     :: forall v. ( ESVersion v
                  , MonadIO (BH v IO)
