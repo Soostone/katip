@@ -19,7 +19,7 @@ matrix:
     - env: ARGS="--stack-yaml=stack-lts-4.yaml" ESVERSION=1.5.2 ESURL=https://download.elastic.co/elasticsearch/elasticsearch ESTESTARGS="--es-version 1"
     - env: ARGS="--stack-yaml=stack-lts-5.yaml" ESVERSION=1.5.2 ESURL=https://download.elastic.co/elasticsearch/elasticsearch ESTESTARGS="--es-version 1"
     - env: ARGS="--resolver=lts-6" ESVERSION=1.5.2 ESURL=https://download.elastic.co/elasticsearch/elasticsearch ESTESTARGS="--es-version 1"
-    - env: ARGS="--resolver=lts-7.19" ESVERSION=1.5.2 ESURL=https://download.elastic.co/elasticsearch/elasticsearch ESTESTARGS="--es-version 1"
+    - env: ARGS="--resolver=lts-7" ESVERSION=1.5.2 ESURL=https://download.elastic.co/elasticsearch/elasticsearch ESTESTARGS="--es-version 1"
     - env: ARGS="--resolver=lts-8" ESVERSION=1.5.2 ESURL=https://download.elastic.co/elasticsearch/elasticsearch ESTESTARGS="--es-version 1"
     - env: ARGS="--resolver=nightly" ESVERSION=1.5.2 ESURL=https://download.elastic.co/elasticsearch/elasticsearch ESTESTARGS="--es-version 1"
     - env: ARGS="--resolver=nightly" ESVERSION=5.5.0 ESURL=https://artifacts.elastic.co/downloads/elasticsearch ESTESTARGS="--es-version 5"

@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE DeriveDataTypeable  #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE OverloadedStrings   #-}
@@ -255,7 +256,9 @@ instance Exception EsScribeSetupError
 mkEsScribe
     :: forall v. ( ESVersion v
                  , MonadIO (BH v IO)
+#if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ < 800
                  , Functor (BH v IO)
+#endif
                  )
     => EsScribeCfg v
     -> BHEnv v

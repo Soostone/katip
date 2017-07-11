@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE DeriveDataTypeable  #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE KindSignatures      #-}
@@ -149,7 +150,9 @@ instance TestESVersion ESV5 where
 setupSearch
   :: forall proxy v. ( TestESVersion v
                      , MonadIO (BH v IO)
+#if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ < 800
                      , Functor (BH v IO)
+#endif
                      )
   => proxy v
   -> (EsScribeCfg v -> EsScribeCfg v)
@@ -171,7 +174,9 @@ setupSearch prx modScribeCfg = do
 teardownSearch
   :: ( TestESVersion v
      , Monad (BH v IO)
+#if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ < 800
      , Functor (BH v IO)
+#endif
      )
   => proxy v
   -> IO ()
@@ -185,7 +190,9 @@ teardownSearch prx = do
 withSearch
   :: ( TestESVersion v
      , MonadIO (BH v IO)
+#if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ < 800
      , Functor (BH v IO)
+#endif
      )
   => proxy v
   -> (IO Scribe -> TestTree)
@@ -197,7 +204,9 @@ withSearch = withSearch' id
 withSearch'
   :: ( TestESVersion v
      , MonadIO (BH v IO)
+#if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ < 800
      , Functor (BH v IO)
+#endif
      )
   => (EsScribeCfg v -> EsScribeCfg v)
   -> proxy v
@@ -210,7 +219,9 @@ withSearch' modScribeCfg prx = withResource (setupSearch prx modScribeCfg) (cons
 esTests
   :: ( TestESVersion v
      , MonadIO (BH v IO)
+#if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ < 800
      , Functor (BH v IO)
+#endif
      , Show (IndexName v)
      )
   => proxy v
@@ -371,7 +382,9 @@ annotatedExampleValue = Array $ V.fromList
 getLogs
   :: ( TestESVersion v
      , Monad (BH v IO)
+#if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ < 800
      , Functor (BH v IO)
+#endif
      , Show (IndexName v)
      )
   => proxy v
@@ -383,7 +396,9 @@ getLogs prx = getLogsByIndex prx (ixn prx)
 getLogsByIndex
   :: ( TestESVersion v
      , Monad (BH v IO)
+#if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ < 800
      , Functor (BH v IO)
+#endif
      , Show (IndexName v)
      )
   => proxy v
@@ -465,7 +480,9 @@ mn prx = toMappingName prx "logs"
 dropESSchema
   :: ( TestESVersion v
      , Monad (BH v IO)
+#if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ < 800
      , Functor (BH v IO)
+#endif
      )
   => proxy v
   -> BH v IO ()
@@ -476,7 +493,9 @@ dropESSchema prx = void $ deleteIndex prx (toIndexName prx "katip-elasticsearch-
 dropESSTemplate
   :: ( TestESVersion v
      , Monad (BH v IO)
+#if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ < 800
      , Functor (BH v IO)
+#endif
      )
   => proxy v
   -> BH v IO ()
