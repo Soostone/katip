@@ -42,7 +42,7 @@ install:
 script:
   - stack $ARGS setup
   - stack $ARGS test katip:test --no-terminal --haddock --no-haddock-deps
-  - stack $ARGS test katip-elasticsearch:test --no-terminal --test-arguments=$ESTESTARGS
+  - stack $ARGS test katip-elasticsearch:test --no-terminal --test-arguments="$ESTESTARGS"
   - stack $ARGS bench
   - stack $ARGS build
   - for f in katip/examples/*.hs; do stack $ARGS ghc -- -Wall -Werror $f -o /dev/null; done
