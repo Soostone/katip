@@ -11,14 +11,15 @@ import           Control.DeepSeq
 import           Control.Monad
 import           Criterion.Main
 import           Data.Aeson
-import qualified Data.HashMap.Strict                     as HM
+import qualified Data.HashMap.Strict                  as HM
+import           Data.Proxy                           (Proxy (..))
 import           Data.RNG
-import qualified Data.Text                               as T
-import           Database.Bloodhound.Types
+import qualified Data.Text                            as T
+import           Database.V1.Bloodhound.Types
 import           Numeric
 -------------------------------------------------------------------------------
 import           Katip.Scribes.ElasticSearch
-import           Katip.Scribes.ElasticSearch.Annotations
+import           Katip.Scribes.ElasticSearch.Internal (ESV1)
 -------------------------------------------------------------------------------
 
 main :: IO ()
@@ -34,7 +35,7 @@ main = do
 mkDocIdBenchmark :: RNG -> Benchmark
 mkDocIdBenchmark rng = bgroup "mkDocId"
   [
-    bench "mkDocId (randomIO)" $ nfIO mkDocId
+    bench "mkDocId (randomIO)" $ nfIO (mkDocId (Proxy :: Proxy ESV1))
   , bench "mkDocId' (shared )" $ nfIO $ mkDocId' rng
   ]
 
