@@ -35,7 +35,7 @@ install:
   - wget --no-check-certificate $ESURL/elasticsearch-$ESVERSION.tar.gz
   - tar xzf elasticsearch-$ESVERSION.tar.gz
   # set up a repo for snapshot testing. Required in ES >= 1.6
-  - echo "path.repo = [\"/tmp\"]" >> ./elasticsearch-$ESVER/elasticsearch.yml
+  - echo "path.repo = [\"/tmp\"]" >> ./elasticsearch-$ESVERSION/elasticsearch.yml
   - ./elasticsearch-$ESVERSION/bin/elasticsearch &
 
 
