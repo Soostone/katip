@@ -25,6 +25,7 @@ library
   exposed-modules:
     Katip.Scribes.ElasticSearch
     Katip.Scribes.ElasticSearch.Annotations
+    Katip.Scribes.ElasticSearch.Internal
   build-depends:
       base >=4.6 && <5
     , katip >= 0.2.0.0 && < 0.5
@@ -97,6 +98,7 @@ test-suite test
     , scientific
     , time
     , stm
+    , bytestring
 
   if flag(lib-Werror)
     ghc-options: -Wall -Werror
