@@ -37,6 +37,8 @@ install:
   # set up a repo for snapshot testing. Required in ES >= 1.6
   - echo "path.repo = [\"/tmp\"]" >> ./elasticsearch-$ESVERSION/elasticsearch.yml
   - ./elasticsearch-$ESVERSION/bin/elasticsearch &
+  # Bloodhound seems to take a while to build and can sometimes stall out the build when travis detects no output.
+  - while true; do echo "travis pls"; sleep 30; done &
 
 
 # This line does all of the work: installs GHC if necessary, build the library,
