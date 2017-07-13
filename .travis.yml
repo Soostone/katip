@@ -38,7 +38,6 @@ install:
   - echo "path.repo = [\"/tmp\"]" >> ./elasticsearch-$ESVERSION/elasticsearch.yml
   - ./elasticsearch-$ESVERSION/bin/elasticsearch &
   # Bloodhound seems to take a while to build and can sometimes stall out the build when travis detects no output.
-  - while true; do echo "travis pls"; sleep 30; done &
 
 
 # This line does all of the work: installs GHC if necessary, build the library,
@@ -46,6 +45,8 @@ install:
 # around some quirks in Travis's terminal implementation.
 script:
   - stack $ARGS setup
+  # Prevent Inactivity timeouts. See https://github.com/travis-ci/travis-ci/issues/7020#issuecomment-288961580
+  - travis_wait 45 sleep 1800 &
   - stack $ARGS test katip:test --no-terminal --haddock --no-haddock-deps
   - stack $ARGS test katip-elasticsearch:test --no-terminal --test-arguments="$ESTESTARGS"
   - stack $ARGS bench
