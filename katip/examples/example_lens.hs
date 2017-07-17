@@ -13,6 +13,7 @@ module Main
 
 -------------------------------------------------------------------------------
 import           Control.Applicative         as A
+import           Control.Exception
 import           Control.Lens                hiding ((.=))
 import           Control.Monad.Base
 import           Control.Monad.Reader
@@ -47,28 +48,28 @@ main = do
   -- fields permitted for Verbosity 2 and will throw out Debug
   -- messages entirely. Note that katip provides facilities like
   -- 'unregisterScribe' and 'registerScribe' to make it possible to
-  -- hot-swap scribes at runtime if you need to.
+  -- hot-swap scribes at runtime if you need to. 'closeScribes' is
+  -- blocking and flushes all messages out of a scribe and cleans up
+  -- resources that were allocated at creation.
   handleScribe <- mkHandleScribe ColorIfTerminal stdout InfoS V2
-  le <- registerScribe "stdout" handleScribe defaultScribeSettings =<< initLogEnv "MyApp" "production"
-  let s = MyState M.mempty mempty le
-  runStack s $ do
-    $(logTM) InfoS "Started"
-    -- this will add "confrabulation" to the current namespace, making
-    -- logs made under this block have the namespace of
-    -- "main.confrabulation". Further, ConfrabLogCTX's key/value
-    -- context will also get merged with the context above it. You can
-    -- use this to stack up various contextual details throughout your
-    -- code and they will be flattened out and combined in the log
-    -- output.
-    katipAddNamespace "confrabulation" $ katipAddContext (ConfrabLogCTX 42) $ do
-      $(logTM) DebugS "Confrabulating widgets, with extra namespace and context"
-      confrabulateWidgets
-    $(logTM) InfoS "Namespace and context are back to normal"
-    katipNoLogging $
-      $(logTM) DebugS "You'll never see this log message!"
-  -- This blocking call flushes all in-flight messages through
-  -- handlers and then finalizes each scribe.
-  void (closeScribes le)
+  let mkLogEnv = registerScribe "stdout" handleScribe defaultScribeSettings =<< initLogEnv "MyApp" "production"
+  bracket mkLogEnv closeScribes $ \le -> do
+    let s = MyState M.mempty mempty le
+    runStack s $ do
+      $(logTM) InfoS "Started"
+      -- this will add "confrabulation" to the current namespace, making
+      -- logs made under this block have the namespace of
+      -- "main.confrabulation". Further, ConfrabLogCTX's key/value
+      -- context will also get merged with the context above it. You can
+      -- use this to stack up various contextual details throughout your
+      -- code and they will be flattened out and combined in the log
+      -- output.
+      katipAddNamespace "confrabulation" $ katipAddContext (ConfrabLogCTX 42) $ do
+        $(logTM) DebugS "Confrabulating widgets, with extra namespace and context"
+        confrabulateWidgets
+      $(logTM) InfoS "Namespace and context are back to normal"
+      katipNoLogging $
+        $(logTM) DebugS "You'll never see this log message!"
 
 
 -------------------------------------------------------------------------------
