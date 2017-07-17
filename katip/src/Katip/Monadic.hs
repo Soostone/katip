@@ -311,10 +311,11 @@ logExceptionM action sev = action `catchAny` \e -> f e >> throwM e
 
 -------------------------------------------------------------------------------
 -- | Provides a simple transformer that defines a 'KatipContext'
--- instance for a fixed namespace and context. You will typically only
--- use this if you are forced to run in IO but still want to have your
--- log context. This is the slightly more powerful version of KatipT
--- in that it provides KatipContext instead of just Katip. For instance:
+-- instance for a fixed namespace and context. Just like 'KatipT', you
+-- should use this if you prefer an explicit transformer stack and
+-- don't want to (or cannot) define 'KatipContext' for your monad
+-- . This is the slightly more powerful version of KatipT in that it
+-- provides KatipContext instead of just Katip. For instance:
 --
 -- @
 --   threadWithLogging = do
