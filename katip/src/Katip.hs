@@ -144,7 +144,7 @@ doDatabaseThings = do
 @
 
 Another pain point to look out for is nesting actions that log in
-eachother. Let's say you were writing a web app. You want to capture
+each other. Let's say you were writing a web app. You want to capture
 some detail such as the user's ID in the logs, but you also want that
 info to show up in doDatabaseThings' logs so you can associate those
 two pieces of information:
