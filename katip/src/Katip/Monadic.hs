@@ -234,7 +234,7 @@ deriving instance (Monad m, KatipContext m) => KatipContext (KatipT m)
 -------------------------------------------------------------------------------
 -- | Log with everything, including a source code location. This is
 -- very low level and you typically can use 'logTM' in its
--- place. Automaticallysupplies payload and namespace.
+-- place. Automatically supplies payload and namespace.
 logItemM
     :: (Applicative m, KatipContext m)
     => Maybe Loc
