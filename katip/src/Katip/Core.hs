@@ -771,7 +771,9 @@ instance (Katip m) => Katip (ResourceT m) where
 
 
 -------------------------------------------------------------------------------
--- | A concrete monad you can use to run logging actions.
+-- | A concrete monad you can use to run logging actions. Use this if
+-- you prefer an explicit monad transformer stack and adding layers as
+-- opposed to implementing 'Katip' for your monad.
 newtype KatipT m a = KatipT { unKatipT :: ReaderT LogEnv m a }
   deriving ( Functor, Applicative, Monad, MonadIO
            , MonadMask, MonadCatch, MonadThrow, MonadTrans, MonadBase b)

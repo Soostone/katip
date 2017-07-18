@@ -52,6 +52,7 @@ script:
   - stack $ARGS bench
   - stack $ARGS build
   - for f in katip/examples/*.hs; do stack $ARGS ghc -- -Wall -Werror $f -o /dev/null; done
+  - for f in katip-elasticsearch/examples/*.hs; do stack $ARGS ghc -- -Wall -Werror $f -o /dev/null; done
   - stack $ARGS sdist
 
 # Caching so the next build will be fast too.

@@ -1,6 +1,31 @@
--- | Includes all of the API's youll need to use Katip. Be sure to
+-- | Includes all of the APIs youll need to use Katip. Be sure to
 -- check out the included @examples@ directory for an example of
 -- usage.
+--
+-- Here's a basic example:
+--
+-- @
+--
+-- import Control.Exception
+-- import Katip
+--
+-- main :: IO ()
+-- main = do
+--   handleScribe <- mkHandleScribe ColorIfTerminal stdout InfoS V2
+--   let makeLogEnv = registerScribe "stdout" handleScribe defaultScribeSettings =<< initLogEnv "MyApp" "production"
+--   -- closeScribes will stop accepting new logs, flush existing ones and clean up resources
+--   bracket makeLogEnv closeScribes $ \le -> do
+--     let initialContext = () -- this context will be attached to every log in your app and merged w/ subsequent contexts
+--     let initialNamespace = "main"
+--     runKatipContextT le initialContext initialNamespace $ do
+--       $(logTM) InfoS "Hello Katip"
+--       -- This adds a namespace to the current namespace and merges a piece of contextual data into your context
+--       katipAddNamespace "additional_namespace" $ katipAddContext (sl "some_context" True) $ do
+--         $(logTM) WarningS "Now we're getting fancy"
+--       katipNoLogging $ do
+--         $(logTM) DebugS "You will never see this!"
+--
+-- @
 --
 -- To get up and running, the workflow is generally:
 --
@@ -40,7 +65,7 @@ module Katip
     , Scribe (..)
     , LogEnv (..)
     , SimpleLogPayload, sl
-    , defaultScribeSettings --TODO: lenses and whatnot to avoid breakage
+    , defaultScribeSettings
     , ScribeSettings
     , scribeBufferSize
     , _scribeBufferSize
@@ -64,7 +89,7 @@ module Katip
     , logEnvTimer
     , logEnvScribes
 
-    -- * A Built-in Monad For Logging
+    -- * A Built-in Monad For Simple Logging
     , KatipT (..)
     , runKatipT
 
@@ -90,7 +115,7 @@ module Katip
     , logT
     , logItem
     , logException
-    -- ** 'KatipContext' Logging Functions
+    -- ** 'KatipContext': Logging With Context
     -- $katipcontextlogging
     , KatipContext (..)
     , logFM
@@ -99,6 +124,10 @@ module Katip
     , logExceptionM
     , AnyLogContext
     , LogContexts, liftPayload
+    -- *** Temporarily Changing Logging Behavior
+    , katipAddNamespace
+    , katipAddContext
+    , katipNoLogging
 
     -- * Included Scribes
     , mkHandleScribe
@@ -112,9 +141,6 @@ module Katip
     -- * KatipContextT - Utility transformer that provides Katip and KatipContext instances
     , KatipContextT
     , runKatipContextT
-    , katipAddNamespace
-    , katipAddContext
-    , katipNoLogging
     ) where
 
 -------------------------------------------------------------------------------
