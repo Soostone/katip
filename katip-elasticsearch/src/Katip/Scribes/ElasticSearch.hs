@@ -70,6 +70,11 @@ module Katip.Scribes.ElasticSearch
     , defaultEsScribeCfg
     , defaultEsScribeCfgV1
     , defaultEsScribeCfgV5
+    -- ** Version-Proxied APIS
+    -- $versionproxies
+    , defaultEsScribeCfg'
+    , ESV1
+    , ESV5
     -- * Utilities
     , mkDocId
     , module Katip.Scribes.ElasticSearch.Annotations
@@ -80,3 +85,11 @@ module Katip.Scribes.ElasticSearch
 import           Katip.Scribes.ElasticSearch.Annotations
 import           Katip.Scribes.ElasticSearch.Internal
 -------------------------------------------------------------------------------
+
+
+{- $versionproxies
+
+  You may need these these functions and types if type inference
+  fails. For instance, you may need to hint to the compiler that a
+  config is @:: EsScribeCfg ESV5@, for instance.
+-}
