@@ -1,6 +1,6 @@
 0.5.0.0
 =======
-* Update docs
+* Improved documentation.
 * Add built-in buffering to scribes.
   Scribes now allocate a bounded queue (with configurable size). Rather than writes being synchronous to all scribes, they simply attempt to write into the bounded queue of each scribe. If any of the scribes is too far behind and the queue is full, the write is dropped. This also means that closing scribes is now an IO operation that happens synchrounsly.
 * Added local-like functions to Katip and KatipContext typeclasses. This allows us to generalize `katipNoLogging`, `katipAddNamespace`, and `katipAddContext` to be available to anything with a `Katip` or `KatipContext` instance rather than having to reimplement these functions all the time.

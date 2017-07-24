@@ -1,3 +1,8 @@
+0.4.0.0
+=======
+* Update to bloodhound >= 0.13.0.0. This version adds support for both ElasticSearch versions 1 and 5. Previously, we implicitly supported one and maybe would work on 5. The types in `EsScribeCfg` had to change to be able to specify which version was being targeted.
+* Improved documentation.
+
 0.3.1.0
 =======
 * Widen dependency on katip
