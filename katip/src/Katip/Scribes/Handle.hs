@@ -10,6 +10,7 @@ import           Control.Monad
 import           Data.Aeson
 import qualified Data.HashMap.Strict    as HM
 import           Data.Monoid
+import           Data.Scientific        as S
 import           Data.Text              (Text)
 import           Data.Text.Lazy.Builder
 import           Data.Text.Lazy.IO      as T
@@ -34,10 +35,13 @@ getKeys verb a = concat (renderPair A.<$> HM.toList (payloadObject verb a))
       case v of
         Object o -> concat [renderPair (k <> "." <> k', v')  | (k', v') <- HM.toList o]
         String t -> [fromText (k <> ":" <> t)]
-        Number n -> [fromText (k <> ":") <> fromString (show n)]
+        Number n -> [fromText (k <> ":") <> fromString (formatNumber n)]
         Bool b -> [fromText (k <> ":") <> fromString (show b)]
         Null -> [fromText (k <> ":null")]
         _ -> mempty -- Can't think of a sensible way to handle arrays
+    formatNumber :: Scientific -> String
+    formatNumber n =
+      formatScientific Generic (if isFloating n then Nothing else Just 0) n
 
 
 -------------------------------------------------------------------------------

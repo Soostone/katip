@@ -74,6 +74,7 @@ library
                , mtl >= 2.0 && < 2.3
                , transformers-base >= 0.3 && < 0.6
                , resourcet >= 1.1 && < 1.2
+               , scientific >= 0.3.3.0
                , microlens >= 0.2.0.0 && < 0.5
                , microlens-th >= 0.1.0.0 && < 0.5
                , semigroups
