@@ -1,3 +1,8 @@
+0.5.0.1
+=======
+* Fix numeric formatting in Handle scribe.
+* Bump deps for GHC 8.2.1
+
 0.5.0.0
 =======
 * Improved documentation.
