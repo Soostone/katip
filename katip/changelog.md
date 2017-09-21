@@ -1,3 +1,7 @@
+0.5.0.2
+=======
+* Export Katip.Compat for Windows users.
+
 0.5.0.1
 =======
 * Fix numeric formatting in Handle scribe.

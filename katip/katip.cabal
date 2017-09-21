@@ -1,5 +1,5 @@
 name:                katip
-version:             0.5.0.1
+version:             0.5.0.2
 synopsis:            A structured logging framework.
 description:
   Katip is a structured logging framework. See README.md for more details.
