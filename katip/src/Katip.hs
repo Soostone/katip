@@ -27,6 +27,52 @@
 --
 -- @
 --
+-- Another common case that you have some sort of App monad that's
+-- based on ReaderT with some Config state. This is a perfect place to
+-- insert read-only katip state:
+--
+-- @
+--
+-- import Katip as K
+--
+-- data Config = Config {
+--   logNamespace :: K.Namespace
+-- , logContext :: K.LogContexts
+-- , logEnv :: K.LogEnv
+-- -- whatever other read-only config you need
+-- }
+--
+-- newtype App m a = App {
+--   unApp :: ReaderT Config m a
+-- } deriving (Functor, Applicative, Monad) -- more instances as needed
+--
+--
+-- -- These instances get even easier with lenses!
+-- instance (MonadIO m) => K.Katip (App m) where
+--   getLogEnv = asks logEnv
+--   -- with lens:
+--   -- getLogEnv = view logEnv
+--   localLogEnv f (App m) = App (local (\s -> s { logEnv = f (logEnv s)}) m)
+--   -- with lens:
+--   -- localLogEnv f (App m) = App (local (over logEnv f) m)
+--
+--
+-- instance (MonadIO m) => K.KatipContext (App m) where
+--   getKatipContext = asks logContext
+--   -- with lens:
+--   -- getKatipContext = view logContext
+--   localKatipContext f (App m) = App (local (\s -> s { logContext = f (logContext s)}) m)
+--   -- with lens:
+--   -- localKatipContext f (App m) = App (local (over logContext f) m)
+--   getKatipNamespace = asks logNamespace
+--   -- with lens:
+--   -- getKatipNamespace = view logNamespace
+--   localKatipNamespace f (App m) = App (local (\s -> s { logNamespace = f (logNamespace s)}) m)
+--   -- with lens:
+--   -- localKatipNamespace f (App m) = App (local (over logNamespace f) m)
+--
+-- @
+--
 -- To get up and running, the workflow is generally:
 --
 -- * Set up a 'LogEnv' using 'initLogEnv'.
