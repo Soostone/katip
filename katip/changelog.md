@@ -1,3 +1,7 @@
+0.5.0.3
+=======
+* Add worked example of Katip/KatipContext to the haddocks.
+
 0.5.0.2
 =======
 * Export Katip.Compat for Windows users.
