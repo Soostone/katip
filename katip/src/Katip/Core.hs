@@ -249,29 +249,38 @@ makeLenses ''Item
 
 
 instance Show a => Show (Item a) where
-    show Item{..} = "Item {_itemApp = " ++ show _itemApp ++ ", " ++
-                          "_itemEnv = " ++ show _itemEnv ++ ", " ++
-                          "_itemSeverity = " ++ show _itemSeverity ++ ", " ++
-                          "_itemThread = " ++ show _itemThread ++ ", " ++
-                          "_itemHost = " ++ show _itemHost ++ ", " ++
-                          "_itemProcess = " ++ show _itemProcess ++ ", " ++
-                          "_itemPayload = " ++ show _itemPayload ++ ", " ++
-                          "_itemMessage = " ++ show _itemMessage ++ ", " ++
-                          "_itemTime = " ++ show _itemTime ++ ", " ++
-                          "_itemNamespace = " ++ show _itemNamespace ++ ", " ++
-                          "_itemLoc = " ++ show (LocShow <$> _itemLoc) ++ "}"
-
+    showsPrec d Item{..} = showParen (d >= 11) ( showString "Item {"
+                                               . field "_itemApp" _itemApp
+                                               . field "_itemEnv" _itemEnv
+                                               . field "_itemSeverity" _itemSeverity
+                                               . field "_itemThread" _itemThread
+                                               . field "_itemHost" _itemHost
+                                               . field "_itemProcess" _itemProcess
+                                               . field "_itemPayload" _itemPayload
+                                               . field "_itemMessage" _itemMessage
+                                               . field "_itemTime" _itemTime
+                                               . field "_itemNamespace" _itemNamespace
+                                               . showString "_itemLoc = " . shows (LocShow <$> _itemLoc)
+                                               . showChar '}'
+                                               )
+      where
+        field n v = showString n . showString " = " . shows v . showString ", "
 
 newtype LocShow = LocShow Loc
 
 
 instance Show LocShow where
-    show (LocShow Loc{..}) =
-      "Loc {loc_filename = " ++ show loc_filename ++ ", " ++
-           "loc_package = " ++ show loc_package ++ ", " ++
-           "loc_module = " ++ show loc_module ++ ", " ++
-           "loc_start = " ++ show loc_start ++ ", " ++
-           "loc_end = " ++ show loc_end ++ "}"
+    showsPrec d (LocShow Loc{..}) = showParen (d >= 11) ( showString "Loc {"
+                                                        . field "loc_filename" loc_filename
+                                                        . field "loc_package" loc_package
+                                                        . field "loc_module" loc_module
+                                                        . field "loc_start" loc_start
+                                                        . showString "loc_end = " . shows loc_end
+                                                        . showChar '}'
+                                                        )
+      where
+        field n v = showString n . showString " = " . shows v . showString ", "
+
 
 
 instance ToJSON a => ToJSON (Item a) where
