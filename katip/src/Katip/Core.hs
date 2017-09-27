@@ -180,7 +180,7 @@ instance FromJSON Severity where
 -------------------------------------------------------------------------------
 -- | Log message with Builder underneath; use '<>' to concat in O(1).
 newtype LogStr = LogStr { unLogStr :: B.Builder }
-    deriving (Generic, Show)
+    deriving (Generic, Show, Eq)
 
 instance IsString LogStr where
     fromString = LogStr . B.fromString
@@ -247,6 +247,29 @@ data Item a = Item {
     } deriving (Generic, Functor)
 makeLenses ''Item
 
+-- Manual instance because 'Loc' has no 'Eq' and 'Show' instances in old
+-- versions of template-haskell (< 2.10)
+instance Eq a => Eq (Item a) where
+    a == b = FT.and [ _itemApp a == _itemApp b
+                    , _itemEnv a == _itemEnv b
+                    , _itemSeverity a == _itemSeverity b
+                    , _itemThread a == _itemThread b
+                    , _itemHost a == _itemHost b
+                    , _itemProcess a == _itemProcess b
+                    , _itemPayload a == _itemPayload b
+                    , _itemMessage a == _itemMessage b
+                    , _itemTime a == _itemTime b
+                    , _itemNamespace a == _itemNamespace b
+                    , case (_itemLoc a, _itemLoc b) of
+                        (Nothing, Nothing) -> True
+                        (Just l1, Just l2) -> FT.and [ loc_filename l1 == loc_filename l2
+                                                     , loc_package l1 == loc_package l2
+                                                     , loc_module l1 == loc_module l2
+                                                     , loc_start l1 == loc_start l2
+                                                     , loc_end l1 == loc_end l2
+                                                     ]
+                        _ -> False
+                    ]
 
 instance Show a => Show (Item a) where
     showsPrec d Item{..} = showParen (d >= 11) ( showString "Item {"
@@ -280,7 +303,6 @@ instance Show LocShow where
                                                         )
       where
         field n v = showString n . showString " = " . shows v . showString ", "
-
 
 
 instance ToJSON a => ToJSON (Item a) where
@@ -638,6 +660,7 @@ spawnScribeWorker (Scribe write _) queue = Async.async go
 data ScribeSettings = ScribeSettings {
       _scribeBufferSize :: Int
     }
+  deriving (Show, Eq)
 
 makeLenses ''ScribeSettings
 

@@ -25,6 +25,7 @@ import qualified Data.Text.Lazy.Builder    as B
 import           Data.Time
 import           Data.Time.Clock.POSIX
 import           Language.Haskell.TH
+import           Lens.Micro                (ASetter, (&), (.~))
 import           System.Posix.Types
 import           Test.QuickCheck.Instances ()
 import           Test.Tasty
@@ -41,6 +42,7 @@ tests = testGroup "Katip"
   [
     testProperty "JSON cycle Item" $ \(i :: Item ()) ->
       prop_json_cycle i
+  , eqItemTests
   , testProperty "renderSeverity/textToSeverity cycle" $ \sev ->
       textToSeverity(renderSeverity sev) === Just sev
   , testProperty "processIDToText/textToProcessID cycle" $ \pid ->
@@ -245,11 +247,6 @@ deriving instance Arbitrary Namespace
 deriving instance Arbitrary Environment
 deriving instance Arbitrary ThreadIdText
 deriving instance Arbitrary CPid
-#if !MIN_VERSION_base(4, 8, 0)
-deriving instance Eq Loc
-#endif
-deriving instance Eq LogStr
-deriving instance (Eq a) => Eq (Item a)
 
 
 -------------------------------------------------------------------------------
@@ -278,3 +275,31 @@ instance Arbitrary Severity where
 -------------------------------------------------------------------------------
 instance Arbitrary LogStr where
     arbitrary = LogStr . B.fromText <$> arbitrary
+
+-------------------------------------------------------------------------------
+-- Somewhat test whether all fields are taken into account in `==`
+
+#if !MIN_VERSION_template_haskell(2, 10, 0)
+-- `testProperty` requires these instances
+deriving instance Eq Loc
+deriving instance Show Loc
+#endif
+
+eqItemTests :: TestTree
+eqItemTests = testGroup "Eq Item"
+  [ testProperty "itemApp" $ prop_field itemApp
+  , testProperty "itemEnv" $ prop_field itemEnv
+  , testProperty "itemSeverity" $ prop_field itemSeverity
+  , testProperty "itemThread" $ prop_field itemThread
+  , testProperty "itemHost" $ prop_field itemHost
+  , testProperty "itemProcess" $ prop_field itemProcess
+  , testProperty "itemPayload" $ prop_field itemPayload
+  , testProperty "itemMessage" $ prop_field itemMessage
+  , testProperty "itemTime" $ prop_field itemTime
+  , testProperty "itemNamespace" $ prop_field itemNamespace
+  , testProperty "itemLoc" $ prop_field itemLoc
+  ]
+  where
+    prop_field :: Eq a => ASetter (Item ()) (Item ()) a a -> Item () -> a -> a -> Bool
+    prop_field field item f1 f2 =
+        ((item & field .~ f1) == (item & field .~ f2)) == (f1 == f2)
