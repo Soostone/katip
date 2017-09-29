@@ -50,6 +50,7 @@ data ColorStrategy
     -- ^ Whether to use color control chars in log output
     | ColorIfTerminal
     -- ^ Color if output is a terminal
+  deriving (Show, Eq)
 
 -------------------------------------------------------------------------------
 -- | Logs to a file handle such as stdout, stderr, or a file. Contexts

@@ -180,7 +180,7 @@ instance FromJSON Severity where
 -------------------------------------------------------------------------------
 -- | Log message with Builder underneath; use '<>' to concat in O(1).
 newtype LogStr = LogStr { unLogStr :: B.Builder }
-    deriving (Generic, Show)
+    deriving (Generic, Show, Eq)
 
 instance IsString LogStr where
     fromString = LogStr . B.fromString
@@ -247,31 +247,62 @@ data Item a = Item {
     } deriving (Generic, Functor)
 makeLenses ''Item
 
+-- Manual instance because 'Loc' has no 'Eq' and 'Show' instances in old
+-- versions of template-haskell (< 2.10)
+instance Eq a => Eq (Item a) where
+    a == b = FT.and [ _itemApp a == _itemApp b
+                    , _itemEnv a == _itemEnv b
+                    , _itemSeverity a == _itemSeverity b
+                    , _itemThread a == _itemThread b
+                    , _itemHost a == _itemHost b
+                    , _itemProcess a == _itemProcess b
+                    , _itemPayload a == _itemPayload b
+                    , _itemMessage a == _itemMessage b
+                    , _itemTime a == _itemTime b
+                    , _itemNamespace a == _itemNamespace b
+                    , case (_itemLoc a, _itemLoc b) of
+                        (Nothing, Nothing) -> True
+                        (Just l1, Just l2) -> FT.and [ loc_filename l1 == loc_filename l2
+                                                     , loc_package l1 == loc_package l2
+                                                     , loc_module l1 == loc_module l2
+                                                     , loc_start l1 == loc_start l2
+                                                     , loc_end l1 == loc_end l2
+                                                     ]
+                        _ -> False
+                    ]
 
 instance Show a => Show (Item a) where
-    show Item{..} = "Item {_itemApp = " ++ show _itemApp ++ ", " ++
-                          "_itemEnv = " ++ show _itemEnv ++ ", " ++
-                          "_itemSeverity = " ++ show _itemSeverity ++ ", " ++
-                          "_itemThread = " ++ show _itemThread ++ ", " ++
-                          "_itemHost = " ++ show _itemHost ++ ", " ++
-                          "_itemProcess = " ++ show _itemProcess ++ ", " ++
-                          "_itemPayload = " ++ show _itemPayload ++ ", " ++
-                          "_itemMessage = " ++ show _itemMessage ++ ", " ++
-                          "_itemTime = " ++ show _itemTime ++ ", " ++
-                          "_itemNamespace = " ++ show _itemNamespace ++ ", " ++
-                          "_itemLoc = " ++ show (LocShow <$> _itemLoc) ++ "}"
-
+    showsPrec d Item{..} = showParen (d >= 11) ( showString "Item {"
+                                               . field "_itemApp" _itemApp
+                                               . field "_itemEnv" _itemEnv
+                                               . field "_itemSeverity" _itemSeverity
+                                               . field "_itemThread" _itemThread
+                                               . field "_itemHost" _itemHost
+                                               . field "_itemProcess" _itemProcess
+                                               . field "_itemPayload" _itemPayload
+                                               . field "_itemMessage" _itemMessage
+                                               . field "_itemTime" _itemTime
+                                               . field "_itemNamespace" _itemNamespace
+                                               . showString "_itemLoc = " . shows (LocShow <$> _itemLoc)
+                                               . showChar '}'
+                                               )
+      where
+        field n v = showString n . showString " = " . shows v . showString ", "
 
 newtype LocShow = LocShow Loc
 
 
 instance Show LocShow where
-    show (LocShow Loc{..}) =
-      "Loc {loc_filename = " ++ show loc_filename ++ ", " ++
-           "loc_package = " ++ show loc_package ++ ", " ++
-           "loc_module = " ++ show loc_module ++ ", " ++
-           "loc_start = " ++ show loc_start ++ ", " ++
-           "loc_end = " ++ show loc_end ++ "}"
+    showsPrec d (LocShow Loc{..}) = showParen (d >= 11) ( showString "Loc {"
+                                                        . field "loc_filename" loc_filename
+                                                        . field "loc_package" loc_package
+                                                        . field "loc_module" loc_module
+                                                        . field "loc_start" loc_start
+                                                        . showString "loc_end = " . shows loc_end
+                                                        . showChar '}'
+                                                        )
+      where
+        field n v = showString n . showString " = " . shows v . showString ", "
 
 
 instance ToJSON a => ToJSON (Item a) where
@@ -629,6 +660,7 @@ spawnScribeWorker (Scribe write _) queue = Async.async go
 data ScribeSettings = ScribeSettings {
       _scribeBufferSize :: Int
     }
+  deriving (Show, Eq)
 
 makeLenses ''ScribeSettings
 
