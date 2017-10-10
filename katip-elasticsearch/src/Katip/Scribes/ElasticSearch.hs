@@ -25,12 +25,12 @@
 --     -- Reasonable for single-node in development
 --     -- defaultEsScribeCfgV5 { essIndexSettings = IndexSettings (ShardCound 1) (ReplicaCount 0)}
 --     bhe
---     (IndexName "all-indices-prefixed-with")
---     (MappingName "application-logs")
---     DebugS
---     V3
+--       (IndexName "all-indices-prefixed-with")
+--       (MappingName "application-logs")
+--       DebugS
+--       V3
 --   let mkLogEnv = registerScribe "es" esScribe defaultScribeSettings =<< initLogEnv "MyApp" "production"
---   bracket mkLogEnv closeScribes $ \le -> runKatipT le $ do
+--   bracket mkLogEnv closeScribes $ \\le -> runKatipT le $ do
 --     logMsg "ns" InfoS "This goes to elasticsearch"
 --
 -- @
