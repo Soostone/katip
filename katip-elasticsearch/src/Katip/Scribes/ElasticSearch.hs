@@ -14,7 +14,6 @@
 -- import           Katip
 -- import           Katip.Scribes.ElasticSearch
 --
---
 -- main :: IO ()
 -- main = do
 --   mgr <- newManager defaultManagerSettings
@@ -29,7 +28,7 @@
 --       (MappingName "application-logs")
 --       DebugS
 --       V3
---   let mkLogEnv = registerScribe "es" esScribe defaultScribeSettings =<< initLogEnv "MyApp" "production"
+--   let mkLogEnv = registerScribe "es" esScribe defaultScribeSettings =<< initLogEnv \"MyApp\" "production"
 --   bracket mkLogEnv closeScribes $ \\le -> runKatipT le $ do
 --     logMsg "ns" InfoS "This goes to elasticsearch"
 --
