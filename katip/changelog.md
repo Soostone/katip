@@ -1,3 +1,7 @@
+0.5.0.4
+=======
+* Loosen Win32 upper bound to run with GHC 8.2 on Windows.
+
 0.5.0.3
 =======
 * Add worked example of Katip/KatipContext to the haddocks.
