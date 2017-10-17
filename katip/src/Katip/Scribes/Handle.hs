@@ -61,7 +61,8 @@ data ColorStrategy
 -- > [2016-05-11 21:01:15][MyApp.confrabulation][Debug][myhost.example.com][1724][ThreadId 1154][confrab_factor:42.0][main:Helpers.Logging Helpers/Logging.hs:41:9] Confrabulating widgets, with extra namespace and context
 -- > [2016-05-11 21:01:15][MyApp][Info][myhost.example.com][1724][ThreadId 1154][main:Helpers.Logging Helpers/Logging.hs:43:7] Namespace and context are back to normal
 --
--- Returns the newly-created `Scribe`. The finalizer flushes the handle.
+-- Returns the newly-created `Scribe`. The finalizer flushes the
+-- handle. Handle mode is set to 'LineBuffering' automatically.
 mkHandleScribe :: ColorStrategy -> Handle -> Severity -> Verbosity -> IO Scribe
 mkHandleScribe cs h sev verb = do
     hSetBuffering h LineBuffering
@@ -79,7 +80,8 @@ mkHandleScribe cs h sev verb = do
 -- | A specialization of 'mkHandleScribe' that takes a 'FilePath'
 -- instead of a 'Handle'. It is responsible for opening the file in
 -- 'AppendMode' and will close the file handle on
--- 'closeScribe'/'closeScribes'. Does not do log coloring.
+-- 'closeScribe'/'closeScribes'. Does not do log coloring. Sets handle
+-- to 'LineBuffering' mode.
 mkFileScribe :: FilePath -> Severity -> Verbosity -> IO Scribe
 mkFileScribe f sev verb = do
   h <- openFile f AppendMode
