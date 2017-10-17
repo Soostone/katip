@@ -5,7 +5,7 @@ module Katip.Scribes.Handle where
 -------------------------------------------------------------------------------
 import           Control.Applicative    as A
 import           Control.Concurrent
-import           Control.Exception      (bracket_)
+import           Control.Exception      (bracket_, finally)
 import           Control.Monad
 import           Data.Aeson
 import qualified Data.HashMap.Strict    as HM
@@ -73,6 +73,18 @@ mkHandleScribe cs h sev verb = do
           when (permitItem sev i) $ bracket_ (takeMVar lock) (putMVar lock ()) $
             T.hPutStrLn h $ toLazyText $ formatItem colorize verb i
     return $ Scribe logger (hFlush h)
+
+
+-------------------------------------------------------------------------------
+-- | A specialization of 'mkHandleScribe' that takes a 'FilePath'
+-- instead of a 'Handle'. It is responsible for opening the file in
+-- 'AppendMode' and will close the file handle on
+-- 'closeScribe'/'closeScribes'. Does not do log coloring.
+mkFileScribe :: FilePath -> Severity -> Verbosity -> IO Scribe
+mkFileScribe f sev verb = do
+  h <- openFile f AppendMode
+  Scribe logger finalizer <- mkHandleScribe (ColorLog False) h sev verb
+  return (Scribe logger (finalizer `finally` hClose h))
 
 
 -------------------------------------------------------------------------------
