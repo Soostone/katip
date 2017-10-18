@@ -217,7 +217,12 @@ roundToSunday d
 
 
 -------------------------------------------------------------------------------
-chooseIxn :: ESVersion v => proxy v -> IndexName v -> IndexShardingPolicy -> Item a -> IndexName v
+chooseIxn :: ESVersion v
+          => proxy v
+          -> IndexName v
+          -> IndexShardingPolicy
+          -> Item a
+          -> IndexName v
 chooseIxn prx ixn p i =
   toIndexName prx (T.intercalate "-" ((fromIndexName prx ixn):segs))
   where
@@ -239,8 +244,10 @@ splitTime t = asMins `divMod` 60
 
 
 -------------------------------------------------------------------------------
-data EsScribeSetupError = CouldNotCreateIndex !(Response ByteString)
-                        | CouldNotCreateMapping !(Response ByteString) deriving (Typeable, Show)
+data EsScribeSetupError =
+    CouldNotCreateIndex !(Response ByteString)
+  | CouldNotCreateMapping !(Response ByteString)
+  deriving (Typeable, Show)
 
 
 instance Exception EsScribeSetupError
