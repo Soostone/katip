@@ -1,3 +1,7 @@
+0.5.1.0
+=======
+* Add mkFileScribe, a specialization of mkHandleScribe for files that manages the handle automatically.
+
 0.5.0.4
 =======
 * Loosen Win32 upper bound to run with GHC 8.2 on Windows.
