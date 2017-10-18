@@ -33,9 +33,9 @@ main = do
   rng <- mkRNG
   defaultMain
     [
-      mkDocIdBenchmark rng
-    , deannotateValueBenchmark
-    , esLoggingBenchmark mkLogEnv
+    --   mkDocIdBenchmark rng
+    -- , deannotateValueBenchmark
+    esLoggingBenchmark mkLogEnv
     ]
 
 -------------------------------------------------------------------------------

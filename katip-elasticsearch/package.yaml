@@ -92,7 +92,7 @@ benchmarks:
   katip-elasticsearch-bench:
     main: Main.hs
     source-dirs: bench
-    ghc-options: -O2
+    ghc-options: -O
     dependencies:
     - base
     - katip
