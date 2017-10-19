@@ -6,7 +6,6 @@ module Katip.Scribes.ElasticSearch.Annotations
     ) where
 
 
--------------------------------------------------------------------------------
 import           Control.Applicative as A
 import           Data.Aeson
 import qualified Data.Foldable       as FT
@@ -16,9 +15,8 @@ import           Data.Monoid
 import           Data.Scientific     (isFloating)
 import           Data.Text           (Text)
 import qualified Data.Text           as T
--------------------------------------------------------------------------------
+
 import           Katip
--------------------------------------------------------------------------------
 
 
 -- | Represents a value that can be converted to and from JSON that

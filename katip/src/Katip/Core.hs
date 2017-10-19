@@ -22,7 +22,6 @@
 -- internal mechanisms that will change without notice.
 module Katip.Core where
 
--------------------------------------------------------------------------------
 import           Control.Applicative                   as A
 import           Control.AutoUpdate
 import           Control.Concurrent
@@ -78,7 +77,6 @@ import           Katip.Compat
 import           System.Posix
 #endif
 
--------------------------------------------------------------------------------
 
 
 readMay :: Read a => String -> Maybe a
@@ -88,7 +86,6 @@ readMay s = case [x | (x,t) <- reads s, ("","") <- lex t] of
               _   -> Nothing -- Ambiguous parse
 
 
--------------------------------------------------------------------------------
 -- | Represents a heirarchy of namespaces going from general to
 -- specific. For instance: ["processname", "subsystem"]. Note that
 -- single-segment namespaces can be created using
@@ -101,19 +98,16 @@ instance IsString Namespace where
     fromString s = Namespace [fromString s]
 
 
--------------------------------------------------------------------------------
 -- | Ready namespace for emission with dots to join the segments.
 intercalateNs :: Namespace -> [Text]
 intercalateNs (Namespace xs) = intersperse "." xs
 
 
--------------------------------------------------------------------------------
 -- | Application environment, like @prod@, @devel@, @testing@.
 newtype Environment = Environment { getEnvironment :: Text }
   deriving (Eq,Show,Read,Ord,Generic,ToJSON,FromJSON,IsString)
 
 
--------------------------------------------------------------------------------
 data Severity
     = DebugS                   -- ^ Debug messages
     | InfoS                    -- ^ Information
@@ -126,7 +120,6 @@ data Severity
   deriving (Eq, Ord, Show, Read, Generic, Enum, Bounded)
 
 
--------------------------------------------------------------------------------
 -- | Verbosity controls the amount of information (columns) a 'Scribe'
 -- emits during logging.
 --
@@ -138,7 +131,6 @@ data Verbosity = V0 | V1 | V2 | V3
   deriving (Eq, Ord, Show, Read, Generic, Enum)
 
 
--------------------------------------------------------------------------------
 renderSeverity :: Severity -> Text
 renderSeverity s = case s of
       DebugS     -> "Debug"
@@ -151,7 +143,6 @@ renderSeverity s = case s of
       EmergencyS -> "Emergency"
 
 
--------------------------------------------------------------------------------
 textToSeverity :: Text -> Maybe Severity
 textToSeverity = go . T.toLower
   where
@@ -177,7 +168,6 @@ instance FromJSON Severity where
           Nothing -> fail $ "Invalid Severity " ++ toS t
 
 
--------------------------------------------------------------------------------
 -- | Log message with Builder underneath; use '<>' to concat in O(1).
 newtype LogStr = LogStr { unLogStr :: B.Builder }
     deriving (Generic, Show, Eq)
@@ -200,7 +190,6 @@ instance FromJSON LogStr where
       where
         parseLogStr = return . LogStr . B.fromText
 
--------------------------------------------------------------------------------
 -- | Pack any string-like thing into a 'LogStr'. This will
 -- automatically work on 'String', 'ByteString', 'Text' and any of the
 -- lazy variants.
@@ -208,19 +197,16 @@ logStr :: StringConv a Text => a -> LogStr
 logStr t = LogStr (B.fromText $ toS t)
 
 
--------------------------------------------------------------------------------
 -- | Shorthand for 'logStr'
 ls :: StringConv a Text => a -> LogStr
 ls = logStr
 
 
--------------------------------------------------------------------------------
 -- | Convert any showable type into a 'LogStr'.
 showLS :: Show a => a -> LogStr
 showLS = ls . show
 
 
--------------------------------------------------------------------------------
 newtype ThreadIdText = ThreadIdText {
       getThreadIdText :: Text
     } deriving (ToJSON, FromJSON, Show, Eq, Ord)
@@ -230,7 +216,6 @@ mkThreadIdText :: ThreadId -> ThreadIdText
 mkThreadIdText = ThreadIdText . T.pack . show
 
 
--------------------------------------------------------------------------------
 -- | This has everything each log message will contain.
 data Item a = Item {
       _itemApp       :: Namespace
@@ -387,7 +372,6 @@ instance FromJSON ProcessIDJs where
           Nothing -> fail $ "Invalid ProcessIDJs " ++ toS t
 
 
--------------------------------------------------------------------------------
 -- | Field selector by verbosity within JSON payload.
 data PayloadSelection
     = AllKeys
@@ -405,7 +389,6 @@ instance Monoid PayloadSelection where
     mappend = (<>)
 
 
--------------------------------------------------------------------------------
 -- | Katip requires JSON objects to be logged as context. This
 -- typeclass provides a default instance which uses ToJSON and
 -- produces an empty object if 'toJSON' results in any type other than
@@ -425,7 +408,6 @@ class ToObject a where
 instance ToObject ()
 instance ToObject A.Object
 
--------------------------------------------------------------------------------
 -- | Payload objects need instances of this class. LogItem makes it so
 -- that you can have very verbose items getting logged with lots of
 -- extra fields but under normal circumstances, if your scribe is
@@ -455,7 +437,6 @@ newtype SimpleLogPayload = SimpleLogPayload {
       unSimpleLogPayload :: [(Text, AnyLogPayload)]
     }
 
--------------------------------------------------------------------------------
 -- | A built-in convenience log payload that won't log anything on 'V0',
 -- but will log everything in any other level of verbosity. Intended
 -- for easy in-line usage without having to define new log types.
@@ -484,13 +465,11 @@ instance Monoid SimpleLogPayload where
     mappend = (<>)
 
 
--------------------------------------------------------------------------------
 -- | Construct a simple log from any JSON item.
 sl :: ToJSON a => Text -> a -> SimpleLogPayload
 sl a b = SimpleLogPayload [(a, AnyLogPayload b)]
 
 
--------------------------------------------------------------------------------
 -- | Constrain payload based on verbosity. Backends should use this to
 -- automatically bubble higher verbosity levels to lower ones.
 payloadObject :: LogItem a => Verbosity -> a -> A.Object
@@ -499,7 +478,6 @@ payloadObject verb a = case FT.foldMap (flip payloadKeys a) [(V0)..verb] of
     SomeKeys ks -> HM.filterWithKey (\ k _ -> k `FT.elem` ks) $ toObject a
 
 
--------------------------------------------------------------------------------
 -- | Convert log item to its JSON representation while trimming its
 -- payload based on the desired verbosity. Backends that push JSON
 -- messages should use this to obtain their payload.
@@ -507,7 +485,6 @@ itemJson :: LogItem a => Verbosity -> Item a -> A.Value
 itemJson verb a = toJSON $ a & itemPayload %~ payloadObject verb
 
 
--------------------------------------------------------------------------------
 -- | Scribes are handlers of incoming items. Each registered scribe
 -- knows how to push a log item somewhere.
 --
@@ -557,26 +534,22 @@ instance Monoid Scribe where
     mappend = (<>)
 
 
--------------------------------------------------------------------------------
 data ScribeHandle = ScribeHandle {
       shScribe :: Scribe
     , shChan :: BQ.TBQueue WorkerMessage
     }
 
 
--------------------------------------------------------------------------------
 data WorkerMessage where
   NewItem    :: LogItem a => Item a -> WorkerMessage
   PoisonPill :: WorkerMessage
 
 
--------------------------------------------------------------------------------
 -- | Should this item be logged given the user's maximum severity?
 permitItem :: Severity -> Item a -> Bool
 permitItem sev i = _itemSeverity i >= sev
 
 
--------------------------------------------------------------------------------
 data LogEnv = LogEnv {
       _logEnvHost    :: HostName
     , _logEnvPid     :: ProcessID
@@ -597,7 +570,6 @@ data LogEnv = LogEnv {
 makeLenses ''LogEnv
 
 
--------------------------------------------------------------------------------
 -- | Create a reasonable default InitLogEnv. Uses an 'AutoUdate' with
 -- the default settings as the timer. If you are concerned about
 -- timestamp precision or event ordering in log outputs like
@@ -617,7 +589,6 @@ initLogEnv an env = LogEnv
   <*> pure mempty
 
 
--------------------------------------------------------------------------------
 -- | Add a scribe to the list. All future log calls will go to this
 -- scribe in addition to the others.
 registerScribe
@@ -641,7 +612,6 @@ registerScribe nm scribe ScribeSettings {..} le = do
   return (le & logEnvScribes %~ M.insert nm sh)
 
 
--------------------------------------------------------------------------------
 spawnScribeWorker :: Scribe -> BQ.TBQueue WorkerMessage -> IO (Async.Async ())
 spawnScribeWorker (Scribe write _) queue = Async.async go
   where
@@ -656,7 +626,6 @@ spawnScribeWorker (Scribe write _) queue = Async.async go
         PoisonPill -> return ()
 
 
--------------------------------------------------------------------------------
 data ScribeSettings = ScribeSettings {
       _scribeBufferSize :: Int
     }
@@ -671,7 +640,6 @@ defaultScribeSettings :: ScribeSettings
 defaultScribeSettings = ScribeSettings 4096
 
 
--------------------------------------------------------------------------------
 -- | Remove a scribe from the environment. This does *not* finalize
 -- the scribe. This mainly only makes sense to use with something like
 -- MonadReader's @local@ function to temporarily disavow a single
@@ -684,7 +652,6 @@ unregisterScribe
 unregisterScribe nm =  logEnvScribes %~ M.delete nm
 
 
--------------------------------------------------------------------------------
 -- | Unregister *all* scribes. Note that this is *not* for closing or
 -- finalizing scribes, use 'closeScribes' for that. This mainly only
 -- makes sense to use with something like MonadReader's @local@
@@ -695,7 +662,6 @@ clearScribes
 clearScribes = logEnvScribes .~ mempty
 
 
--------------------------------------------------------------------------------
 -- | Finalize a scribe. The scribe is removed from the environment,
 -- its finalizer is called and it can never be written to again. Note
 -- that this will throw any exceptions yoru finalizer will throw, and
@@ -710,7 +676,6 @@ closeScribe nm le = do
   return (le & logEnvScribes %~ M.delete nm)
 
 
--------------------------------------------------------------------------------
 -- | Call this at the end of your program. This is a blocking call
 -- that stop writing to a scribe's queue, waits for the queue to
 -- empty, finalizes each scribe in the log environment and then
@@ -727,7 +692,6 @@ closeScribes le = do
   return (le & logEnvScribes .~ mempty)
 
 
--------------------------------------------------------------------------------
 -- | Monads where katip logging actions can be performed. Katip is the
 -- most basic logging monad. You will typically use this directly if
 -- you either don't want to use namespaces/contexts heavily or if you
@@ -802,7 +766,6 @@ instance (Katip m) => Katip (ResourceT m) where
     localLogEnv = transResourceT . localLogEnv
 
 
--------------------------------------------------------------------------------
 -- | A concrete monad you can use to run logging actions. Use this if
 -- you prefer an explicit monad transformer stack and adding layers as
 -- opposed to implementing 'Katip' for your monad.
@@ -830,13 +793,11 @@ instance (MonadBaseControl b m) => MonadBaseControl b (KatipT m) where
   restoreM = defaultRestoreM
 
 
--------------------------------------------------------------------------------
 -- | Execute 'KatipT' on a log env.
 runKatipT :: LogEnv -> KatipT m a -> m a
 runKatipT le (KatipT f) = runReaderT f le
 
 
--------------------------------------------------------------------------------
 -- | Disable all scribes for the given monadic action, then restore
 -- them afterwards. Works in any Katip monad.
 katipNoLogging
@@ -847,7 +808,6 @@ katipNoLogging
 katipNoLogging = localLogEnv (\le -> set logEnvScribes mempty le)
 
 
--------------------------------------------------------------------------------
 -- | Log with everything, including a source code location. This is
 -- very low level and you typically can use 'logT' in its place.
 logItem
@@ -876,7 +836,6 @@ logItem a ns loc sev msg = do
       FT.forM_ (M.elems _logEnvScribes) $ \ ScribeHandle {..} -> atomically (tryWriteTBQueue shChan (NewItem item))
 
 
--------------------------------------------------------------------------------
 tryWriteTBQueue
     :: TBQueue a
     -> a
@@ -887,7 +846,7 @@ tryWriteTBQueue q a = do
   unless full (writeTBQueue q a)
   return (not full)
 
--------------------------------------------------------------------------------
+
 -- | Log with full context, but without any code location.
 logF
   :: (Applicative m, LogItem a, Katip m)
@@ -904,7 +863,6 @@ logF a ns sev msg = logItem a ns Nothing sev msg
 
 
 
--------------------------------------------------------------------------------
 -- | Perform an action while logging any exceptions that may occur.
 -- Inspired by 'onException`.
 --
@@ -922,7 +880,6 @@ logException a ns sev action = action `catchAny` \e -> f e >> throwM e
     msg e = ls (T.pack "An exception has occured: ") <> showLS e
 
 
--------------------------------------------------------------------------------
 -- | Log a message without any payload/context or code location.
 logMsg
     :: (Applicative m, Katip m)
@@ -968,7 +925,6 @@ liftLoc (Loc a b c (d1, d2) (e1, e2)) = [|Loc
     |]
 
 
--------------------------------------------------------------------------------
 -- | For use when you want to include location in your logs. This will
 -- fill the 'Maybe Loc' gap in 'logF' of this module, and relies on implicit
 -- callstacks when available (GHC > 7.8).
@@ -992,14 +948,12 @@ getLoc = Nothing
 #endif
 
 
--------------------------------------------------------------------------------
 -- Like `getLoc`, but uses template-haskell and works with older versions of
 -- the compiler (GHC 7.8 or older).
 getLocTH :: ExpQ
 getLocTH = [| $(location >>= liftLoc) |]
 
 
--------------------------------------------------------------------------------
 -- | 'Loc'-tagged logging when using template-haskell.
 --
 -- @$(logT) obj mempty InfoS "Hello world"@
@@ -1007,7 +961,6 @@ logT :: ExpQ
 logT = [| \ a ns sev msg -> logItem a ns (Just $(getLocTH)) sev msg |]
 
 
--------------------------------------------------------------------------------
 -- | 'Loc'-tagged logging using implicit-callstacks when available.
 --
 -- This function does not require template-haskell as it

@@ -6,7 +6,6 @@ module Main
     ( main
     ) where
 
--------------------------------------------------------------------------------
 import           Control.DeepSeq
 import           Control.Exception
 import           Control.Monad
@@ -14,6 +13,7 @@ import           Control.Monad.IO.Class
 import           Criterion.Main
 import           Data.Aeson
 import qualified Data.HashMap.Strict                  as HM
+import           Data.IORef
 import           Data.Monoid
 import           Data.Proxy                           (Proxy (..))
 import           Data.RNG
@@ -25,23 +25,22 @@ import qualified Network.HTTP.Client                  as HTTP
 import           Numeric
 
 import           Katip
--------------------------------------------------------------------------------
 import           Katip.Scribes.ElasticSearch
 import           Katip.Scribes.ElasticSearch.Internal (ESV1)
--------------------------------------------------------------------------------
 
 main :: IO ()
 main = do
-  mkLogEnv <- mkEsBenchLogEnv
+  docCounter <- newIORef 0
   rng <- mkRNG
   defaultMain
     [
     --   mkDocIdBenchmark rng
     -- , deannotateValueBenchmark
-    esLoggingBenchmark mkLogEnv
+    esLoggingBenchmark docCounter
     ]
+  count <- readIORef docCounter
+  putStrLn $ "Doc inserted count was: " <> show count
 
--------------------------------------------------------------------------------
 mkDocIdBenchmark :: RNG -> Benchmark
 mkDocIdBenchmark rng = bgroup "mkDocId"
   [
@@ -50,7 +49,6 @@ mkDocIdBenchmark rng = bgroup "mkDocId"
   ]
 
 
--------------------------------------------------------------------------------
 deannotateValueBenchmark :: Benchmark
 deannotateValueBenchmark = bgroup "deannotateValue"
  [
@@ -58,7 +56,6 @@ deannotateValueBenchmark = bgroup "deannotateValue"
  ]
 
 
--------------------------------------------------------------------------------
 annotatedValue :: Value
 annotatedValue = Object $ HM.fromList [ ("a::string", String "whatever")
                                       , ("b::double", Number 4.5)
@@ -67,7 +64,6 @@ annotatedValue = Object $ HM.fromList [ ("a::string", String "whatever")
                                       , ("e::null", Null)
                                       ]
 
--------------------------------------------------------------------------------
 mkDocId' :: RNG -> IO DocId
 mkDocId' rng = do
     is <- withRNG rng $ \gen -> replicateM len $ mk gen
@@ -79,19 +75,22 @@ mkDocId' rng = do
 
 deriving instance NFData DocId
 
-esLoggingBenchmark :: IO LogEnv -> Benchmark
-esLoggingBenchmark mkLogEnv = bgroup "ES logging"
+esLoggingBenchmark :: IORef Integer -> Benchmark
+esLoggingBenchmark docCounter = bgroup "ES logging"
  [
-   bench "log 10 messages" $ nfIO (logMessages mkLogEnv 10)
- , bench "log 100 messages" $ nfIO (logMessages mkLogEnv 100)
- , bench "log 1000 Messages" $ nfIO (logMessages mkLogEnv 1000)
+   bench "log 10 messages" $ nfIO (logMessages docCounter 10)
+ , bench "log 100 messages" $ nfIO (logMessages docCounter 100)
+ , bench "log 1000 Messages" $ nfIO (logMessages docCounter 1000)
  ]
 
-logMessages :: IO LogEnv -> Int -> IO ()
-logMessages mkLogEnv repeats = do
+logMessages :: IORef Integer -> Int -> IO ()
+logMessages docCounter repeats = do
+  mkLogEnv <- mkEsBenchLogEnv
   bracket mkLogEnv closeScribes
     $ \ le -> forM_ [1..repeats] $ \i -> runKatipT le $ do
-      logMsg "ns" InfoS ("This goes to elasticsearch: " <> (logStr $ T.pack $ show i))
+      liftIO $ atomicModifyIORef' docCounter (\x -> (x+1, ()))
+      logMsg "ns" InfoS ("This goes to elasticsearch: "
+                         <> (logStr $ T.pack $ show i))
 
 mkEsBenchLogEnv :: IO (IO LogEnv)
 mkEsBenchLogEnv = do
@@ -103,8 +102,11 @@ mkEsBenchLogEnv = do
       mappingName = V5.MappingName "k-e-b-log"
       severity = DebugS
       verbosity = V0
+      Just queueSize = mkEsQueueSize 1000000000
+      scribeCfg =
+        defaultEsScribeCfgV5 { essQueueSize = queueSize }
   esScribe <- mkEsScribe
-            defaultEsScribeCfgV5 bhEnv indexName
+            scribeCfg bhEnv indexName
             mappingName severity verbosity
   let mkLogEnv = registerScribe "es" esScribe defaultScribeSettings =<< initLogEnv "MyApp" "production"
   return mkLogEnv

@@ -399,7 +399,6 @@ mkNonZero ctor n
   | otherwise = Nothing
 
 
--------------------------------------------------------------------------------
 startWorker
     :: forall v. (ESVersion v)
     => EsScribeCfg v
@@ -430,7 +429,6 @@ startWorker EsScribeCfg {..} env mapping q = go
         _                          -> return True
 
 
--------------------------------------------------------------------------------
 -- We are spanning multiple versions of ES which use completely
 -- separate types and APIs, but the subset we use is the same for both
 -- versions. This will be kept up to date with bloodhound's supported
