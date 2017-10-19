@@ -118,6 +118,7 @@ benchmark katip-elasticsearch-bench
     , http-client
     , rng-utils
     , text
+    , time
     , unordered-containers
     , uuid
   default-language: Haskell2010

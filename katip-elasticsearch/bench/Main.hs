@@ -10,12 +10,15 @@ module Main
 import           Control.DeepSeq
 import           Control.Exception
 import           Control.Monad
+import           Control.Monad.IO.Class
 import           Criterion.Main
 import           Data.Aeson
 import qualified Data.HashMap.Strict                  as HM
+import           Data.Monoid
 import           Data.Proxy                           (Proxy (..))
 import           Data.RNG
 import qualified Data.Text                            as T
+import           Data.Time.Clock
 import           Database.V1.Bloodhound.Types
 import qualified Database.V5.Bloodhound.Types         as V5
 import qualified Network.HTTP.Client                  as HTTP
@@ -86,9 +89,9 @@ esLoggingBenchmark mkLogEnv = bgroup "ES logging"
 
 logMessages :: IO LogEnv -> Int -> IO ()
 logMessages mkLogEnv repeats = do
-  replicateM_ repeats $ bracket mkLogEnv closeScribes
-    $ \ le -> runKatipT le $ do
-      logMsg "ns" InfoS "This goes to elasticsearch"  
+  bracket mkLogEnv closeScribes
+    $ \ le -> forM_ [1..repeats] $ \i -> runKatipT le $ do
+      logMsg "ns" InfoS ("This goes to elasticsearch: " <> (logStr $ T.pack $ show i))
 
 mkEsBenchLogEnv :: IO (IO LogEnv)
 mkEsBenchLogEnv = do

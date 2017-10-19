@@ -104,6 +104,7 @@ benchmarks:
     - http-client
     - rng-utils
     - text
+    - time
     - unordered-containers
     - uuid
 
