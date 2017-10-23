@@ -45,7 +45,7 @@ mkDocIdBenchmark :: RNG -> Benchmark
 mkDocIdBenchmark rng = bgroup "mkDocId"
   [
     bench "mkDocId (randomIO)" $ nfIO (mkDocId (Proxy :: Proxy ESV1))
-  , bench "mkDocId' (shared )" $ nfIO $ mkDocId' rng
+  , bench "mkDocId' (shared)" $ nfIO $ mkDocId' rng
   ]
 
 
@@ -81,6 +81,12 @@ esLoggingBenchmark docCounter = bgroup "ES logging"
    bench "log 10 messages" $ nfIO (logMessages docCounter 10)
  , bench "log 100 messages" $ nfIO (logMessages docCounter 100)
  , bench "log 1000 Messages" $ nfIO (logMessages docCounter 1000)
+ , bench "log 10000 Messages" $ nfIO (logMessages docCounter 10000)
+
+ , bench "bulk log 10 messages" $ nfIO (logMessagesBulk docCounter 10)
+ , bench "bulk log 100 messages" $ nfIO (logMessagesBulk docCounter 100)
+ , bench "bulk log 1000 Messages" $ nfIO (logMessagesBulk docCounter 1000)
+ , bench "bulk log 10000 Messages" $ nfIO (logMessagesBulk docCounter 10000)
  ]
 
 logMessages :: IORef Integer -> Int -> IO ()
@@ -103,9 +109,43 @@ mkEsBenchLogEnv = do
       severity = DebugS
       verbosity = V0
       Just queueSize = mkEsQueueSize 1000000000
+      Just poolSize = mkEsPoolSize 10
       scribeCfg =
-        defaultEsScribeCfgV5 { essQueueSize = queueSize }
+        defaultEsScribeCfgV5 { essQueueSize = queueSize
+                             , essPoolSize = poolSize
+                             }
   esScribe <- mkEsScribe
+            scribeCfg bhEnv indexName
+            mappingName severity verbosity
+  let mkLogEnv = registerScribe "es" esScribe defaultScribeSettings =<< initLogEnv "MyApp" "production"
+  return mkLogEnv
+
+logMessagesBulk :: IORef Integer -> Int -> IO ()
+logMessagesBulk docCounter repeats = do
+  mkLogEnv <- mkEsBenchLogEnv
+  bracket mkLogEnv closeScribes
+    $ \ le -> forM_ [1..repeats] $ \i -> runKatipT le $ do
+      liftIO $ atomicModifyIORef' docCounter (\x -> (x+1, ()))
+      logMsg "ns" InfoS ("This goes to elasticsearch: "
+                         <> (logStr $ T.pack $ show i))
+
+mkEsBenchLogEnvBulk :: IO (IO LogEnv)
+mkEsBenchLogEnvBulk = do
+  connManager <- HTTP.newManager HTTP.defaultManagerSettings
+  let bhEnv = V5.mkBHEnv
+              (V5.Server "http://localhost:9200")
+              connManager
+      indexName = V5.IndexName "katip-elasticsearch-bench"
+      mappingName = V5.MappingName "k-e-b-log"
+      severity = DebugS
+      verbosity = V0
+      Just queueSize = mkEsQueueSize 1000000000
+      Just poolSize = mkEsPoolSize 10
+      scribeCfg =
+        defaultEsScribeCfgV5 { essQueueSize = queueSize
+                             , essPoolSize = poolSize
+                             }
+  esScribe <- mkEsBulkScribe
             scribeCfg bhEnv indexName
             mappingName severity verbosity
   let mkLogEnv = registerScribe "es" esScribe defaultScribeSettings =<< initLogEnv "MyApp" "production"

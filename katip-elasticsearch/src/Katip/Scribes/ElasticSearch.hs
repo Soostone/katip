@@ -50,6 +50,7 @@
 module Katip.Scribes.ElasticSearch
     (-- * Building a scribe
       mkEsScribe
+    , mkEsBulkScribe
     -- * Scribe configuration
     , EsScribeSetupError(..)
     , EsQueueSize
