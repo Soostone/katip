@@ -9,8 +9,11 @@ build:
 build-dirty:
 	$(stack) build --ghc-options=-fforce-recomp $(package)
 
-run:
-	$(stack) build --fast && $(stack) exec -- $(package)
+build-profile:
+	$(stack) build --profile --ghc-options='-threaded -fprof-auto' --library-profiling --executable-profiling --benchmark-arguments "+RTS -h -pa -RTS" $(package)
+
+run-bulk-example-profile:
+	$(stack) exec -- bulk-example +RTS -hc -p -RTS
 
 install:
 	$(stack) install
@@ -26,6 +29,9 @@ test-ghci:
 
 bench:
 	$(stack) bench $(package)
+
+bench-profile:
+	$(stack) bench --profile --ghc-options='-threaded -fprof-auto' --library-profiling --executable-profiling --benchmark-arguments "+RTS -h -pa -RTS" $(package)
 
 bench-ghci:
 	$(stack) ghci $(package):bench:$(package)-bench

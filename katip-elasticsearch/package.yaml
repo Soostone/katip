@@ -111,6 +111,21 @@ benchmarks:
     - unordered-containers
     - uuid
 
+executables:
+  example: &my-exe
+    source-dirs: examples
+    main: example.hs
+    dependencies:
+      - base
+      - bloodhound
+      - http-client
+      - katip
+      - katip-elasticsearch
+    ghc-options: -O -threaded -prof
+  bulk-example:
+    <<: *my-exe
+    main: bulk-example.hs
+
 flags:
   lib-werror:
     description: null

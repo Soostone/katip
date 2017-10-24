@@ -79,13 +79,13 @@ esLoggingBenchmark :: IORef Integer -> Benchmark
 esLoggingBenchmark docCounter = bgroup "ES logging"
  [
    bench "log 10 messages" $ nfIO (logMessages docCounter 10)
- , bench "log 100 messages" $ nfIO (logMessages docCounter 100)
- , bench "log 1000 Messages" $ nfIO (logMessages docCounter 1000)
+ -- , bench "log 100 messages" $ nfIO (logMessages docCounter 100)
+ -- , bench "log 1000 Messages" $ nfIO (logMessages docCounter 1000)
  , bench "log 10000 Messages" $ nfIO (logMessages docCounter 10000)
 
  , bench "bulk log 10 messages" $ nfIO (logMessagesBulk docCounter 10)
- , bench "bulk log 100 messages" $ nfIO (logMessagesBulk docCounter 100)
- , bench "bulk log 1000 Messages" $ nfIO (logMessagesBulk docCounter 1000)
+ -- , bench "bulk log 100 messages" $ nfIO (logMessagesBulk docCounter 100)
+ -- , bench "bulk log 1000 Messages" $ nfIO (logMessagesBulk docCounter 1000)
  , bench "bulk log 10000 Messages" $ nfIO (logMessagesBulk docCounter 10000)
  ]
 
@@ -108,7 +108,7 @@ mkEsBenchLogEnv = do
       mappingName = V5.MappingName "k-e-b-log"
       severity = DebugS
       verbosity = V0
-      Just queueSize = mkEsQueueSize 1000000000
+      Just queueSize = mkEsQueueSize 1000
       Just poolSize = mkEsPoolSize 10
       scribeCfg =
         defaultEsScribeCfgV5 { essQueueSize = queueSize
@@ -139,7 +139,7 @@ mkEsBenchLogEnvBulk = do
       mappingName = V5.MappingName "k-e-b-log"
       severity = DebugS
       verbosity = V0
-      Just queueSize = mkEsQueueSize 1000000000
+      Just queueSize = mkEsQueueSize 1000
       Just poolSize = mkEsPoolSize 10
       scribeCfg =
         defaultEsScribeCfgV5 { essQueueSize = queueSize

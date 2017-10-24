@@ -69,6 +69,32 @@ library
       src
   default-language: Haskell2010
 
+executable bulk-example
+  main-is: bulk-example.hs
+  hs-source-dirs:
+      examples
+  ghc-options: -O -threaded -prof
+  build-depends:
+      base
+    , bloodhound
+    , http-client
+    , katip
+    , katip-elasticsearch
+  default-language: Haskell2010
+
+executable example
+  main-is: example.hs
+  hs-source-dirs:
+      examples
+  ghc-options: -O -threaded -prof
+  build-depends:
+      base
+    , bloodhound
+    , http-client
+    , katip
+    , katip-elasticsearch
+  default-language: Haskell2010
+
 test-suite test
   type: exitcode-stdio-1.0
   main-is: Main.hs

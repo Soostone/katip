@@ -4,14 +4,12 @@ module Main
     ) where
 
 
--------------------------------------------------------------------------------
 import           Control.Exception
 import           Database.V5.Bloodhound
 import           Network.HTTP.Client
--------------------------------------------------------------------------------
+
 import           Katip
 import           Katip.Scribes.ElasticSearch
--------------------------------------------------------------------------------
 
 
 main :: IO ()

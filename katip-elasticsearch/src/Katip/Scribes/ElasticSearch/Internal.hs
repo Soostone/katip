@@ -612,7 +612,7 @@ startBulkWorker
 startBulkWorker _ env mapping dieSignal outChan = do
   -- We need to randomize upload delay
   -- so that workers do not stampede the nodes
-  delayTime' <- randomRIO (1, 5)
+  delayTime' <- randomRIO (1, 30)
   go (delayTime' * seconds) [] 0
   where
     seconds :: Int
@@ -644,7 +644,9 @@ startBulkWorker _ env mapping dieSignal outChan = do
     uploadData [] = return ()
     uploadData xs = do
       reply <- runBH prx env $ V5.bulk $ V.fromList xs
-      print reply
+      case statusCode $ responseStatus reply of
+        200 -> return ()
+        s -> print s
 
     serializePair :: (IndexName v, Value) -> IO V5.BulkOperation
     serializePair (indexName, val) = do
@@ -656,7 +658,7 @@ startBulkWorker _ env mapping dieSignal outChan = do
         (V5.DocId docId) val
 
     discrimLen l
-      | l >= 2500 = SendIt
+      | l >= 500 = SendIt
       | otherwise = StackIt
 
     prx :: Typeable.Proxy v
