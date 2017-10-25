@@ -6,8 +6,10 @@ license:             BSD3
 license-file:        LICENSE
 author:              Ozgun Ataman, Michael Xavier
 maintainer:          michael.xavier@soostone.com
-copyright:           Soostone Inc, 2015-2016
-category:            Data
+copyright:           Soostone Inc, 2015-2017
+category:            Data, Text, Logging
+homepage:            https://github.com/Soostone/katip
+bug-reports:         https://github.com/Soostone/katip/issues
 build-type:          Simple
 cabal-version:       >=1.10
 extra-source-files:
@@ -17,6 +19,10 @@ extra-source-files:
   examples/example.hs
   test/Main.hs
 tested-with: GHC == 7.8.4, GHC== 7.10.3
+
+source-repository head
+  type:     git
+  location: https://github.com/Soostone/katip.git
 
 flag lib-Werror
   default: False
