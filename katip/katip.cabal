@@ -8,7 +8,7 @@ license:             BSD3
 license-file:        LICENSE
 author:              Ozgun Ataman, Michael Xavier
 maintainer:          michael.xavier@soostone.com
-copyright:           Soostone Inc, 2015-2016
+copyright:           Soostone Inc, 2015-2017
 category:            Data, Text, Logging
 homepage:            https://github.com/Soostone/katip
 bug-reports:         https://github.com/Soostone/katip/issues
