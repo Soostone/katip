@@ -1,7 +1,7 @@
 name:                katip-elasticsearch
 synopsis:            ElasticSearch scribe for the Katip logging framework.
 description:         See README.md for more details.
-version:             0.4.0.1
+version:             0.4.0.2
 license:             BSD3
 license-file:        LICENSE
 author:              Ozgun Ataman, Michael Xavier
