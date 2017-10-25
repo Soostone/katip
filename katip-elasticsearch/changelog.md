@@ -1,3 +1,7 @@
+0.4.0.3
+=======
+* Fix benchmark and test builds for stackage nightly
+
 0.4.0.2
 =======
 * Add repository/homepage info to cabal file
