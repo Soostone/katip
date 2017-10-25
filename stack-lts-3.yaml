@@ -13,7 +13,6 @@ extra-deps:
   - attoparsec-0.13.1.0
   - retry-0.7.4.2
   - tasty-0.11.0.4
-  - rng-utils-0.2.1
   - safe-exceptions-0.1.5.0
 flags:
   katip:

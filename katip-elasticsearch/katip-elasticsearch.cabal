@@ -72,7 +72,7 @@ benchmark bench
                , bloodhound
                , deepseq
                , criterion >= 1.1.0.0
-               , rng-utils
+               , random
                , uuid
                , text
                , unordered-containers
