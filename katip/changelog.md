@@ -1,3 +1,7 @@
+0.5.2.0
+=======
+* Allow newer versions of either by conditionally adding instances for the removed EitherT interface.
+
 0.5.1.0
 =======
 * Add mkFileScribe, a specialization of mkHandleScribe for files that manages the handle automatically.
