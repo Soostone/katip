@@ -34,7 +34,9 @@ import           Control.Monad.Base
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Control
+#if !MIN_VERSION_either(4, 5, 0)
 import           Control.Monad.Trans.Either
+#endif
 import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.Reader
@@ -716,9 +718,11 @@ instance Katip m => Katip (ReaderT s m) where
     localLogEnv = mapReaderT . localLogEnv
 
 
+#if !MIN_VERSION_either(4, 5, 0)
 instance Katip m => Katip (EitherT s m) where
     getLogEnv = lift getLogEnv
     localLogEnv = mapEitherT . localLogEnv
+#endif
 
 
 instance Katip m => Katip (ExceptT s m) where

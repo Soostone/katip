@@ -1,3 +1,15 @@
+0.5.2.0
+=======
+* Allow newer versions of either by conditionally adding instances for the removed EitherT interface.
+
+0.5.1.0
+=======
+* Add mkFileScribe, a specialization of mkHandleScribe for files that manages the handle automatically.
+
+0.5.0.4
+=======
+* Loosen Win32 upper bound to run with GHC 8.2 on Windows.
+
 0.5.0.3
 =======
 * Add worked example of Katip/KatipContext to the haddocks.

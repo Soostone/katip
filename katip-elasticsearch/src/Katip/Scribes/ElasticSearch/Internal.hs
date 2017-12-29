@@ -612,11 +612,11 @@ startBulkWorker
 startBulkWorker _ env mapping dieSignal outChan = do
   -- We need to randomize upload delay
   -- so that workers do not stampede the nodes
-  delayTime' <- randomRIO (1, 30)
-  go (delayTime' * seconds) [] 0
+  delayTime' <- randomRIO (100, 2000)
+  go (delayTime' * milliseconds) [] 0
   where
-    seconds :: Int
-    seconds = 1000000
+    milliseconds :: Int
+    milliseconds = 1000
 
     go :: Int -> [V5.BulkOperation] -> Int -> IO ()
     go delayTime xs len = do

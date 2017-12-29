@@ -46,7 +46,9 @@ import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.Monad.State
 import           Control.Monad.Trans.Control
+#if !MIN_VERSION_either(4, 5, 0)
 import           Control.Monad.Trans.Either        (EitherT, mapEitherT)
+#endif
 import           Control.Monad.Trans.Except        (ExceptT, mapExceptT)
 import           Control.Monad.Trans.Identity      (IdentityT, mapIdentityT)
 import           Control.Monad.Trans.List          (ListT, mapListT)
@@ -152,11 +154,13 @@ instance (KatipContext m, Katip (MaybeT m)) => KatipContext (MaybeT m) where
   localKatipNamespace = mapMaybeT . localKatipNamespace
 
 
+#if !MIN_VERSION_either(4, 5, 0)
 instance (KatipContext m, Katip (EitherT e m)) => KatipContext (EitherT e m) where
   getKatipContext = lift getKatipContext
   localKatipContext = mapEitherT . localKatipContext
   getKatipNamespace = lift getKatipNamespace
   localKatipNamespace = mapEitherT . localKatipNamespace
+#endif
 
 
 instance (KatipContext m, Katip (ListT m)) => KatipContext (ListT m) where

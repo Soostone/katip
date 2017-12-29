@@ -177,6 +177,7 @@ module Katip
 
     -- * Included Scribes
     , mkHandleScribe
+    , mkFileScribe
     , ColorStrategy (..)
 
     -- * Tools for implementing Scribes

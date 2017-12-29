@@ -16,7 +16,7 @@ import qualified Data.HashMap.Strict                  as HM
 import           Data.IORef
 import           Data.Monoid
 import           Data.Proxy                           (Proxy (..))
-import           Data.RNG
+import           System.Random
 import qualified Data.Text                            as T
 import           Data.Time.Clock
 import           Database.V1.Bloodhound.Types
@@ -46,7 +46,6 @@ mkDocIdBenchmark rng = bgroup "mkDocId"
   [
     bench "mkDocId (randomIO)" $ nfIO (mkDocId (Proxy :: Proxy ESV1))
   , bench "mkDocId' (shared)" $ nfIO $ mkDocId' rng
-  ]
 
 
 deannotateValueBenchmark :: Benchmark
@@ -68,10 +67,6 @@ mkDocId' :: RNG -> IO DocId
 mkDocId' rng = do
     is <- withRNG rng $ \gen -> replicateM len $ mk gen
     return . DocId . T.pack . concatMap (`showHex` "") $ is
-  where
-    len = 32
-    mk :: GenIO -> IO Int
-    mk = uniformR (0,15)
 
 deriving instance NFData DocId
 

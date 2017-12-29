@@ -42,10 +42,19 @@ tests = testGroup "Katip.Scribes.Handle"
        let pat = "\\[[[:digit:]]{4}-[[:digit:]]{2}-[[:digit:]]{2} [[:digit:]]{2}:[[:digit:]]{2}:[[:digit:]]{2}\\]\\[katip-test.test\\]\\[Info\\]\\[.+\\]\\[[[:digit:]]+\\]\\[ThreadId [[:digit:]]+\\]\\[note.deep:some note\\] test message" :: String
        let matches = res =~ pat
        assertBool (show res <> " did not match") matches
+  , withResource setupFile (const (return ())) $ \setupScribe -> testCase "logs correct data to a file" $ do
+      (path, fin, le) <- setupScribe
+      runKatipT le $ logItem dummyLogItem "test" Nothing InfoS "test message"
+      fin
+      runKatipT le $ logItem dummyLogItem "test" Nothing InfoS "wont make it in"
+      res <- readFile path
+      let pat = "\\[[[:digit:]]{4}-[[:digit:]]{2}-[[:digit:]]{2} [[:digit:]]{2}:[[:digit:]]{2}:[[:digit:]]{2}\\]\\[katip-test.test\\]\\[Info\\]\\[.+\\]\\[[[:digit:]]+\\]\\[ThreadId [[:digit:]]+\\]\\[note.deep:some note\\] test message" :: String
+      let matches = res =~ pat
+      assertBool (show res <> " did not match") matches
   , withResource setupTempFile teardownTempFile $ \setupFn ->
-       goldenVsString "Text-golden"
-                      "test/Katip/Tests/Scribes/Handle-text.golden"
-                      (setupFn >>= writeTextLog)
+      goldenVsString "Text-golden"
+                     "test/Katip/Tests/Scribes/Handle-text.golden"
+                     (setupFn >>= writeTextLog)
   ]
 
 
@@ -86,11 +95,22 @@ setup = do
 
 
 -------------------------------------------------------------------------------
-teardown :: (FilePath, Handle, IO (), LogEnv) -> IO ()
+teardown :: (a, Handle, b, c) -> IO ()
 teardown (_, h, _, _) = do
   chk <- hIsOpen h
   when chk $ hClose h
 
+
+-------------------------------------------------------------------------------
+setupFile :: IO (FilePath, IO (), LogEnv)
+setupFile = do
+  tempDir <- getTemporaryDirectory
+  (fp, h) <- openTempFile tempDir "katip.log"
+  hClose h
+  s <- mkFileScribe fp DebugS V3
+  le <- initLogEnv "katip-test" "test"
+  le' <- registerScribe "handle" s defaultScribeSettings le
+  return (fp, void (closeScribes le'), le')
 
 
 -- Following code tests Handle scribe output against a golden file.
