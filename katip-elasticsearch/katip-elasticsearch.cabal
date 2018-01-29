@@ -50,7 +50,7 @@ library
     , scientific >= 0.3.0.0 && < 0.4
     , unordered-containers >= 0.1.0.0 && < 0.3
     , transformers >= 0.2 && < 0.6
-    , http-types >= 0.8 && < 0.10
+    , http-types >= 0.8 && < 0.13
     , time >= 1 && < 1.9
     , bytestring
   hs-source-dirs:      src
