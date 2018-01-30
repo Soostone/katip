@@ -1,3 +1,7 @@
+0.4.0.4
+=======
+* Allow http-types 0.12
+
 0.4.0.3
 =======
 * Fix benchmark and test builds for stackage nightly
