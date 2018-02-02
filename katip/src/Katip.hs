@@ -52,7 +52,7 @@
 --   getLogEnv = asks logEnv
 --   -- with lens:
 --   -- getLogEnv = view logEnv
---   localLogEnv f (App m) = App (local (\s -> s { logEnv = f (logEnv s)}) m)
+--   localLogEnv f (App m) = App (local (\\s -> s { logEnv = f (logEnv s)}) m)
 --   -- with lens:
 --   -- localLogEnv f (App m) = App (local (over logEnv f) m)
 --
@@ -61,13 +61,13 @@
 --   getKatipContext = asks logContext
 --   -- with lens:
 --   -- getKatipContext = view logContext
---   localKatipContext f (App m) = App (local (\s -> s { logContext = f (logContext s)}) m)
+--   localKatipContext f (App m) = App (local (\\s -> s { logContext = f (logContext s)}) m)
 --   -- with lens:
 --   -- localKatipContext f (App m) = App (local (over logContext f) m)
 --   getKatipNamespace = asks logNamespace
 --   -- with lens:
 --   -- getKatipNamespace = view logNamespace
---   localKatipNamespace f (App m) = App (local (\s -> s { logNamespace = f (logNamespace s)}) m)
+--   localKatipNamespace f (App m) = App (local (\\s -> s { logNamespace = f (logNamespace s)}) m)
 --   -- with lens:
 --   -- localKatipNamespace f (App m) = App (local (over logNamespace f) m)
 --
