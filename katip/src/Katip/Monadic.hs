@@ -137,7 +137,7 @@ class Katip m => KatipContext m where
   localKatipContext :: (LogContexts -> LogContexts) -> m a -> m a
   getKatipNamespace :: m Namespace
   -- | Temporarily modify the current namespace for the duration of the
-  -- supplied monad. Used in 'katipAddContext'
+  -- supplied monad. Used in 'katipAddNamespace'
   localKatipNamespace :: (Namespace -> Namespace) -> m a -> m a
 
 instance (KatipContext m, Katip (IdentityT m)) => KatipContext (IdentityT m) where
