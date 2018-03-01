@@ -33,6 +33,7 @@ import           Control.Exception.Safe
 import           Control.Monad                         (unless, void)
 import           Control.Monad.Base
 import           Control.Monad.IO.Class
+import           Control.Monad.IO.Unlift
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Control
 #if !MIN_VERSION_either(4, 5, 0)
@@ -833,6 +834,10 @@ instance (MonadBaseControl b m) => MonadBaseControl b (KatipT m) where
   liftBaseWith = defaultLiftBaseWith
   restoreM = defaultRestoreM
 
+instance MonadUnliftIO m => MonadUnliftIO (KatipT m) where
+  askUnliftIO = KatipT $
+                withUnliftIO $ \u ->
+                pure (UnliftIO (unliftIO u . unKatipT))
 
 -------------------------------------------------------------------------------
 -- | Execute 'KatipT' on a log env.

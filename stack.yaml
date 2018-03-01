@@ -6,6 +6,7 @@ extra-deps:
   # These can be dropped probably as soon as they hit an LTS
   - bloodhound-0.15.0.2
   - http-types-0.12
+  - unliftio-core-0.1.1.0
 flags:
   katip:
     lib-Werror: true
