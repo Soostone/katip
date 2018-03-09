@@ -320,24 +320,27 @@ mkEsScribe cfg@EsScribeCfg {..} env ix mapping sev verb = do
 baseMapping :: ESVersion v => proxy v -> MappingName v -> Value
 baseMapping prx mn =
   object [ fromMappingName prx mn .= object ["properties" .= object prs] ]
-  where prs = [ str "thread"
-              , str "sev"
-              , str "pid"
-              , str "ns"
-              , str "msg"
+  where prs = [ unanalyzedString "thread"
+              , unanalyzedString "sev"
+              , unanalyzedString "pid"
+              -- ns is frequently fulltext searched
+              , analyzedString "ns"
+              -- we want message to be fulltext searchable
+              , analyzedString "msg"
               , "loc" .= locType
-              , str "host"
-              , str "env"
+              , unanalyzedString "host"
+              , unanalyzedString "env"
               , "at" .= dateType
-              , str "app"
+              , unanalyzedString "app"
               ]
-        str k = k .= object ["type" .= String "string"]
+        unanalyzedString k = k .= object ["type" .= String (unanalyzedStringType prx)]
+        analyzedString k = k .= object ["type" .= String (analyzedStringType prx)]
         locType = object ["properties" .= object locPairs]
-        locPairs = [ str "loc_pkg"
-                   , str "loc_mod"
-                   , str "loc_ln"
-                   , str "loc_fn"
-                   , str "loc_col"
+        locPairs = [ unanalyzedString "loc_pkg"
+                   , unanalyzedString "loc_mod"
+                   , unanalyzedString "loc_ln"
+                   , unanalyzedString "loc_fn"
+                   , unanalyzedString "loc_col"
                    ]
         dateType = object [ "format" .= esDateFormat
                           , "type" .= String "date"
@@ -459,6 +462,12 @@ class ESVersion v where
   putTemplate :: proxy v -> IndexTemplate v -> TemplateName v -> BH v IO (Response ByteString)
   putMapping :: (ToJSON a) => proxy v -> IndexName v -> MappingName v -> a -> BH v IO (Response ByteString)
 
+  -- In ES 5 and beyond, "string" was deprecated in favor of text for
+  -- fulltext and keyword for unanalyzed tokens
+  unanalyzedStringType :: proxy v -> Text
+  analyzedStringType :: proxy v -> Text
+
+
 
 data ESV1 = ESV1
 
@@ -488,6 +497,8 @@ instance ESVersion ESV1 where
   createIndex _ = V1.createIndex
   putTemplate _ = V1.putTemplate
   putMapping _ = V1.putMapping
+  unanalyzedStringType _ = "string"
+  analyzedStringType _ = "string"
 
 
 data ESV5 = ESV5
@@ -518,3 +529,5 @@ instance ESVersion ESV5 where
   createIndex _ = V5.createIndex
   putTemplate _ = V5.putTemplate
   putMapping _ = V5.putMapping
+  unanalyzedStringType _ = "keyword"
+  analyzedStringType _ = "text"
