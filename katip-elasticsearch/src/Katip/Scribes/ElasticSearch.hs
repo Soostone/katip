@@ -17,7 +17,7 @@
 -- main :: IO ()
 -- main = do
 --   mgr <- newManager defaultManagerSettings
---   let bhe = mkBHEnv (Server "localhost") mgr
+--   let bhe = mkBHEnv (Server "http://localhost:9200") mgr
 --   esScribe <- mkEsScribe
 --     -- Reasonable for production
 --     defaultEsScribeCfgV5
