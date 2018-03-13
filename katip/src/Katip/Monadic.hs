@@ -35,6 +35,7 @@ module Katip.Monadic
     , katipAddContext
     , KatipContextTState(..)
     , NoLoggingT
+    , askLoggerIO
     ) where
 
 
@@ -486,3 +487,10 @@ instance MonadIO m => KatipContext (NoLoggingT m) where
   localKatipContext = const id
   getKatipNamespace = pure mempty
   localKatipNamespace = const id
+
+askLoggerIO :: (Applicative m, KatipContext m) => m (Severity -> LogStr -> IO ())
+askLoggerIO = do
+  ctx <- getKatipContext
+  ns <- getKatipNamespace
+  logEnv <- getLogEnv
+  pure (\sev msg -> runKatipT logEnv $ logF ctx ns sev msg)
