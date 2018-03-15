@@ -1,3 +1,8 @@
+0.5.4.0
+=======
+* Loosen bounds on resourcet and template-haskell.
+* Add convenience function askLoggerIO.
+
 0.5.3.0
 =======
 * Add MonadUnliftIO instances.
