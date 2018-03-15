@@ -488,6 +488,9 @@ instance MonadIO m => KatipContext (NoLoggingT m) where
   getKatipNamespace = pure mempty
   localKatipNamespace = const id
 
+
+-- | Convenience function for when you have to integrate with a third
+-- party API that takes a generic logging function as an argument.
 askLoggerIO :: (Applicative m, KatipContext m) => m (Severity -> LogStr -> IO ())
 askLoggerIO = do
   ctx <- getKatipContext
