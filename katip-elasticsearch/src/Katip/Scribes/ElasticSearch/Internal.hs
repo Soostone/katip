@@ -44,6 +44,7 @@ import qualified Database.V5.Bloodhound                  as V5
 import           Network.HTTP.Client
 import           Network.HTTP.Types.Status
 import           System.Random                           (randomRIO)
+import           System.Timeout                          (timeout)
 import           Text.Printf                             (printf)
 
 import           Katip.Core
@@ -534,6 +535,7 @@ mkEsBulkScribe
     -> MappingName v
     -> Severity
     -> Verbosity
+    -- -> (Scribe -> IO a)
     -> IO Scribe
 mkEsBulkScribe cfg@EsScribeCfg {..} env ix mapping sev verb = do
   (inChan, outChan) <- UNB.newChan $ unEsQueueSize essQueueSize
@@ -556,7 +558,9 @@ mkEsBulkScribe cfg@EsScribeCfg {..} env ix mapping sev verb = do
 
   workers <- replicateM (unEsPoolSize essPoolSize) $ async $
     startBulkWorker cfg env mapping workerSig outChan
-
+  -- let workers =
+  --       replicateConcurrently_ (unEsPoolSize essPoolSize)
+  --       $ startBulkWorker cfg env mapping workerSig outChan
   _ <- async $ do
     takeMVar endSig
     putMVar workerSig ()
@@ -601,13 +605,20 @@ data DiscrimLen =
   | StackIt
   deriving Show
 
+data HasData a =
+       NoData
+     | TimeoutTriggered
+     | HasData a
+     deriving (Show)
+
 startBulkWorker
     :: forall v . (ESVersion v, V5.MonadBH (BH v IO))
     => EsScribeCfg v
     -> BHEnv v
     -> MappingName v
     -> MVar ()
-    -> UNB.OutChan (IndexName v, Value)
+    -- -> UNB.OutChan (IndexName v, Value)
+    -> UNB.OutChan (HasData (IndexName v, Value))
     -> IO ()
 startBulkWorker _ env mapping dieSignal outChan = do
   -- We need to randomize upload delay
@@ -620,7 +631,9 @@ startBulkWorker _ env mapping dieSignal outChan = do
 
     go :: Int -> [V5.BulkOperation] -> Int -> IO ()
     go delayTime xs len = do
-      result <- race (UNB.readChan outChan) (threadDelay delayTime)
+      -- result <- race (UNB.readChan outChan) (threadDelay delayTime)
+      -- result <- timeout delayTime (UNB.readChan outChan)
+      maybeHasData <- UNB.readChan outChan
       case result of
         (Left val) ->
           case discrimLen len of
@@ -634,6 +647,20 @@ startBulkWorker _ env mapping dieSignal outChan = do
         (Right ()) -> do
           uploadData xs
           dieOrContinue [] 0
+
+      -- case result of
+      --   (Left val) ->
+      --     case discrimLen len of
+      --       SendIt -> do
+      --         newPair <- serializePair val
+      --         uploadData (newPair : xs)
+      --         dieOrContinue [] 0
+      --       StackIt -> do
+      --         newPair <- serializePair val
+      --         dieOrContinue (newPair : xs) (len+1)
+      --   (Right ()) -> do
+      --     uploadData xs
+      --     dieOrContinue [] 0
       where dieOrContinue newList newLen = do
               dieNow <- tryReadMVar dieSignal
               case dieNow of
