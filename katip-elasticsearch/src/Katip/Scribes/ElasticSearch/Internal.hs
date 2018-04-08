@@ -643,16 +643,16 @@ startBulkWorker _ env mapping dieSignal outChan = do
           case discrimLen len of
             SendIt -> do
               newPair <- serializePair val
-              _ <- async $ uploadData (newPair : xs)
+              _ <- uploadData (newPair : xs)
               dieOrContinue [] 0
             StackIt -> do
               newPair <- serializePair val
               dieOrContinue (newPair : xs) (len+1)
         TimeoutTriggered -> do
-          _ <- async $ uploadData xs
+          _ <- uploadData xs
           dieOrContinue [] 0
         StopWorker -> do
-          _ <- async $ uploadData xs
+          _ <- uploadData xs
           return ()
 
       -- case result of
