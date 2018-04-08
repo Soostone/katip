@@ -70,16 +70,19 @@ benchmark bench
   default-language:    Haskell2010
   ghc-options: -O2
   build-depends:
-                 base
-               , katip-elasticsearch
-               , bloodhound
-               , deepseq
-               , criterion >= 1.1.0.0
-               , random
-               , uuid
-               , text
-               , unordered-containers
-               , aeson
+                base
+              , aeson
+              , bloodhound
+              , criterion >= 1.1.0.0
+              , deepseq
+              , http-client
+              , katip
+              , katip-elasticsearch
+              , random
+              , text
+              , time
+              , unordered-containers
+              , uuid
 
 test-suite test
   type: exitcode-stdio-1.0

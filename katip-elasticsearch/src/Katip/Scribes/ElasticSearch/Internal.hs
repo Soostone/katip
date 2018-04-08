@@ -11,7 +11,6 @@
 module Katip.Scribes.ElasticSearch.Internal where
 
 
--------------------------------------------------------------------------------
 import           Control.Applicative                     as A
 import           Control.Concurrent
 import           Control.Concurrent.Async
@@ -44,7 +43,7 @@ import qualified Database.V5.Bloodhound                  as V5
 import           Network.HTTP.Client
 import           Network.HTTP.Types.Status
 import           System.Random                           (randomRIO)
-import           System.Timeout                          (timeout)
+-- import           System.Timeout                          (timeout)
 import           Text.Printf                             (printf)
 
 import           Katip.Core
@@ -512,7 +511,6 @@ instance ESVersion ESV5 where
   putTemplate _ = V5.putTemplate
   putMapping _ = V5.putMapping
 
------------------------ EXPERIMENTAL BULK API ----------------------------
 
 -- | The Any field tagged with a @v@ corresponds to the type of the
 -- same name in the corresponding @bloodhound@ module. For instance,
@@ -556,8 +554,11 @@ mkEsBulkScribe cfg@EsScribeCfg {..} env ix mapping sev verb = do
       unless (statusIsSuccessful (responseStatus r2)) $
         liftIO $ throwIO (CouldNotCreateMapping r2)
 
-  workers <- replicateM (unEsPoolSize essPoolSize) $ async $
+  -- workers <- replicateM (unEsPoolSize essPoolSize) $ async $
+  --   startBulkWorker cfg env mapping workerSig outChan
+  worker <- async $
     startBulkWorker cfg env mapping workerSig outChan
+
   -- let workers =
   --       replicateConcurrently_ (unEsPoolSize essPoolSize)
   --       $ startBulkWorker cfg env mapping workerSig outChan
@@ -565,7 +566,8 @@ mkEsBulkScribe cfg@EsScribeCfg {..} env ix mapping sev verb = do
     takeMVar endSig
     putMVar workerSig ()
     -- atomically $ closeTBMQueue q
-    mapM_ waitCatch workers
+    -- mapM_ waitCatch workers
+    _ <- waitCatch worker
     putMVar endSig ()
 
   let finalizer = putMVar endSig () >> takeMVar endSig
@@ -573,11 +575,13 @@ mkEsBulkScribe cfg@EsScribeCfg {..} env ix mapping sev verb = do
   where
     logger :: forall a
             . LogItem a
-           => UNB.InChan (IndexName v, Value)
+           => UNB.InChan (HasData (IndexName v, Value))
            -> Item a
            -> IO ()
     logger inChan i = when (_itemSeverity i >= sev) $
-      UNB.writeChan inChan (chooseIxn prx ix essIndexSharding i, itemJson' i)
+      UNB.writeChan
+      inChan
+      (HasData (chooseIxn prx ix essIndexSharding i, itemJson' i))
 
     prx :: Typeable.Proxy v
     prx = Typeable.Proxy
@@ -606,7 +610,7 @@ data DiscrimLen =
   deriving Show
 
 data HasData a =
-       NoData
+       StopWorker
      | TimeoutTriggered
      | HasData a
      deriving (Show)
@@ -634,19 +638,22 @@ startBulkWorker _ env mapping dieSignal outChan = do
       -- result <- race (UNB.readChan outChan) (threadDelay delayTime)
       -- result <- timeout delayTime (UNB.readChan outChan)
       maybeHasData <- UNB.readChan outChan
-      case result of
-        (Left val) ->
+      case maybeHasData of
+        (HasData val) ->
           case discrimLen len of
             SendIt -> do
               newPair <- serializePair val
-              uploadData (newPair : xs)
+              _ <- async $ uploadData (newPair : xs)
               dieOrContinue [] 0
             StackIt -> do
               newPair <- serializePair val
               dieOrContinue (newPair : xs) (len+1)
-        (Right ()) -> do
-          uploadData xs
+        TimeoutTriggered -> do
+          _ <- async $ uploadData xs
           dieOrContinue [] 0
+        StopWorker -> do
+          _ <- async $ uploadData xs
+          return ()
 
       -- case result of
       --   (Left val) ->

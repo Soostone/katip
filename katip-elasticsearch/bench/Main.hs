@@ -31,7 +31,7 @@ import           Katip.Scribes.ElasticSearch.Internal (ESV1)
 main :: IO ()
 main = do
   docCounter <- newIORef 0
-  rng <- mkRNG
+  -- rng <- mkRNG
   defaultMain
     [
     --   mkDocIdBenchmark rng
@@ -41,32 +41,32 @@ main = do
   count <- readIORef docCounter
   putStrLn $ "Doc inserted count was: " <> show count
 
-mkDocIdBenchmark :: RNG -> Benchmark
-mkDocIdBenchmark rng = bgroup "mkDocId"
-  [
-    bench "mkDocId (randomIO)" $ nfIO (mkDocId (Proxy :: Proxy ESV1))
-  , bench "mkDocId' (shared)" $ nfIO $ mkDocId' rng
+-- mkDocIdBenchmark :: RNG -> Benchmark
+-- mkDocIdBenchmark rng = bgroup "mkDocId"
+--   [
+--     bench "mkDocId (randomIO)" $ nfIO (mkDocId (Proxy :: Proxy ESV1))
+--   , bench "mkDocId' (shared)" $ nfIO $ mkDocId' rng
+--   ]
+
+-- deannotateValueBenchmark :: Benchmark
+-- deannotateValueBenchmark = bgroup "deannotateValue"
+--  [
+--    bench "deannotateValue" $ nf deannotateValue annotatedValue
+--  ]
 
 
-deannotateValueBenchmark :: Benchmark
-deannotateValueBenchmark = bgroup "deannotateValue"
- [
-   bench "deannotateValue" $ nf deannotateValue annotatedValue
- ]
+-- annotatedValue :: Value
+-- annotatedValue = Object $ HM.fromList [ ("a::string", String "whatever")
+--                                       , ("b::double", Number 4.5)
+--                                       , ("c::long", Number 4)
+--                                       , ("d::boolean", Bool True)
+--                                       , ("e::null", Null)
+--                                       ]
 
-
-annotatedValue :: Value
-annotatedValue = Object $ HM.fromList [ ("a::string", String "whatever")
-                                      , ("b::double", Number 4.5)
-                                      , ("c::long", Number 4)
-                                      , ("d::boolean", Bool True)
-                                      , ("e::null", Null)
-                                      ]
-
-mkDocId' :: RNG -> IO DocId
-mkDocId' rng = do
-    is <- withRNG rng $ \gen -> replicateM len $ mk gen
-    return . DocId . T.pack . concatMap (`showHex` "") $ is
+-- mkDocId' :: RNG -> IO DocId
+-- mkDocId' rng = do
+--     is <- withRNG rng $ \gen -> replicateM len $ mk gen
+--     return . DocId . T.pack . concatMap (`showHex` "") $ is
 
 deriving instance NFData DocId
 
@@ -77,11 +77,15 @@ esLoggingBenchmark docCounter = bgroup "ES logging"
  -- , bench "log 100 messages" $ nfIO (logMessages docCounter 100)
  -- , bench "log 1000 Messages" $ nfIO (logMessages docCounter 1000)
  , bench "log 10000 Messages" $ nfIO (logMessages docCounter 10000)
+ , bench "log 50000 Messages" $ nfIO (logMessages docCounter 50000)
 
- , bench "bulk log 10 messages" $ nfIO (logMessagesBulk docCounter 10)
+ -- , bench "bulk log 10 messages" $ nfIO (logMessagesBulk docCounter 10)
  -- , bench "bulk log 100 messages" $ nfIO (logMessagesBulk docCounter 100)
  -- , bench "bulk log 1000 Messages" $ nfIO (logMessagesBulk docCounter 1000)
  , bench "bulk log 10000 Messages" $ nfIO (logMessagesBulk docCounter 10000)
+ , bench "bulk log 50000 Messages" $ nfIO (logMessagesBulk docCounter 50000)
+ , bench "bulk log 1000000 Messages"
+   $ nfIO (logMessagesBulk docCounter 1000000)
  ]
 
 logMessages :: IORef Integer -> Int -> IO ()
