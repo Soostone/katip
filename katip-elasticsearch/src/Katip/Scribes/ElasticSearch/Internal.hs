@@ -80,6 +80,8 @@ data EsScribeCfg v = EsScribeCfg {
     -- bloodhound module, either @Database.V1.Bloodhound@ or
     -- @Database.V5.Bloodhound@
     , essIndexSharding :: IndexShardingPolicy
+    , essDelayRange    :: (Int, Int)
+    , essChunkSize     :: Int
     } deriving (Typeable)
 
 
@@ -104,8 +106,11 @@ defaultEsScribeCfg' prx = EsScribeCfg {
     , essAnnotateTypes   = False
     , essIndexSettings   = defaultIndexSettings prx
     , essIndexSharding   = DailyIndexSharding
+    , essDelayRange      = (100 * milliseconds, 2000 * milliseconds)
+    , essChunkSize       = 500
     }
-
+  where milliseconds :: Int
+        milliseconds = 1000
 
 -- | Alias of 'defaultEsScribeCfgV1' to minimize API
 -- breakage. Previous versions of katip-elasticsearch only supported
@@ -573,9 +578,7 @@ mkEsBulkScribe
     -> IO Scribe
 mkEsBulkScribe cfg@EsScribeCfg {..} env ix mapping sev verb = do
   (inChan, outChan) <- UNB.newChan $ unEsQueueSize essQueueSize
-  endSig <- newEmptyMVar
-  workerSig <- newEmptyMVar
-
+  blockForCompletion <- newEmptyMVar
   runBH prx env $ do
     chk <- indexExists prx ix
     -- note that this doesn't update settings. That's not available
@@ -590,23 +593,13 @@ mkEsBulkScribe cfg@EsScribeCfg {..} env ix mapping sev verb = do
       unless (statusIsSuccessful (responseStatus r2)) $
         liftIO $ throwIO (CouldNotCreateMapping r2)
 
-  -- workers <- replicateM (unEsPoolSize essPoolSize) $ async $
-  --   startBulkWorker cfg env mapping workerSig outChan
-  worker <- async $
-    startBulkWorker cfg env mapping workerSig outChan
+  _ <- async $
+    startBulkWorker cfg env mapping outChan blockForCompletion
 
-  -- let workers =
-  --       replicateConcurrently_ (unEsPoolSize essPoolSize)
-  --       $ startBulkWorker cfg env mapping workerSig outChan
-  _ <- async $ do
-    takeMVar endSig
-    putMVar workerSig ()
-    -- atomically $ closeTBMQueue q
-    -- mapM_ waitCatch workers
-    _ <- waitCatch worker
-    putMVar endSig ()
+  let finalizer = do
+        UNB.writeChan inChan StopWorker
+        takeMVar blockForCompletion
 
-  let finalizer = putMVar endSig () >> takeMVar endSig
   return (Scribe (logger inChan) finalizer)
   where
     logger :: forall a
@@ -628,16 +621,26 @@ mkEsBulkScribe cfg@EsScribeCfg {..} env ix mapping sev verb = do
       NoIndexSharding -> False
       _               -> True
 
-    tpl = toIndexTemplate prx (toTemplatePattern prx (ixn <> "-*")) (Just essIndexSettings) [toJSON base]
+    tpl =
+      toIndexTemplate prx
+      (toTemplatePattern prx (ixn <> "-*"))
+      (Just essIndexSettings)
+      [toJSON base]
 
-    base = baseMapping prx mapping
+    base =
+      baseMapping prx mapping
 
-    ixn = fromIndexName prx ix
+    ixn =
+      fromIndexName prx ix
 
-    itemJson' :: LogItem a => Item a -> Value
+    itemJson' :: LogItem a
+              => Item a
+              -> Value
     itemJson' i
-      | essAnnotateTypes = itemJson verb (TypeAnnotated <$> i)
-      | otherwise        = itemJson verb i
+      | essAnnotateTypes =
+        itemJson verb (TypeAnnotated <$> i)
+      | otherwise        =
+        itemJson verb i
 
 
 data DiscrimLen =
@@ -652,63 +655,39 @@ data HasData a =
      deriving (Show)
 
 startBulkWorker
-    :: forall v . (ESVersion v, V5.MonadBH (BH v IO))
+    :: forall v
+     . (ESVersion v, V5.MonadBH (BH v IO))
     => EsScribeCfg v
     -> BHEnv v
     -> MappingName v
-    -> MVar ()
-    -- -> UNB.OutChan (IndexName v, Value)
     -> UNB.OutChan (HasData (IndexName v, Value))
+    -> MVar ()
     -> IO ()
-startBulkWorker _ env mapping dieSignal outChan = do
+startBulkWorker EsScribeCfg{..} env mapping outChan completionVar = do
   -- We need to randomize upload delay
   -- so that workers do not stampede the nodes
-  delayTime' <- randomRIO (100, 2000)
-  go (delayTime' * milliseconds) [] 0
+  delayTime' <- randomRIO essDelayRange
+  go (delayTime') [] 0
   where
-    milliseconds :: Int
-    milliseconds = 1000
-
     go :: Int -> [V5.BulkOperation] -> Int -> IO ()
     go delayTime xs len = do
-      -- result <- race (UNB.readChan outChan) (threadDelay delayTime)
-      -- result <- timeout delayTime (UNB.readChan outChan)
       maybeHasData <- UNB.readChan outChan
       case maybeHasData of
         (HasData val) ->
-          case discrimLen len of
+          case discrimLen essChunkSize len of
             SendIt -> do
               newPair <- serializePair val
               _ <- uploadData (newPair : xs)
-              dieOrContinue [] 0
+              go delayTime [] 0
             StackIt -> do
               newPair <- serializePair val
-              dieOrContinue (newPair : xs) (len+1)
+              go delayTime (newPair : xs) (len+1)
         TimeoutTriggered -> do
           _ <- uploadData xs
-          dieOrContinue [] 0
+          go delayTime [] 0
         StopWorker -> do
           _ <- uploadData xs
-          return ()
-
-      -- case result of
-      --   (Left val) ->
-      --     case discrimLen len of
-      --       SendIt -> do
-      --         newPair <- serializePair val
-      --         uploadData (newPair : xs)
-      --         dieOrContinue [] 0
-      --       StackIt -> do
-      --         newPair <- serializePair val
-      --         dieOrContinue (newPair : xs) (len+1)
-      --   (Right ()) -> do
-      --     uploadData xs
-      --     dieOrContinue [] 0
-      where dieOrContinue newList newLen = do
-              dieNow <- tryReadMVar dieSignal
-              case dieNow of
-                Nothing -> go delayTime newList newLen
-                (Just ()) -> return ()
+          putMVar completionVar ()
 
     uploadData :: [V5.BulkOperation] -> IO ()
     uploadData [] = return ()
@@ -727,8 +706,8 @@ startBulkWorker _ env mapping dieSignal outChan = do
         (V5.MappingName (fromMappingName prx mapping))
         (V5.DocId docId) val
 
-    discrimLen l
-      | l >= 500 = SendIt
+    discrimLen chunkSize l
+      | l >= chunkSize = SendIt
       | otherwise = StackIt
 
     prx :: Typeable.Proxy v
