@@ -34,6 +34,8 @@ module Katip.Monadic
     , katipAddNamespace
     , katipAddContext
     , KatipContextTState(..)
+    , NoLoggingT
+    , askLoggerIO
     ) where
 
 
@@ -43,6 +45,7 @@ import           Control.Exception.Safe
 import           Control.Monad.Base
 import           Control.Monad.Error.Class
 import           Control.Monad.IO.Class
+import           Control.Monad.IO.Unlift
 import           Control.Monad.Reader
 import           Control.Monad.State
 import           Control.Monad.Trans.Control
@@ -137,7 +140,7 @@ class Katip m => KatipContext m where
   localKatipContext :: (LogContexts -> LogContexts) -> m a -> m a
   getKatipNamespace :: m Namespace
   -- | Temporarily modify the current namespace for the duration of the
-  -- supplied monad. Used in 'katipAddContext'
+  -- supplied monad. Used in 'katipAddNamespace'
   localKatipNamespace :: (Namespace -> Namespace) -> m a -> m a
 
 instance (KatipContext m, Katip (IdentityT m)) => KatipContext (IdentityT m) where
@@ -389,6 +392,11 @@ instance (MonadIO m) => KatipContext (KatipContextT m) where
   getKatipNamespace = KatipContextT $ ReaderT $ \lts -> return (ltsNamespace lts)
   localKatipNamespace f (KatipContextT m) = KatipContextT $ local (\s -> s { ltsNamespace = f (ltsNamespace s)}) m
 
+instance MonadUnliftIO m => MonadUnliftIO (KatipContextT m) where
+  askUnliftIO = KatipContextT $
+                withUnliftIO $ \u ->
+                pure (UnliftIO (unliftIO u . unKatipContextT))
+
 
 -------------------------------------------------------------------------------
 runKatipContextT :: (LogItem c) => LogEnv -> c -> Namespace -> KatipContextT m a -> m a
@@ -429,3 +437,63 @@ katipAddContext
     -> m a
     -> m a
 katipAddContext i = localKatipContext (<> (liftPayload i))
+
+newtype NoLoggingT m a = NoLoggingT {
+      runNoLoggingT :: m a
+    } deriving ( Functor
+               , Applicative
+               , Monad
+               , MonadIO
+               , MonadThrow
+               , MonadCatch
+               , MonadMask
+               , MonadBase b
+               , MonadState s
+               , MonadWriter w
+               , MonadError e
+               , MonadPlus
+               , Alternative
+               , MonadFix
+               )
+
+instance MonadTrans NoLoggingT where
+  lift = NoLoggingT
+
+instance MonadTransControl NoLoggingT where
+    type StT NoLoggingT a = a
+    liftWith f = NoLoggingT $ f runNoLoggingT
+    restoreT = NoLoggingT
+    {-# INLINE liftWith #-}
+    {-# INLINE restoreT #-}
+
+instance MonadBaseControl b m => MonadBaseControl b (NoLoggingT m) where
+     type StM (NoLoggingT m) a = StM m a
+     liftBaseWith f = NoLoggingT $
+         liftBaseWith $ \runInBase ->
+             f $ runInBase . runNoLoggingT
+     restoreM = NoLoggingT . restoreM
+
+instance MonadUnliftIO m => MonadUnliftIO (NoLoggingT m) where
+  askUnliftIO = NoLoggingT $
+                withUnliftIO $ \u ->
+                pure (UnliftIO (unliftIO u . runNoLoggingT))
+
+instance MonadIO m => Katip (NoLoggingT m) where
+  getLogEnv = liftIO (initLogEnv "NoLoggingT" "no-logging")
+  localLogEnv = const id
+
+instance MonadIO m => KatipContext (NoLoggingT m) where
+  getKatipContext = pure mempty
+  localKatipContext = const id
+  getKatipNamespace = pure mempty
+  localKatipNamespace = const id
+
+
+-- | Convenience function for when you have to integrate with a third
+-- party API that takes a generic logging function as an argument.
+askLoggerIO :: (Applicative m, KatipContext m) => m (Severity -> LogStr -> IO ())
+askLoggerIO = do
+  ctx <- getKatipContext
+  ns <- getKatipNamespace
+  logEnv <- getLogEnv
+  pure (\sev msg -> runKatipT logEnv $ logF ctx ns sev msg)

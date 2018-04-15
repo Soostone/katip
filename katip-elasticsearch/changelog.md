@@ -1,3 +1,13 @@
+0.4.1.0
+=======
+* Fix bug where index was created in `mkEsScribe` when it would not be used due to index sharding.
+* Update some index settings if index already exists and sharding is not used.
+* For ES V5 and higher, stop using the deprecated (and in 6.x, removed) `string` type for index templates, instead using `text` and `keyword` as appropriate. This makes `katip-elasticsearch` compatible with ES 6.x.
+
+0.4.0.4
+=======
+* Allow http-types 0.12
+
 0.4.0.3
 =======
 * Fix benchmark and test builds for stackage nightly

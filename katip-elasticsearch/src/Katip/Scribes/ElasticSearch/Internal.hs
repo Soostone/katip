@@ -28,6 +28,7 @@ import           Control.Retry                           (RetryPolicy,
                                                           recovering)
 import           Data.Aeson
 import           Data.ByteString.Lazy                    (ByteString)
+import           Data.List.NonEmpty                      (NonEmpty(..))
 import           Data.Monoid                             ((<>))
 import           Data.Text                               (Text)
 import qualified Data.Text                               as T
@@ -237,7 +238,9 @@ splitTime t = asMins `divMod` 60
 
 data EsScribeSetupError =
     CouldNotCreateIndex !(Response ByteString)
+  | CouldNotUpdateIndexSettings !(Response ByteString)
   | CouldNotCreateMapping !(Response ByteString)
+  | CouldNotPutTemplate !(Response ByteString)
   deriving (Typeable, Show)
 
 
@@ -270,18 +273,26 @@ mkEsScribe cfg@EsScribeCfg {..} env ix mapping sev verb = do
   endSig <- newEmptyMVar
 
   runBH prx env $ do
-    chk <- indexExists prx ix
-    -- note that this doesn't update settings. That's not available
-    -- through the Bloodhound API yet
-    unless chk $ void $ do
-      r1 <- createIndex prx essIndexSettings ix
-      unless (statusIsSuccessful (responseStatus r1)) $
-        liftIO $ throwIO (CouldNotCreateIndex r1)
-      r2 <- if shardingEnabled
-              then putTemplate prx tpl tplName
-              else putMapping prx ix mapping base
-      unless (statusIsSuccessful (responseStatus r2)) $
-        liftIO $ throwIO (CouldNotCreateMapping r2)
+    if shardingEnabled
+       then do
+         -- create or update
+         res <- putTemplate prx tpl tplName
+         unless (statusIsSuccessful (responseStatus res)) $
+           liftIO $ throwIO (CouldNotPutTemplate res)
+       else do
+         ixExists <- indexExists prx ix
+         if ixExists
+            then do
+              res <- updateIndexSettings prx (toUpdatabaleIndexSettings prx essIndexSettings) ix
+              unless (statusIsSuccessful (responseStatus res)) $
+                liftIO $ throwIO (CouldNotUpdateIndexSettings res)
+            else do
+              r1 <- createIndex prx essIndexSettings ix
+              unless (statusIsSuccessful (responseStatus r1)) $
+                liftIO $ throwIO (CouldNotCreateIndex r1)
+              r2 <- putMapping prx ix mapping base
+              unless (statusIsSuccessful (responseStatus r2)) $
+                liftIO $ throwIO (CouldNotCreateMapping r2)
 
   workers <- replicateM (unEsPoolSize essPoolSize) $ async $
     startWorker cfg env mapping q
@@ -316,24 +327,27 @@ mkEsScribe cfg@EsScribeCfg {..} env ix mapping sev verb = do
 baseMapping :: ESVersion v => proxy v -> MappingName v -> Value
 baseMapping prx mn =
   object [ fromMappingName prx mn .= object ["properties" .= object prs] ]
-  where prs = [ str "thread"
-              , str "sev"
-              , str "pid"
-              , str "ns"
-              , str "msg"
+  where prs = [ unanalyzedString "thread"
+              , unanalyzedString "sev"
+              , unanalyzedString "pid"
+              -- ns is frequently fulltext searched
+              , analyzedString "ns"
+              -- we want message to be fulltext searchable
+              , analyzedString "msg"
               , "loc" .= locType
-              , str "host"
-              , str "env"
+              , unanalyzedString "host"
+              , unanalyzedString "env"
               , "at" .= dateType
-              , str "app"
+              , unanalyzedString "app"
               ]
-        str k = k .= object ["type" .= String "string"]
+        unanalyzedString k = k .= object ["type" .= String (unanalyzedStringType prx)]
+        analyzedString k = k .= object ["type" .= String (analyzedStringType prx)]
         locType = object ["properties" .= object locPairs]
-        locPairs = [ str "loc_pkg"
-                   , str "loc_mod"
-                   , str "loc_ln"
-                   , str "loc_fn"
-                   , str "loc_col"
+        locPairs = [ unanalyzedString "loc_pkg"
+                   , unanalyzedString "loc_mod"
+                   , unanalyzedString "loc_ln"
+                   , unanalyzedString "loc_fn"
+                   , unanalyzedString "loc_col"
                    ]
         dateType = object [ "format" .= esDateFormat
                           , "type" .= String "date"
@@ -425,6 +439,7 @@ class ESVersion v where
   type BHEnv v
   type IndexSettings v
   defaultIndexSettings :: proxy v -> IndexSettings v
+  type UpdatableIndexSetting v
   type IndexName v
   toIndexName :: proxy v -> Text -> IndexName v
   fromIndexName :: proxy v -> IndexName v -> Text
@@ -443,13 +458,22 @@ class ESVersion v where
   type IndexDocumentSettings v
   defaultIndexDocumentSettings :: proxy v -> IndexDocumentSettings v
 
+  toUpdatabaleIndexSettings :: proxy v -> IndexSettings v -> NonEmpty (UpdatableIndexSetting v)
+
   -- Operations
   -- We're deciding on IO here, but it isn't necessary
   indexExists :: proxy v -> IndexName v -> BH v IO Bool
   indexDocument :: ToJSON doc => proxy v -> IndexName v -> MappingName v -> IndexDocumentSettings v -> doc -> DocId v -> BH v IO (Response ByteString)
   createIndex :: proxy v -> IndexSettings v -> IndexName v -> BH v IO (Response ByteString)
+  updateIndexSettings :: proxy v -> NonEmpty (UpdatableIndexSetting v) -> IndexName v -> BH v IO (Response ByteString)
   putTemplate :: proxy v -> IndexTemplate v -> TemplateName v -> BH v IO (Response ByteString)
   putMapping :: (ToJSON a) => proxy v -> IndexName v -> MappingName v -> a -> BH v IO (Response ByteString)
+
+  -- In ES 5 and beyond, "string" was deprecated in favor of text for
+  -- fulltext and keyword for unanalyzed tokens
+  unanalyzedStringType :: proxy v -> Text
+  analyzedStringType :: proxy v -> Text
+
 
 
 data ESV1 = ESV1
@@ -459,6 +483,7 @@ instance ESVersion ESV1 where
   type IndexSettings ESV1 = V1.IndexSettings
   defaultIndexSettings _ = V1.defaultIndexSettings
   type IndexName ESV1 = V1.IndexName
+  type UpdatableIndexSetting ESV1 = V1.UpdatableIndexSetting
   toIndexName _ = V1.IndexName
   fromIndexName _ (V1.IndexName x) = x
   type MappingName ESV1 = V1.MappingName
@@ -474,12 +499,17 @@ instance ESVersion ESV1 where
   type IndexTemplate ESV1 = V1.IndexTemplate
   toIndexTemplate _ = V1.IndexTemplate
   type IndexDocumentSettings ESV1 = V1.IndexDocumentSettings
+  toUpdatabaleIndexSettings _ s =
+    (V1.NumberOfReplicas (V1.indexReplicas s)) :| []
   defaultIndexDocumentSettings _ = V1.defaultIndexDocumentSettings
   indexExists _ = V1.indexExists
   indexDocument _ = V1.indexDocument
   createIndex _ = V1.createIndex
+  updateIndexSettings _ = V1.updateIndexSettings
   putTemplate _ = V1.putTemplate
   putMapping _ = V1.putMapping
+  unanalyzedStringType _ = "string"
+  analyzedStringType _ = "string"
 
 
 data ESV5 = ESV5
@@ -487,6 +517,7 @@ data ESV5 = ESV5
 instance ESVersion ESV5 where
   type BHEnv ESV5 = V5.BHEnv
   type IndexSettings ESV5 = V5.IndexSettings
+  type UpdatableIndexSetting ESV5 = V5.UpdatableIndexSetting
   defaultIndexSettings _ = V5.defaultIndexSettings
   type IndexName ESV5 = V5.IndexName
   toIndexName _ = V5.IndexName
@@ -504,12 +535,17 @@ instance ESVersion ESV5 where
   type IndexTemplate ESV5 = V5.IndexTemplate
   toIndexTemplate _ = V5.IndexTemplate
   type IndexDocumentSettings ESV5 = V5.IndexDocumentSettings
+  toUpdatabaleIndexSettings _ s =
+    (V5.NumberOfReplicas (V5.indexReplicas s)) :| []
   defaultIndexDocumentSettings _ = V5.defaultIndexDocumentSettings
   indexExists _ = V5.indexExists
   indexDocument _ = V5.indexDocument
   createIndex _ = V5.createIndex
+  updateIndexSettings _ = V5.updateIndexSettings
   putTemplate _ = V5.putTemplate
   putMapping _ = V5.putMapping
+  unanalyzedStringType _ = "keyword"
+  analyzedStringType _ = "text"
 
 
 -- | The Any field tagged with a @v@ corresponds to the type of the

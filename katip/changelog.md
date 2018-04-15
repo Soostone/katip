@@ -1,3 +1,13 @@
+0.5.4.0
+=======
+* Loosen bounds on resourcet and template-haskell.
+* Add convenience function askLoggerIO.
+
+0.5.3.0
+=======
+* Add MonadUnliftIO instances.
+* Add NoLoggingT
+
 0.5.2.0
 =======
 * Allow newer versions of either by conditionally adding instances for the removed EitherT interface.

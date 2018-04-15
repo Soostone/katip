@@ -16,6 +16,7 @@ module Main
 
 import           Control.Applicative                     as A
 import           Control.Concurrent.STM
+import           Control.Exception
 import           Control.Lens                            hiding (mapping, (.=))
 import           Control.Monad
 import           Control.Monad.IO.Class
@@ -235,6 +236,14 @@ esTests prx = testGroup "elasticsearch scribe"
          let l = head logs
          l ^? key "_source" . key "msg" . _String @?= Just "A test message"
          l ^? key "_source" . key "data" . key "whatever::b" . _Bool @?= Just True
+  , testCase "can set up twice with no sharding" $ do
+      let setup = bracket_ (setupSearch prx (\c -> c { essIndexSharding = NoIndexSharding })) (teardownSearch prx)
+      setup $ setup $
+        return ()
+  , testCase "can set up twice with sharding" $ do
+      let setup = bracket_ (setupSearch prx (\c -> c { essIndexSharding = DailyIndexSharding })) (teardownSearch prx)
+      setup $ setup $
+        return ()
   , withSearch prx $ \setup -> testCase "date-based index sharding" $ do
       let t1 = mkTime 2016 1 2 3 4 5
       fakeClock <- newTVarIO t1
