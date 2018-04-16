@@ -6,6 +6,7 @@ module Main
     ( main
     ) where
 
+import           Control.Concurrent (threadDelay)
 import           Control.DeepSeq
 import           Control.Exception
 import           Control.Monad
@@ -20,6 +21,7 @@ import           System.Random
 import qualified Data.Text                            as T
 import           Data.Time.Clock
 import           Database.V1.Bloodhound.Types
+import qualified Database.V5.Bloodhound.Client        as V5
 import qualified Database.V5.Bloodhound.Types         as V5
 import qualified Network.HTTP.Client                  as HTTP
 import           Numeric
@@ -90,14 +92,14 @@ esLoggingBenchmark docCounter = bgroup "ES logging"
 
 logMessages :: IORef Integer -> Int -> IO ()
 logMessages docCounter repeats = do
-  mkLogEnv <- mkEsBenchLogEnv
+  (_, mkLogEnv) <- mkEsBenchLogEnv
   bracket mkLogEnv closeScribes
     $ \ le -> forM_ [1..repeats] $ \i -> runKatipT le $ do
       liftIO $ atomicModifyIORef' docCounter (\x -> (x+1, ()))
       logMsg "ns" InfoS ("This goes to elasticsearch: "
                          <> (logStr $ T.pack $ show i))
 
-mkEsBenchLogEnv :: IO (IO LogEnv)
+mkEsBenchLogEnv :: IO (IO Reply, IO LogEnv)
 mkEsBenchLogEnv = do
   connManager <- HTTP.newManager HTTP.defaultManagerSettings
   let bhEnv = V5.mkBHEnv
@@ -114,27 +116,30 @@ mkEsBenchLogEnv = do
                              , essPoolSize = poolSize
                              , essChunkSize = 500
                              }
+      indexFlusher = V5.runBH bhEnv (V5.refreshIndex indexName)
   esScribe <- mkEsScribe
             scribeCfg bhEnv indexName
             mappingName severity verbosity
   let mkLogEnv = registerScribe "es" esScribe defaultScribeSettings =<< initLogEnv "MyApp" "production"
-  return mkLogEnv
+  return (indexFlusher, mkLogEnv)
 
 logMessagesBulk :: IORef Integer -> Int -> IO ()
 logMessagesBulk docCounter repeats = do
-  mkLogEnv <- mkEsBenchLogEnvBulk
-  bracket mkLogEnv finalizer
+  (indexFlusher, mkLogEnv) <- mkEsBenchLogEnvBulk
+  bracket mkLogEnv (finalizer indexFlusher)
     $ \ le -> forM_ [1..repeats] $ \i -> runKatipT le $ do
       liftIO $ atomicModifyIORef' docCounter (\x -> (x+1, ()))
       logMsg "ns" InfoS ("This goes to elasticsearch: "
                          <> (logStr $ T.pack $ show i))
   where
-    finalizer :: LogEnv -> IO LogEnv
-    finalizer le = do
+    finalizer :: IO Reply -> LogEnv -> IO LogEnv
+    finalizer indexFlusher le = do
       -- putStrLn "Finalizer was called"
+      _ <- indexFlusher
+      -- threadDelay 1000000
       closeScribes le
 
-mkEsBenchLogEnvBulk :: IO (IO LogEnv)
+mkEsBenchLogEnvBulk :: IO (IO Reply, IO LogEnv)
 mkEsBenchLogEnvBulk = do
   connManager <- HTTP.newManager HTTP.defaultManagerSettings
   let bhEnv = V5.mkBHEnv
@@ -149,9 +154,11 @@ mkEsBenchLogEnvBulk = do
       scribeCfg =
         defaultEsScribeCfgV5 { essQueueSize = queueSize
                              , essPoolSize = poolSize
+                             , essChunkSize = 500
                              }
+      indexFlusher = V5.runBH bhEnv (V5.refreshIndex indexName)
   esScribe <- mkEsBulkScribe
             scribeCfg bhEnv indexName
             mappingName severity verbosity
   let mkLogEnv = registerScribe "es" esScribe defaultScribeSettings =<< initLogEnv "MyApp" "production"
-  return mkLogEnv
+  return (indexFlusher, mkLogEnv)

@@ -2,10 +2,15 @@ resolver: lts-10.4
 packages:
   - katip
   - katip-elasticsearch
+  - location:
+      git: git@github.com:bitemyapp/bloodhound.git
+      commit: 5c7caa6f81ce073ef952b4d83a34eee2825ba515
+    extra-dep: true
+
 extra-deps:
   - unagi-chan-0.4.0.0
   # These can be dropped probably as soon as they hit an LTS
-  - bloodhound-0.15.0.2
+  # - bloodhound-0.15.0.2
   - http-types-0.12
   - unliftio-core-0.1.1.0
 flags:

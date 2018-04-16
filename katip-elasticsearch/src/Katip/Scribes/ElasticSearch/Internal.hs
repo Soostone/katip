@@ -699,12 +699,15 @@ startBulkWorker EsScribeCfg{..} env mapping outChan completionVar = do
 
     serializePair :: (IndexName v, Value) -> IO V5.BulkOperation
     serializePair (indexName, val) = do
-      docId <- mkDocId'
+      -- docId <- mkDocId'
       return $
-        V5.BulkIndex
+        -- V5.BulkIndex
+        -- V5.BulkCreate
+        V5.BulkIndexAuto
         (V5.IndexName (fromIndexName prx indexName))
         (V5.MappingName (fromMappingName prx mapping))
-        (V5.DocId docId) val
+        -- (V5.DocId docId)
+        val
 
     discrimLen chunkSize l
       | l >= chunkSize = SendIt
