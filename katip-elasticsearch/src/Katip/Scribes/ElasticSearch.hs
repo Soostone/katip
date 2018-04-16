@@ -50,6 +50,7 @@
 module Katip.Scribes.ElasticSearch
     (-- * Building a scribe
       mkEsScribe
+    , mkEsBulkScribe
     -- * Scribe configuration
     , EsScribeSetupError(..)
     , EsQueueSize
@@ -59,13 +60,7 @@ module Katip.Scribes.ElasticSearch
     , IndexShardingPolicy(..)
     , IndexNameSegment(..)
     -- ** EsScribeCfg and fields
-    , EsScribeCfg
-    , essRetryPolicy
-    , essQueueSize
-    , essPoolSize
-    , essAnnotateTypes
-    , essIndexSettings
-    , essIndexSharding
+    , EsScribeCfg(..)
     , defaultEsScribeCfg
     , defaultEsScribeCfgV1
     , defaultEsScribeCfgV5

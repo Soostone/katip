@@ -2,7 +2,6 @@
 
 module Katip.Scribes.Handle where
 
--------------------------------------------------------------------------------
 import           Control.Applicative    as A
 import           Control.Concurrent
 import           Control.Exception      (bracket_, finally)
@@ -15,18 +14,15 @@ import           Data.Text              (Text)
 import           Data.Text.Lazy.Builder
 import           Data.Text.Lazy.IO      as T
 import           System.IO
--------------------------------------------------------------------------------
+
 import           Katip.Core
 import           Katip.Format.Time      (formatAsLogTime)
--------------------------------------------------------------------------------
 
 
--------------------------------------------------------------------------------
 brackets :: Builder -> Builder
 brackets m = fromText "[" <> m <> fromText "]"
 
 
--------------------------------------------------------------------------------
 getKeys :: LogItem s => Verbosity -> s -> [Builder]
 getKeys verb a = concat (renderPair A.<$> HM.toList (payloadObject verb a))
   where
@@ -44,7 +40,6 @@ getKeys verb a = concat (renderPair A.<$> HM.toList (payloadObject verb a))
       formatScientific Generic (if isFloating n then Nothing else Just 0) n
 
 
--------------------------------------------------------------------------------
 data ColorStrategy
     = ColorLog Bool
     -- ^ Whether to use color control chars in log output
@@ -52,7 +47,6 @@ data ColorStrategy
     -- ^ Color if output is a terminal
   deriving (Show, Eq)
 
--------------------------------------------------------------------------------
 -- | Logs to a file handle such as stdout, stderr, or a file. Contexts
 -- and other information will be flattened out into bracketed
 -- fields. For example:
@@ -89,7 +83,6 @@ mkFileScribe f sev verb = do
   return (Scribe logger (finalizer `finally` hClose h))
 
 
--------------------------------------------------------------------------------
 formatItem :: LogItem a => Bool -> Verbosity -> Item a -> Builder
 formatItem withColor verb Item{..} =
     brackets nowStr <>

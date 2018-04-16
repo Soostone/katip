@@ -14,7 +14,6 @@ module Main
     ) where
 
 
--------------------------------------------------------------------------------
 import           Control.Applicative                     as A
 import           Control.Concurrent.STM
 import           Control.Exception
@@ -63,7 +62,6 @@ main = defaultMainWithIngredients ings $ askOption $ \vers -> testGroup "katip-e
     ings = (includingOptions [Option (Typeable.Proxy :: Typeable.Proxy TestWithESVersion)]):defaultIngredients
 
 
--------------------------------------------------------------------------------
 data TestWithESVersion = TestV1
                        | TestV5
                        deriving (Typeable)

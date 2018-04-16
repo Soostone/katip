@@ -11,11 +11,11 @@
 module Katip.Scribes.ElasticSearch.Internal where
 
 
--------------------------------------------------------------------------------
 import           Control.Applicative                     as A
 import           Control.Concurrent
 import           Control.Concurrent.Async
 import           Control.Concurrent.STM.TBMQueue
+import qualified Control.Concurrent.Chan.Unagi.Bounded   as UNB
 import           Control.Exception.Base
 import           Control.Exception.Enclosed
 import           Control.Monad
@@ -38,15 +38,17 @@ import           Data.Time.Calendar.WeekDate
 import           Data.Typeable                           as Typeable
 import           Data.UUID
 import qualified Data.UUID.V4                            as UUID4
+import qualified Data.Vector                             as V
 import qualified Database.V1.Bloodhound                  as V1
 import qualified Database.V5.Bloodhound                  as V5
 import           Network.HTTP.Client
 import           Network.HTTP.Types.Status
+import           System.Random                           (randomRIO)
+-- import           System.Timeout                          (timeout)
 import           Text.Printf                             (printf)
--------------------------------------------------------------------------------
+
 import           Katip.Core
 import           Katip.Scribes.ElasticSearch.Annotations
--------------------------------------------------------------------------------
 
 
 -- | EsScribeCfg now carries a type variable for the version of
@@ -78,6 +80,8 @@ data EsScribeCfg v = EsScribeCfg {
     -- bloodhound module, either @Database.V1.Bloodhound@ or
     -- @Database.V5.Bloodhound@
     , essIndexSharding :: IndexShardingPolicy
+    , essDelayRange    :: (Int, Int)
+    , essChunkSize     :: Int
     } deriving (Typeable)
 
 
@@ -102,10 +106,12 @@ defaultEsScribeCfg' prx = EsScribeCfg {
     , essAnnotateTypes   = False
     , essIndexSettings   = defaultIndexSettings prx
     , essIndexSharding   = DailyIndexSharding
+    , essDelayRange      = (100 * milliseconds, 2000 * milliseconds)
+    , essChunkSize       = 500
     }
+  where milliseconds :: Int
+        milliseconds = 1000
 
-
--------------------------------------------------------------------------------
 -- | Alias of 'defaultEsScribeCfgV1' to minimize API
 -- breakage. Previous versions of katip-elasticsearch only supported
 -- ES version 1.
@@ -113,19 +119,16 @@ defaultEsScribeCfg :: EsScribeCfg ESV1
 defaultEsScribeCfg = defaultEsScribeCfgV1
 
 
--------------------------------------------------------------------------------
 -- | EsScribeCfg that will use ElasticSearch V1
 defaultEsScribeCfgV1 :: EsScribeCfg ESV1
 defaultEsScribeCfgV1 = defaultEsScribeCfg' (Typeable.Proxy :: Typeable.Proxy ESV1)
 
 
--------------------------------------------------------------------------------
 -- | EsScribeCfg that will use ElasticSearch V5
 defaultEsScribeCfgV5 :: EsScribeCfg ESV5
 defaultEsScribeCfgV5 = defaultEsScribeCfg' (Typeable.Proxy :: Typeable.Proxy ESV5)
 
 
--------------------------------------------------------------------------------
 -- | How should katip store your log data?
 --
 -- * NoIndexSharding will store all logs in one index name. This is
@@ -176,13 +179,11 @@ instance Show IndexShardingPolicy where
  show (CustomIndexSharding _)  = "CustomIndexSharding λ"
 
 
--------------------------------------------------------------------------------
 newtype IndexNameSegment = IndexNameSegment {
       indexNameSegment :: Text
     } deriving (Show, Eq, Ord)
 
 
--------------------------------------------------------------------------------
 shardPolicySegs :: IndexShardingPolicy -> Item a -> [IndexNameSegment]
 shardPolicySegs NoIndexSharding _ = []
 shardPolicySegs MonthlyIndexSharding Item {..} = [sis y, sis m]
@@ -205,7 +206,6 @@ shardPolicySegs EveryMinuteIndexSharding Item {..} = [sis y, sis m, sis d, sis h
 shardPolicySegs (CustomIndexSharding f) i  = f i
 
 
--------------------------------------------------------------------------------
 -- | If the given day is sunday, returns the input, otherwise returns
 -- the previous sunday
 roundToSunday :: Day -> Day
@@ -217,40 +217,41 @@ roundToSunday d
     (y, w, dow) = toWeekDate d
 
 
--------------------------------------------------------------------------------
-chooseIxn :: ESVersion v => proxy v -> IndexName v -> IndexShardingPolicy -> Item a -> IndexName v
+chooseIxn :: ESVersion v
+          => proxy v
+          -> IndexName v
+          -> IndexShardingPolicy
+          -> Item a
+          -> IndexName v
 chooseIxn prx ixn p i =
   toIndexName prx (T.intercalate "-" ((fromIndexName prx ixn):segs))
   where
     segs = indexNameSegment A.<$> shardPolicySegs p i
 
 
--------------------------------------------------------------------------------
 sis :: Integral a => a -> IndexNameSegment
 sis = IndexNameSegment . T.pack . fmt
   where
     fmt = printf "%02d" . toInteger
 
 
--------------------------------------------------------------------------------
 splitTime :: DiffTime -> (Int, Int)
 splitTime t = asMins `divMod` 60
   where
     asMins = floor t `div` 60
 
 
--------------------------------------------------------------------------------
-data EsScribeSetupError = CouldNotCreateIndex !(Response ByteString)
-                        | CouldNotUpdateIndexSettings !(Response ByteString)
-                        | CouldNotCreateMapping !(Response ByteString)
-                        | CouldNotPutTemplate !(Response ByteString)
-                        deriving (Typeable, Show)
+data EsScribeSetupError =
+    CouldNotCreateIndex !(Response ByteString)
+  | CouldNotUpdateIndexSettings !(Response ByteString)
+  | CouldNotCreateMapping !(Response ByteString)
+  | CouldNotPutTemplate !(Response ByteString)
+  deriving (Typeable, Show)
 
 
 instance Exception EsScribeSetupError
 
 
--------------------------------------------------------------------------------
 -- | The Any field tagged with a @v@ corresponds to the type of the
 -- same name in the corresponding @bloodhound@ module. For instance,
 -- if you are configuring for ElasticSearch version 1, import
@@ -328,7 +329,6 @@ mkEsScribe cfg@EsScribeCfg {..} env ix mapping sev verb = do
       | otherwise        = itemJson verb i
 
 
--------------------------------------------------------------------------------
 baseMapping :: ESVersion v => proxy v -> MappingName v -> Value
 baseMapping prx mn =
   object [ fromMappingName prx mn .= object ["properties" .= object prs] ]
@@ -359,18 +359,18 @@ baseMapping prx mn =
                           ]
 
 
--------------------------------------------------------------------------------
 -- | Handle both old-style aeson and picosecond-level precision
 esDateFormat :: Text
 esDateFormat = "yyyy-MM-dd'T'HH:mm:ssZ||yyyy-MM-dd'T'HH:mm:ss.SSSZ||yyyy-MM-dd'T'HH:mm:ss.SSSSSSSSSSSSZ"
 
 
--------------------------------------------------------------------------------
+mkDocId' :: IO Text
+mkDocId' = (T.decodeUtf8 . toASCIIBytes) `fmap` UUID4.nextRandom
+
 mkDocId :: ESVersion v => proxy v -> IO (DocId v)
-mkDocId prx = (toDocId prx . T.decodeUtf8 . toASCIIBytes) `fmap` UUID4.nextRandom
+mkDocId prx = toDocId prx <$> mkDocId'
 
 
--------------------------------------------------------------------------------
 newtype EsQueueSize = EsQueueSize {
        unEsQueueSize :: Int
      } deriving (Show, Eq, Ord)
@@ -385,7 +385,6 @@ mkEsQueueSize :: Int -> Maybe EsQueueSize
 mkEsQueueSize = mkNonZero EsQueueSize
 
 
--------------------------------------------------------------------------------
 newtype EsPoolSize = EsPoolSize {
       unEsPoolSize :: Int
     } deriving (Show, Eq, Ord)
@@ -400,14 +399,12 @@ mkEsPoolSize :: Int -> Maybe EsPoolSize
 mkEsPoolSize = mkNonZero EsPoolSize
 
 
--------------------------------------------------------------------------------
 mkNonZero :: (Int -> a) -> Int -> Maybe a
 mkNonZero ctor n
   | n > 0     = Just $ ctor n
   | otherwise = Nothing
 
 
--------------------------------------------------------------------------------
 startWorker
     :: forall v. (ESVersion v)
     => EsScribeCfg v
@@ -438,7 +435,6 @@ startWorker EsScribeCfg {..} env mapping q = go
         _                          -> return True
 
 
--------------------------------------------------------------------------------
 -- We are spanning multiple versions of ES which use completely
 -- separate types and APIs, but the subset we use is the same for both
 -- versions. This will be kept up to date with bloodhound's supported
@@ -555,3 +551,167 @@ instance ESVersion ESV5 where
   putMapping _ = V5.putMapping
   unanalyzedStringType _ = "keyword"
   analyzedStringType _ = "text"
+
+
+-- | The Any field tagged with a @v@ corresponds to the type of the
+-- same name in the corresponding @bloodhound@ module. For instance,
+-- if you are configuring for ElasticSearch version 1, import
+-- @Database.V1.Bloodhound@ and @BHEnv v@ will refer to @BHEnv@ from
+-- that module, @IndexName v@ will repsond to @IndexName@ from that
+-- module, etc.
+mkEsBulkScribe
+    :: forall v. ( ESVersion v
+                 , V5.MonadBH (BH v IO)
+                 , MonadIO (BH v IO)
+#if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ < 800
+                 , Functor (BH v IO)
+#endif
+                 )
+    => EsScribeCfg v
+    -> BHEnv v
+    -> IndexName v
+    -- ^ Treated as a prefix if index sharding is enabled
+    -> MappingName v
+    -> Severity
+    -> Verbosity
+    -- -> (Scribe -> IO a)
+    -> IO Scribe
+mkEsBulkScribe cfg@EsScribeCfg {..} env ix mapping sev verb = do
+  (inChan, outChan) <- UNB.newChan $ unEsQueueSize essQueueSize
+  blockForCompletion <- newEmptyMVar
+  runBH prx env $ do
+    chk <- indexExists prx ix
+    -- note that this doesn't update settings. That's not available
+    -- through the Bloodhound API yet
+    unless chk $ void $ do
+      r1 <- createIndex prx essIndexSettings ix
+      unless (statusIsSuccessful (responseStatus r1)) $
+        liftIO $ throwIO (CouldNotCreateIndex r1)
+      r2 <- if shardingEnabled
+              then putTemplate prx tpl tplName
+              else putMapping prx ix mapping base
+      unless (statusIsSuccessful (responseStatus r2)) $
+        liftIO $ throwIO (CouldNotCreateMapping r2)
+
+  _ <- async $
+    startBulkWorker cfg env mapping outChan blockForCompletion
+
+  let finalizer = do
+        UNB.writeChan inChan StopWorker
+        takeMVar blockForCompletion
+
+  return (Scribe (logger inChan) finalizer)
+  where
+    logger :: forall a
+            . LogItem a
+           => UNB.InChan (HasData (IndexName v, Value))
+           -> Item a
+           -> IO ()
+    logger inChan i = when (_itemSeverity i >= sev) $
+      UNB.writeChan
+      inChan
+      (HasData (chooseIxn prx ix essIndexSharding i, itemJson' i))
+
+    prx :: Typeable.Proxy v
+    prx = Typeable.Proxy
+
+    tplName = toTemplateName prx ixn
+
+    shardingEnabled = case essIndexSharding of
+      NoIndexSharding -> False
+      _               -> True
+
+    tpl =
+      toIndexTemplate prx
+      (toTemplatePattern prx (ixn <> "-*"))
+      (Just essIndexSettings)
+      [toJSON base]
+
+    base =
+      baseMapping prx mapping
+
+    ixn =
+      fromIndexName prx ix
+
+    itemJson' :: LogItem a
+              => Item a
+              -> Value
+    itemJson' i
+      | essAnnotateTypes =
+        itemJson verb (TypeAnnotated <$> i)
+      | otherwise        =
+        itemJson verb i
+
+
+data DiscrimLen =
+    SendIt
+  | StackIt
+  deriving Show
+
+data HasData a =
+       StopWorker
+     | TimeoutTriggered
+     | HasData a
+     deriving (Show)
+
+startBulkWorker
+    :: forall v
+     . (ESVersion v, V5.MonadBH (BH v IO))
+    => EsScribeCfg v
+    -> BHEnv v
+    -> MappingName v
+    -> UNB.OutChan (HasData (IndexName v, Value))
+    -> MVar ()
+    -> IO ()
+startBulkWorker EsScribeCfg{..} env mapping outChan completionVar = do
+  -- We need to randomize upload delay
+  -- so that workers do not stampede the nodes
+  delayTime' <- randomRIO essDelayRange
+  go (delayTime') [] 0
+  where
+    go :: Int -> [V5.BulkOperation] -> Int -> IO ()
+    go delayTime xs len = do
+      maybeHasData <- UNB.readChan outChan
+      case maybeHasData of
+        (HasData val) ->
+          case discrimLen essChunkSize len of
+            SendIt -> do
+              newPair <- serializePair val
+              _ <- uploadData (newPair : xs)
+              go delayTime [] 0
+            StackIt -> do
+              newPair <- serializePair val
+              go delayTime (newPair : xs) (len+1)
+        TimeoutTriggered -> do
+          _ <- uploadData xs
+          go delayTime [] 0
+        StopWorker -> do
+          _ <- uploadData xs
+          putMVar completionVar ()
+
+    uploadData :: [V5.BulkOperation] -> IO ()
+    uploadData [] = return ()
+    uploadData xs = do
+      reply <- runBH prx env $ V5.bulk $ V.fromList xs
+      case statusCode $ responseStatus reply of
+        200 -> return ()
+        s -> print s
+
+    serializePair :: (IndexName v, Value) -> IO V5.BulkOperation
+    serializePair (indexName, val) = do
+      -- docId <- mkDocId'
+      return $
+        -- V5.BulkIndex
+        -- V5.BulkCreate
+        V5.BulkIndexAuto
+        (V5.IndexName (fromIndexName prx indexName))
+        (V5.MappingName (fromMappingName prx mapping))
+        -- (V5.DocId docId)
+        val
+
+    discrimLen chunkSize l
+      | l >= chunkSize = SendIt
+      | otherwise = StackIt
+
+    prx :: Typeable.Proxy v
+    prx = Typeable.Proxy
