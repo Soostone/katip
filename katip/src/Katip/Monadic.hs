@@ -34,7 +34,7 @@ module Katip.Monadic
     , katipAddNamespace
     , katipAddContext
     , KatipContextTState(..)
-    , NoLoggingT
+    , NoLoggingT (..)
     , askLoggerIO
     ) where
 
