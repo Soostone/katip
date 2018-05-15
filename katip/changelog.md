@@ -1,3 +1,7 @@
+0.5.5.0
+=======
+* Export `runNoLoggingT` and `NoLoggingT` constructor.
+
 0.5.4.0
 =======
 * Loosen bounds on resourcet and template-haskell.
