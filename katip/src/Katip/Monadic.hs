@@ -454,6 +454,7 @@ newtype NoLoggingT m a = NoLoggingT {
                , MonadPlus
                , Alternative
                , MonadFix
+               , MonadReader r
                )
 
 instance MonadTrans NoLoggingT where

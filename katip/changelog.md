@@ -1,6 +1,7 @@
 0.5.5.0
 =======
 * Export `runNoLoggingT` and `NoLoggingT` constructor.
+* Delegate MonadReader instance for `NoLoggingT`.
 
 0.5.4.0
 =======
