@@ -22,6 +22,10 @@ matrix:
     - env: ARGS="--resolver=lts-10" ESVERSION=1.5.2 ESURL=https://download.elastic.co/elasticsearch/elasticsearch ESTESTARGS="--es-version 1"
     - env: ARGS="--resolver=nightly" ESVERSION=5.5.0 ESURL=https://artifacts.elastic.co/downloads/elasticsearch ESTESTARGS="--es-version 5" ES_JAVA_OPTS="-Xms500m -Xmx750m" JAVA_HOME=/usr/lib/jvm/java-8-oracle
     - env: ARGS="--resolver=nightly" ESVERSION=6.2.2 ESURL=https://artifacts.elastic.co/downloads/elasticsearch ESTESTARGS="--es-version 5" ES_JAVA_OPTS="-Xms500m -Xmx750m" JAVA_HOME=/usr/lib/jvm/java-8-oracle
+  # nightlies may fail from time to time
+  allow_failures:
+    - env: ARGS="--resolver=nightly" ESVERSION=5.5.0 ESURL=https://artifacts.elastic.co/downloads/elasticsearch ESTESTARGS="--es-version 5" ES_JAVA_OPTS="-Xms500m -Xmx750m" JAVA_HOME=/usr/lib/jvm/java-8-oracle
+    - env: ARGS="--resolver=nightly" ESVERSION=6.2.2 ESURL=https://artifacts.elastic.co/downloads/elasticsearch ESTESTARGS="--es-version 5" ES_JAVA_OPTS="-Xms500m -Xmx750m" JAVA_HOME=/usr/lib/jvm/java-8-oracle
 
 before_install:
 # Download and unpack the stack executable
