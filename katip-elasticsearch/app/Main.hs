@@ -11,7 +11,6 @@ import           Control.DeepSeq
 import           Control.Exception
 import           Control.Monad
 import           Control.Monad.IO.Class
-import           Criterion.Main
 import           Data.Aeson
 import qualified Data.HashMap.Strict                  as HM
 import           Data.IORef
@@ -33,62 +32,15 @@ import           Katip.Scribes.ElasticSearch.Internal (ESV1)
 main :: IO ()
 main = do
   docCounter <- newIORef 0
-  -- rng <- mkRNG
-  defaultMain
-    [
-    --   mkDocIdBenchmark rng
-    -- , deannotateValueBenchmark
-    esLoggingBenchmark docCounter
-    ]
+  esLoggingBenchmark docCounter
   count <- readIORef docCounter
   putStrLn $ "Doc inserted count was: " <> show count
 
--- mkDocIdBenchmark :: RNG -> Benchmark
--- mkDocIdBenchmark rng = bgroup "mkDocId"
---   [
---     bench "mkDocId (randomIO)" $ nfIO (mkDocId (Proxy :: Proxy ESV1))
---   , bench "mkDocId' (shared)" $ nfIO $ mkDocId' rng
---   ]
-
--- deannotateValueBenchmark :: Benchmark
--- deannotateValueBenchmark = bgroup "deannotateValue"
---  [
---    bench "deannotateValue" $ nf deannotateValue annotatedValue
---  ]
-
-
--- annotatedValue :: Value
--- annotatedValue = Object $ HM.fromList [ ("a::string", String "whatever")
---                                       , ("b::double", Number 4.5)
---                                       , ("c::long", Number 4)
---                                       , ("d::boolean", Bool True)
---                                       , ("e::null", Null)
---                                       ]
-
--- mkDocId' :: RNG -> IO DocId
--- mkDocId' rng = do
---     is <- withRNG rng $ \gen -> replicateM len $ mk gen
---     return . DocId . T.pack . concatMap (`showHex` "") $ is
-
 deriving instance NFData DocId
 
-esLoggingBenchmark :: IORef Integer -> Benchmark
-esLoggingBenchmark docCounter = bgroup "ES logging"
- [
-   -- bench "log 10 messages" $ nfIO (logMessages docCounter 10)
- -- , bench "log 100 messages" $ nfIO (logMessages docCounter 100)
- -- , bench "log 1000 Messages" $ nfIO (logMessages docCounter 1000)
- -- , bench "log 10000 Messages" $ nfIO (logMessages docCounter 10000)
- -- , bench "log 50000 Messages" $ nfIO (logMessages docCounter 50000)
-
- -- , bench "bulk log 10 messages" $ nfIO (logMessagesBulk docCounter 10)
- -- , bench "bulk log 100 messages" $ nfIO (logMessagesBulk docCounter 100)
- -- , bench "bulk log 1000 Messages" $ nfIO (logMessagesBulk docCounter 1000)
-   bench "bulk log 10000 Messages" $ nfIO (logMessagesBulk docCounter 10000)
- , bench "bulk log 50000 Messages" $ nfIO (logMessagesBulk docCounter 50000)
- , bench "bulk log 1000000 Messages"
-   $ nfIO (logMessagesBulk docCounter 1000000)
- ]
+esLoggingBenchmark :: IORef Integer -> IO ()
+esLoggingBenchmark docCounter = do
+ logMessagesBulk docCounter 10000
 
 logMessages :: IORef Integer -> Int -> IO ()
 logMessages docCounter repeats = do
@@ -158,7 +110,7 @@ mkEsBenchLogEnvBulk = do
                              }
       indexFlusher = V5.runBH bhEnv (V5.refreshIndex indexName)
   esScribe <- mkEsBulkScribe
-            scribeCfg bhEnv indexName
-            mappingName severity verbosity
+              scribeCfg bhEnv indexName
+              mappingName severity verbosity return
   let mkLogEnv = registerScribe "es" esScribe defaultScribeSettings =<< initLogEnv "MyApp" "production"
   return (indexFlusher, mkLogEnv)

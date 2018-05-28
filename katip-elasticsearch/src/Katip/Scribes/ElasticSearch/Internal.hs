@@ -6,8 +6,8 @@
 {-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
--- | This is an internal module. No guarantees are made in this module
--- about API stability.
+-- | This is an internal module. No guarantees are made
+-- in this module about API stability.
 module Katip.Scribes.ElasticSearch.Internal where
 
 
@@ -16,10 +16,11 @@ import           Control.Concurrent
 import           Control.Concurrent.Async
 import           Control.Concurrent.STM.TBMQueue
 import qualified Control.Concurrent.Chan.Unagi.Bounded   as UNB
+-- import           Control.Exception
 import           Control.Exception.Base
 import           Control.Exception.Enclosed
 import           Control.Monad
-import           Control.Monad.Catch
+import           Control.Monad.Catch hiding (finally)
 import           Control.Monad.IO.Class
 import           Control.Monad.STM
 import           Control.Retry                           (RetryPolicy,
@@ -39,6 +40,7 @@ import           Data.Typeable                           as Typeable
 import           Data.UUID
 import qualified Data.UUID.V4                            as UUID4
 import qualified Data.Vector                             as V
+import           Data.Void
 import qualified Database.V1.Bloodhound                  as V1
 import qualified Database.V5.Bloodhound                  as V5
 import           Network.HTTP.Client
@@ -552,6 +554,12 @@ instance ESVersion ESV5 where
   unanalyzedStringType _ = "keyword"
   analyzedStringType _ = "text"
 
+hasLocked :: String -> IO a -> IO a
+hasLocked msg action =
+  action `catches`
+  [ Handler $ \exc@BlockedIndefinitelyOnMVar -> putStrLn ("[MVar]: " ++ msg) >> throwIO exc
+  , Handler $ \exc@BlockedIndefinitelyOnSTM -> putStrLn ("[STM]: " ++ msg) >> throwIO exc
+  ]
 
 -- | The Any field tagged with a @v@ corresponds to the type of the
 -- same name in the corresponding @bloodhound@ module. For instance,
@@ -560,13 +568,14 @@ instance ESVersion ESV5 where
 -- that module, @IndexName v@ will repsond to @IndexName@ from that
 -- module, etc.
 mkEsBulkScribe
-    :: forall v. ( ESVersion v
-                 , V5.MonadBH (BH v IO)
-                 , MonadIO (BH v IO)
+    :: forall b v
+     . ( ESVersion v
+       , V5.MonadBH (BH v IO)
+       , MonadIO (BH v IO)
 #if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ < 800
-                 , Functor (BH v IO)
+, Functor (BH v IO)
 #endif
-                 )
+       )
     => EsScribeCfg v
     -> BHEnv v
     -> IndexName v
@@ -574,12 +583,14 @@ mkEsBulkScribe
     -> MappingName v
     -> Severity
     -> Verbosity
-    -- -> (Scribe -> IO a)
-    -> IO Scribe
-mkEsBulkScribe cfg@EsScribeCfg {..} env ix mapping sev verb = do
+    -> (Scribe -> IO b)
+    -> IO b
+    -- -> IO Scribe
+mkEsBulkScribe cfg@EsScribeCfg {..} env ix mapping sev verb f = do
   (inChan, outChan) <- UNB.newChan $ unEsQueueSize essQueueSize
+  putStrLn "before new empty mvar"
   blockForCompletion <- newEmptyMVar
-  runBH prx env $ do
+  hasLocked "runBH" $ runBH prx env $ do
     chk <- indexExists prx ix
     -- note that this doesn't update settings. That's not available
     -- through the Bloodhound API yet
@@ -593,14 +604,17 @@ mkEsBulkScribe cfg@EsScribeCfg {..} env ix mapping sev verb = do
       unless (statusIsSuccessful (responseStatus r2)) $
         liftIO $ throwIO (CouldNotCreateMapping r2)
 
-  _ <- async $
-    startBulkWorker cfg env mapping outChan blockForCompletion
-
   let finalizer = do
+        putStrLn "sending stopworker"
         UNB.writeChan inChan StopWorker
+        putStrLn "sent stopworker"
         takeMVar blockForCompletion
+        putStrLn "took blockForCompletion"
 
-  return (Scribe (logger inChan) finalizer)
+  snd <$> concurrently
+    (hasLocked "startBulkWorker" $ startBulkWorker cfg env mapping outChan blockForCompletion)
+    (hasLocked "f" $ f (Scribe (logger inChan) finalizer))
+    `finally` (hasLocked "writeChan StopWorker" $ UNB.writeChan inChan StopWorker)
   where
     logger :: forall a
             . LogItem a
@@ -667,31 +681,31 @@ startBulkWorker EsScribeCfg{..} env mapping outChan completionVar = do
   -- We need to randomize upload delay
   -- so that workers do not stampede the nodes
   delayTime' <- randomRIO essDelayRange
-  go (delayTime') [] 0
+  hasLocked "go" $ go (delayTime') [] 0
   where
     go :: Int -> [V5.BulkOperation] -> Int -> IO ()
     go delayTime xs len = do
-      maybeHasData <- UNB.readChan outChan
+      maybeHasData <- hasLocked "go: readChan" $ UNB.readChan outChan
       case maybeHasData of
         (HasData val) ->
           case discrimLen essChunkSize len of
             SendIt -> do
               newPair <- serializePair val
-              _ <- uploadData (newPair : xs)
+              _ <- hasLocked "go/SendIt: uploadData" $ uploadData (newPair : xs)
               go delayTime [] 0
             StackIt -> do
               newPair <- serializePair val
               go delayTime (newPair : xs) (len+1)
         TimeoutTriggered -> do
-          _ <- uploadData xs
+          _ <- hasLocked "go/TimeoutTriggered: uploadData" $ uploadData xs
           go delayTime [] 0
         StopWorker -> do
           _ <- uploadData xs
-          putMVar completionVar ()
+          hasLocked "go:putMVar" $ putMVar completionVar ()
 
     uploadData :: [V5.BulkOperation] -> IO ()
     uploadData [] = return ()
-    uploadData xs = do
+    uploadData xs = hasLocked "uploadData" $ do
       reply <- runBH prx env $ V5.bulk $ V.fromList xs
       case statusCode $ responseStatus reply of
         200 -> return ()

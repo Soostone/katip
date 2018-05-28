@@ -59,8 +59,8 @@ library
     , vector >= 0.12.0.1 && < 0.13
   hs-source-dirs:      src
   default-language:    Haskell2010
-  if flag(lib-Werror)
-    ghc-options: -Wall -Werror
+  -- if flag(lib-Werror)
+  --   ghc-options: -Wall -Werror
 
 benchmark bench
   type: exitcode-stdio-1.0
@@ -117,3 +117,35 @@ test-suite test
     ghc-options: -Wall -Werror
 
   ghc-options: -threaded -rtsopts
+
+executable katip-es-test
+    main-is: Main.hs
+    hs-source-dirs: app
+    default-extensions: BangPatterns ConstraintKinds DataKinds DeriveDataTypeable DeriveGeneric EmptyDataDecls FlexibleContexts FlexibleInstances GADTs GeneralizedNewtypeDeriving MultiParamTypeClasses NoMonomorphismRestriction OverloadedStrings QuasiQuotes RankNTypes RecordWildCards ScopedTypeVariables TemplateHaskell TupleSections TypeFamilies TypeOperators ViewPatterns
+    ghc-options: -O -Wall -threaded -rtsopts -with-rtsopts=-N
+    build-depends:
+        katip-elasticsearch
+      , katip
+      , http-client
+      , bloodhound
+      , base
+      , tasty >= 0.11
+      , tasty-hunit
+      , tasty-quickcheck
+      , quickcheck-instances
+      , containers
+      , transformers
+      , lens
+      , lens-aeson
+      , text
+      , http-types
+      , aeson
+      , vector
+      , unordered-containers
+      , scientific
+      , time
+      , stm
+      , bytestring
+      , tagged
+      , deepseq
+      , random
