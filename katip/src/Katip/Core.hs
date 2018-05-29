@@ -601,10 +601,10 @@ makeLenses ''LogEnv
 
 
 -------------------------------------------------------------------------------
--- | Create a reasonable default InitLogEnv. Uses an 'AutoUdate' with
--- the default settings as the timer. If you are concerned about
--- timestamp precision or event ordering in log outputs like
--- ElasticSearch, you should replace the timer with 'getCurrentTime'
+-- | Create a reasonable default InitLogEnv. Uses an 'AutoUdate' which
+-- updates the timer every 1ms. If you need even more timestamp
+-- precision at the cost of performance, consider setting
+-- '_logEnvTimer' with 'getCurrentTime'.
 initLogEnv
     :: Namespace
     -- ^ A base namespace for this application
@@ -616,7 +616,7 @@ initLogEnv an env = LogEnv
   <*> getProcessID
   <*> pure an
   <*> pure env
-  <*> mkAutoUpdate defaultUpdateSettings { updateAction = getCurrentTime }
+  <*> mkAutoUpdate defaultUpdateSettings { updateAction = getCurrentTime, updateFreq = 1000 }
   <*> pure mempty
 
 
