@@ -1,3 +1,7 @@
+0.5.5.1
+=======
+* Decrease default timer resolution from 1s to 1ms.
+
 0.5.5.0
 =======
 * Export `runNoLoggingT` and `NoLoggingT` constructor.
