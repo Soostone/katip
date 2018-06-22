@@ -1,3 +1,8 @@
+0.6.0.0
+=======
+* Drop ListT instance due to deprecations.
+* Loosen dependencies.
+
 0.5.5.1
 =======
 * Decrease default timer resolution from 1s to 1ms.
