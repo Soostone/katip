@@ -1,3 +1,7 @@
+0.4.2.0
+=======
+* Allow newer bloodhound, aeson, async.
+
 0.4.1.0
 =======
 * Fix bug where index was created in `mkEsScribe` when it would not be used due to index sharding.
