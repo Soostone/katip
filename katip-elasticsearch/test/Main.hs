@@ -26,7 +26,7 @@ import           Data.Aeson.Lens
 import           Data.Aeson.Types
 import           Data.ByteString.Lazy                    (ByteString)
 import qualified Data.HashMap.Strict                     as HM
-import           Data.Monoid
+import           Data.Monoid                             as M
 import           Data.Scientific
 import           Data.Tagged
 import           Data.Text                               (Text)
@@ -230,7 +230,7 @@ esTests
 esTests prx = testGroup "elasticsearch scribe"
   [
     withSearch' (\c -> c { essIndexSharding = NoIndexSharding}) prx $ \setup -> testCase "it flushes to elasticsearch" $ withTestLogging prx setup $ \done -> do
-       $(logT) (ExampleCtx True) mempty InfoS "A test message"
+       $(logT) (ExampleCtx True) M.mempty InfoS "A test message"
        liftIO $ do
          void done
          logs <- getLogs prx

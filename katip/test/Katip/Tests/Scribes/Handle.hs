@@ -6,9 +6,9 @@ module Katip.Tests.Scribes.Handle
 -------------------------------------------------------------------------------
 import           Control.Monad
 import           Data.Aeson
-import qualified Data.ByteString.Lazy       as BL
 import qualified Data.ByteString.Char8      as B
-import           Data.Monoid
+import qualified Data.ByteString.Lazy       as BL
+import           Data.Monoid                as M
 import           Data.Text                  (Text)
 import qualified Data.Text                  as T
 import qualified Data.Text.Encoding         as T
@@ -41,7 +41,7 @@ tests = testGroup "Katip.Scribes.Handle"
        res <- readFile path
        let pat = "\\[[[:digit:]]{4}-[[:digit:]]{2}-[[:digit:]]{2} [[:digit:]]{2}:[[:digit:]]{2}:[[:digit:]]{2}\\]\\[katip-test.test\\]\\[Info\\]\\[.+\\]\\[[[:digit:]]+\\]\\[ThreadId [[:digit:]]+\\]\\[note.deep:some note\\] test message" :: String
        let matches = res =~ pat
-       assertBool (show res <> " did not match") matches
+       assertBool (show res M.<> " did not match") matches
   , withResource setupFile (const (return ())) $ \setupScribe -> testCase "logs correct data to a file" $ do
       (path, fin, le) <- setupScribe
       runKatipT le $ logItem dummyLogItem "test" Nothing InfoS "test message"

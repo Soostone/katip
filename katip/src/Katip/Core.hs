@@ -56,7 +56,7 @@ import           Data.Foldable                as FT
 import qualified Data.HashMap.Strict          as HM
 import           Data.List
 import qualified Data.Map.Strict                       as M
-import           Data.Semigroup
+import           Data.Semigroup as SG
 import           Data.String
 import           Data.String.Conv
 import           Data.Text                             (Text)
@@ -98,7 +98,7 @@ readMay s = case [x | (x,t) <- reads s, ("","") <- lex t] of
 -- IsString/OverloadedStrings, so "foo" will result in Namespace
 -- ["foo"].
 newtype Namespace = Namespace { unNamespace :: [Text] }
-  deriving (Eq,Show,Read,Ord,Generic,ToJSON,FromJSON,Semigroup,Monoid)
+  deriving (Eq,Show,Read,Ord,Generic,ToJSON,FromJSON,SG.Semigroup,Monoid)
 
 instance IsString Namespace where
     fromString s = Namespace [fromString s]

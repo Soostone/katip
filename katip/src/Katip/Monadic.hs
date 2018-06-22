@@ -54,7 +54,6 @@ import           Control.Monad.Trans.Either        (EitherT, mapEitherT)
 #endif
 import           Control.Monad.Trans.Except        (ExceptT, mapExceptT)
 import           Control.Monad.Trans.Identity      (IdentityT, mapIdentityT)
-import           Control.Monad.Trans.List          (ListT, mapListT)
 import           Control.Monad.Trans.Maybe         (MaybeT, mapMaybeT)
 import           Control.Monad.Trans.Resource      (ResourceT, transResourceT)
 import           Control.Monad.Trans.RWS           (RWST, mapRWST)
@@ -164,13 +163,6 @@ instance (KatipContext m, Katip (EitherT e m)) => KatipContext (EitherT e m) whe
   getKatipNamespace = lift getKatipNamespace
   localKatipNamespace = mapEitherT . localKatipNamespace
 #endif
-
-
-instance (KatipContext m, Katip (ListT m)) => KatipContext (ListT m) where
-  getKatipContext = lift getKatipContext
-  localKatipContext = mapListT . localKatipContext
-  getKatipNamespace = lift getKatipNamespace
-  localKatipNamespace = mapListT . localKatipNamespace
 
 
 instance (KatipContext m, Katip (ReaderT r m)) => KatipContext (ReaderT r m) where

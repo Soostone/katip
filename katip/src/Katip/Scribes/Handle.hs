@@ -9,7 +9,7 @@ import           Control.Exception      (bracket_, finally)
 import           Control.Monad
 import           Data.Aeson
 import qualified Data.HashMap.Strict    as HM
-import           Data.Monoid
+import           Data.Monoid            as M
 import           Data.Scientific        as S
 import           Data.Text              (Text)
 import           Data.Text.Lazy.Builder
@@ -23,7 +23,7 @@ import           Katip.Format.Time      (formatAsLogTime)
 
 -------------------------------------------------------------------------------
 brackets :: Builder -> Builder
-brackets m = fromText "[" <> m <> fromText "]"
+brackets m = fromText "[" M.<> m <> fromText "]"
 
 
 -------------------------------------------------------------------------------

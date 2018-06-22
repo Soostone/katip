@@ -19,7 +19,7 @@ import           Control.Exception.Safe
 import           Data.Aeson
 import qualified Data.HashMap.Strict       as HM
 import qualified Data.Map.Strict           as M
-import           Data.Monoid
+import           Data.Monoid               as Monoid
 import           Data.Text                 (Text)
 import qualified Data.Text.Lazy.Builder    as B
 import           Data.Time
@@ -128,7 +128,7 @@ loggingTests = testGroup "logging"
   where
     recordingEnv :: IO (LogEnv, TVar [Item Object])
     recordingEnv = do
-      items <- newTVarIO mempty
+      items <- newTVarIO Monoid.mempty
       let scribe = Scribe
             { liPush = \i -> atomically (modifyTVar' items (<> [toObject <$> i]))
             , scribeFinalizer = return ()

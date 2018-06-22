@@ -12,7 +12,7 @@ import           Data.Aeson
 import qualified Data.Foldable       as FT
 import qualified Data.HashMap.Strict as HM
 import           Data.Maybe
-import           Data.Monoid
+import           Data.Monoid         as M
 import           Data.Scientific     (isFloating)
 import           Data.Text           (Text)
 import qualified Data.Text           as T
@@ -65,7 +65,7 @@ annotateKeys = HM.fromList . map go . HM.toList
   where
     go (k, Object o) = (k, Object $ annotateKeys o)
     go (k, Array a)  = (k, Array (annotateValue <$> a))
-    go (k, s@(String _)) = (k <> stringAnn, s)
+    go (k, s@(String _)) = (k M.<> stringAnn, s)
     go (k, n@(Number sci)) = if isFloating sci
                              then (k <> doubleAnn, n)
                              else (k <> longAnn, n)
