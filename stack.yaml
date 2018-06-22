@@ -3,7 +3,6 @@ packages:
   - katip
   - katip-elasticsearch
 extra-deps:
-  # These can be dropped probably as soon as they hit an LTS
   - bloodhound-0.16.0.0
 flags:
   katip:
