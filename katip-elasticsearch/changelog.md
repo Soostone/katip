@@ -1,3 +1,12 @@
+0.5.0.0
+=======
+* Update template for ESv1 to not analyze certain fields like host and
+  namespace. These are not fields that benefit from tokenization. If
+  you're on ESv1, after running `mkEsScribe`, the logs template will
+  be updated to stop analyzing those fields. That means the next
+  index that is cut (e.g. tomorrow's logs if you're using daily index
+  sharding) will no longer analyze some fields.
+
 0.4.2.0
 =======
 * Allow newer bloodhound, aeson, async.
