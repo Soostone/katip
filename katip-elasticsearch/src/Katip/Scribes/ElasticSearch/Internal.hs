@@ -345,8 +345,8 @@ baseMapping prx mn =
               , "at" .= dateType
               , unanalyzedString "app"
               ]
-        unanalyzedString k = k .= object ["type" .= String (unanalyzedStringType prx)]
-        analyzedString k = k .= object ["type" .= String (analyzedStringType prx)]
+        unanalyzedString k = k .= unanalyzedStringSpec prx
+        analyzedString k = k .= analyzedStringSpec prx
         locType = object ["properties" .= object locPairs]
         locPairs = [ unanalyzedString "loc_pkg"
                    , unanalyzedString "loc_mod"
@@ -480,8 +480,8 @@ class ESVersion v where
 
   -- In ES 5 and beyond, "string" was deprecated in favor of text for
   -- fulltext and keyword for unanalyzed tokens
-  unanalyzedStringType :: proxy v -> Text
-  analyzedStringType :: proxy v -> Text
+  unanalyzedStringSpec :: proxy v -> Value
+  analyzedStringSpec :: proxy v -> Value
 
 
 
@@ -517,8 +517,14 @@ instance ESVersion ESV1 where
   updateIndexSettings _ = V1.updateIndexSettings
   putTemplate _ = V1.putTemplate
   putMapping _ = V1.putMapping
-  unanalyzedStringType _ = "string"
-  analyzedStringType _ = "string"
+  unanalyzedStringSpec _ = object
+    [ "type" .= String  "string"
+    , "index" .= String "not_analyzed"
+    ]
+  analyzedStringSpec _ = object
+    [ "type" .= String  "string"
+    , "index" .= String "analyzed"
+    ]
 
 
 data ESV5 = ESV5
@@ -553,5 +559,9 @@ instance ESVersion ESV5 where
   updateIndexSettings _ = V5.updateIndexSettings
   putTemplate _ = V5.putTemplate
   putMapping _ = V5.putMapping
-  unanalyzedStringType _ = "keyword"
-  analyzedStringType _ = "text"
+  unanalyzedStringSpec _ = object
+    [ "type" .= String "keyword"
+    ]
+  analyzedStringSpec _ = object
+    [ "type" .= String "text"
+    ]
