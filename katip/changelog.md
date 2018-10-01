@@ -1,3 +1,8 @@
+0.6.1.0
+=======
+* Loosen deps
+* Support latest STM
+
 0.6.0.0
 =======
 * Drop ListT instance due to deprecations.
