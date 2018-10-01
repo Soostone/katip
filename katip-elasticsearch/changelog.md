@@ -1,3 +1,7 @@
+0.5.1.0
+=======
+* Loosen deps
+
 0.5.0.0
 =======
 * Update template for ESv1 to not analyze certain fields like host and
