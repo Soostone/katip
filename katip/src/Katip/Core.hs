@@ -631,7 +631,7 @@ registerScribe
     -> LogEnv
     -> IO LogEnv
 registerScribe nm scribe ScribeSettings {..} le = do
-  queue <- atomically (BQ.newTBQueue _scribeBufferSize)
+  queue <- atomically (BQ.newTBQueue (fromIntegral _scribeBufferSize))
   worker <- spawnScribeWorker scribe queue
   let fin = do
         atomically (BQ.writeTBQueue queue PoisonPill)
