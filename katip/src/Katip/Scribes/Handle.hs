@@ -72,7 +72,7 @@ mkHandleScribe = mkHandleScribeWithFormatter bracketFormat
 -- Returns the newly-created `Scribe`. The finalizer flushes the
 -- handle. Handle mode is set to 'LineBuffering' automatically.
 mkHandleScribeWithFormatter :: (forall a . LogItem a => ItemFormatter a) -> ColorStrategy -> Handle -> Severity -> Verbosity -> IO Scribe
-mkHandleScribeWithFormatter formatItem cs h sev verb = do
+mkHandleScribeWithFormatter itemFormatter cs h sev verb = do
     hSetBuffering h LineBuffering
     colorize <- case cs of
       ColorIfTerminal -> hIsTerminalDevice h
@@ -80,7 +80,7 @@ mkHandleScribeWithFormatter formatItem cs h sev verb = do
     lock <- newMVar ()
     let logger i@Item{..} = do
           when (permitItem sev i) $ bracket_ (takeMVar lock) (putMVar lock ()) $
-            T.hPutStrLn h $ toLazyText $ formatItem colorize verb i
+            T.hPutStrLn h $ toLazyText $ itemFormatter colorize verb i
     return $ Scribe logger (hFlush h)
 
 
@@ -104,6 +104,11 @@ mkFileScribe f sev verb = do
 --
 -- See `bracketFormat` and `jsonFormat` for examples.
 type ItemFormatter a = Bool -> Verbosity -> Item a -> Builder
+
+
+formatItem :: LogItem a => ItemFormatter a
+formatItem = bracketFormat
+{-# DEPRECATED formatItem "Use bracketFormat instead" #-}
 
 -- | A traditional 'bracketed' log format. Contexts and other information will
 -- be flattened out into bracketed fields. For example:
@@ -131,7 +136,7 @@ bracketFormat withColor verb Item{..} =
 -- | Logs items as JSON. This can be useful in circumstances where you already
 -- have infrastructure that is expecting JSON to be logged to a standard stream
 -- or file. For example:
-
+--
 -- > {"at":"2018-10-02T21:50:30.4523848Z","env":"production","ns":["MyApp"],"data":{},"app":["MyApp"],"msg":"Started","pid":"10456","loc":{"loc_col":9,"loc_pkg":"main","loc_mod":"Helpers.Logging","loc_fn":"Helpers\\Logging.hs","loc_ln":44},"host":"myhost.example.com","sev":"Info","thread":"ThreadId 139"}
 -- > {"at":"2018-10-02T21:50:30.4523848Z","env":"production","ns":["MyApp","confrabulation"],"data":{"confrab_factor":42},"app":["MyApp"],"msg":"Confrabulating widgets, with extra namespace and context","pid":"10456","loc":{"loc_col":11,"loc_pkg":"main","loc_mod":"Helpers.Logging","loc_fn":"Helpers\\Logging.hs","loc_ln":53},"host":"myhost.example.com","sev":"Debug","thread":"ThreadId 139"}
 -- > {"at":"2018-10-02T21:50:30.4523848Z","env":"production","ns":["MyApp"],"data":{},"app":["MyApp"],"msg":"Namespace and context are back to normal","pid":"10456","loc":{"loc_col":9,"loc_pkg":"main","loc_mod":"Helpers.Logging","loc_fn":"Helpers\\Logging.hs","loc_ln":55},"host":"myhost.example.com","sev":"Info","thread":"ThreadId 139"}
