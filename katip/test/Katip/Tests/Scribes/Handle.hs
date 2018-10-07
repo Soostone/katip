@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
 module Katip.Tests.Scribes.Handle
     ( tests
     ) where
@@ -25,7 +26,6 @@ import           Test.Tasty.HUnit
 import           Text.Regex.TDFA
 -------------------------------------------------------------------------------
 import           Katip
-import           Katip.Scribes.Handle
 -------------------------------------------------------------------------------
 
 
@@ -55,6 +55,10 @@ tests = testGroup "Katip.Scribes.Handle"
       goldenVsString "Text-golden"
                      "test/Katip/Tests/Scribes/Handle-text.golden"
                      (setupFn >>= writeTextLog)
+  , withResource setupTempFile teardownTempFile $ \setupFn ->
+      goldenVsString "Json-golden"
+                     "test/Katip/Tests/Scribes/Handle-json.golden"
+                     (setupFn >>= writeJsonLog)
   ]
 
 
@@ -234,14 +238,20 @@ mkUTCTime y mt d h mn s = UTCTime day dt
 
 -------------------------------------------------------------------------------
 writeTextLog :: (FilePath, Handle) -> IO (BL.ByteString)
-writeTextLog (path, h) = do
+writeTextLog = writeFormattedLog bracketFormat
+
+writeJsonLog :: (FilePath, Handle) -> IO (BL.ByteString)
+writeJsonLog = writeFormattedLog jsonFormat
+
+writeFormattedLog :: (forall a . LogItem a => ItemFormatter a) -> (FilePath, Handle) -> IO (BL.ByteString)
+writeFormattedLog format (path, h) = do
     mapM_ (put . formatOne) genItems
     mapM_ (put . formatOne) genTypedItems
     hClose h
     BL.readFile path
   where
     formatOne :: LogItem a => Item a -> Text
-    formatOne = LT.toStrict . LT.toLazyText . formatItem False V3
+    formatOne = LT.toStrict . LT.toLazyText . format False V3
     put = B.hPutStrLn h . T.encodeUtf8
 
 setupTempFile :: IO (FilePath, Handle)

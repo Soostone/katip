@@ -177,8 +177,12 @@ module Katip
 
     -- * Included Scribes
     , mkHandleScribe
+    , mkHandleScribeWithFormatter
     , mkFileScribe
     , ColorStrategy (..)
+    , ItemFormatter
+    , bracketFormat
+    , jsonFormat
 
     -- * Tools for implementing Scribes
     , permitItem
