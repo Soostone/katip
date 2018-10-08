@@ -1,8 +1,7 @@
-0.6.2.0
+0.6.2.1
 =======
-* Add `mkHandleScribeWithFormatter`. This allows control over the
-  format of log items going to a handle. Credit to [Domen
-  Kožar](https://github.com/domenkozar) for the implementation.
+* Add `mkHandleScribeWithFormatter`. This allows control over the format of log items going to a handle. Credit to [Tristan Bull](https://github.com/tmbull) for the implementation.
+* Documentation fixes. Credit to [Domen Kožar](https://github.com/domenkozar) for the implementation.
 * Add `jsonFormat` handle formatter.
 * Deprecate `formatItem` which is now replaced by `bracketFormat`.
 

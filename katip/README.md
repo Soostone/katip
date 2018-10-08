@@ -85,3 +85,4 @@ stack.
 * [Alexander Vershilov](https://github.com/qnikst)
 * [Chris Martin](https://github.com/chris-martin)
 * [Domen Kožar](https://github.com/domenkozar)
+* [Tristan Bull](https://github.com/tmbull)
