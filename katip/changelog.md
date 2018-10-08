@@ -1,3 +1,11 @@
+0.6.2.0
+=======
+* Add `mkHandleScribeWithFormatter`. This allows control over the
+  format of log items going to a handle. Credit to [Domen
+  Kožar](https://github.com/domenkozar) for the implementation.
+* Add `jsonFormat` handle formatter.
+* Deprecate `formatItem` which is now replaced by `bracketFormat`.
+
 0.6.1.0
 =======
 * Loosen deps

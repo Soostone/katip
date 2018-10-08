@@ -84,3 +84,4 @@ stack.
 * [Leonid Onokhov](https://github.com/sopvop)
 * [Alexander Vershilov](https://github.com/qnikst)
 * [Chris Martin](https://github.com/chris-martin)
+* [Domen Kožar](https://github.com/domenkozar)
