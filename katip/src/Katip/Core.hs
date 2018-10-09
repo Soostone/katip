@@ -179,6 +179,21 @@ instance FromJSON Severity where
           Just x  -> return x
           Nothing -> fail $ "Invalid Severity " ++ toS t
 
+instance ToJSON Verbosity where
+    toJSON s = A.String $ case s of
+      V0 -> "V0"
+      V1 -> "V1"
+      V2 -> "V2"
+      V3 -> "V3"
+
+instance FromJSON Verbosity where
+    parseJSON = A.withText "Verbosity" $ \s -> case s of
+      "V0" -> return V0
+      "V1" -> return V1
+      "V2" -> return V2
+      "V3" -> return V3
+      _    -> fail $ "Invalid Verbosity " ++ toS s
+
 
 -------------------------------------------------------------------------------
 -- | Log message with Builder underneath; use '<>' to concat in O(1).

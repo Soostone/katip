@@ -42,6 +42,8 @@ tests = testGroup "Katip"
   [
     testProperty "JSON cycle Item" $ \(i :: Item ()) ->
       prop_json_cycle i
+  , testProperty "JSON cycle verbosity" $ \(v :: Verbosity) ->
+      prop_json_cycle v
   , eqItemTests
   , testProperty "renderSeverity/textToSeverity cycle" $ \sev ->
       textToSeverity(renderSeverity sev) === Just sev
@@ -258,6 +260,10 @@ instance Arbitrary Loc where
       s <- arbitrary
       return $ Loc f p m s s
 
+
+-------------------------------------------------------------------------------
+instance Arbitrary Verbosity where
+    arbitrary = oneof $ map pure [V0, V1, V2, V3]
 
 -------------------------------------------------------------------------------
 instance Arbitrary Severity where
