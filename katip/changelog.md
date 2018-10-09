@@ -1,3 +1,7 @@
+0.6.3.0
+=======
+* Add `ToJSON`/`FromJSON` instances for Verbosity. Credit to [Aleksey Khudyakov](https://github.com/Shimuuar).
+
 0.6.2.1
 =======
 * Add `mkHandleScribeWithFormatter`. This allows control over the format of log items going to a handle. Credit to [Tristan Bull](https://github.com/tmbull) for the implementation.
