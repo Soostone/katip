@@ -126,6 +126,13 @@ loggingTests = testGroup "logging"
         , (baseNS <> "added" <> "namespace", baseCtx, "with namespaces")
         , (baseNS <> "added", HM.insert "additional" (Bool True) baseCtx, "additional context")
         ]
+  , testCase "Katip.Monadic.logLocM" $ do
+      (le, items) <- recordingEnv
+      runKatipContextT le (sl "base_context" (42 :: Int)) "base_namespace" $ logLocM InfoS "basic log"
+      _ <- closeScribes le
+      loggedItems <- readTVarIO items
+      let loc = _itemLoc (head loggedItems)
+      fmap loc_module loc @?= Just "Katip.Tests"
   ]
   where
     recordingEnv :: IO (LogEnv, TVar [Item Object])

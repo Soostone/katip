@@ -7,7 +7,6 @@
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GADTs                      #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE ImplicitParams             #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE RankNTypes                 #-}
@@ -997,11 +996,15 @@ liftLoc (Loc a b c (d1, d2) (e1, e2)) = [|Loc
 -- fill the 'Maybe Loc' gap in 'logF' of this module, and relies on implicit
 -- callstacks when available (GHC > 7.8).
 #if MIN_VERSION_base(4, 8, 0)
-getLoc :: (?loc :: CallStack) => Maybe Loc
-getLoc = case getCallStack ?loc of
+getLoc :: HasCallStack => Maybe Loc
+getLoc = case getCallStack callStack of
   [] -> Nothing
-  xs -> Just . toLoc . last $ xs
+  xs -> Just . toLoc . head $ filter filterKatip xs
   where
+    filterKatip :: (String, SrcLoc) -> Bool
+    filterKatip (_, srcloc) = not $
+      "katip-" `isPrefixOf` srcLocPackage srcloc
+
     toLoc :: (String, SrcLoc) -> Loc
     toLoc (_, l) = Loc {
         loc_filename = srcLocFile l
@@ -1032,7 +1035,7 @@ logT = [| \ a ns sev msg -> logItem a ns (Just $(getLocTH)) sev msg |]
 
 
 -------------------------------------------------------------------------------
--- | 'Loc'-tagged logging using implicit-callstacks when available.
+-- | 'Loc'-tagged logging using 'GHC.Stack' when available.
 --
 -- This function does not require template-haskell as it
 -- automatically uses <https://hackage.haskell.org/package/base-4.8.2.0/docs/GHC-Stack.html#v:getCallStack implicit-callstacks>
@@ -1043,7 +1046,7 @@ logT = [| \ a ns sev msg -> logItem a ns (Just $(getLocTH)) sev msg |]
 --
 -- @logLoc obj mempty InfoS "Hello world"@
 #if MIN_VERSION_base(4, 8, 0)
-logLoc :: (Applicative m, LogItem a, Katip m, ?loc :: CallStack)
+logLoc :: (Applicative m, LogItem a, Katip m, HasCallStack)
 #else
 logLoc :: (Applicative m, LogItem a, Katip m)
 #endif
