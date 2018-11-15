@@ -68,6 +68,12 @@ import qualified Data.HashMap.Strict               as HM
 import           Data.Semigroup                    as Semi
 import           Data.Sequence                     as Seq
 import           Data.Text                         (Text)
+#if MIN_VERSION_base(4, 8, 0)
+#if !MIN_VERSION_base(4, 9, 0)
+import           GHC.SrcLoc
+#endif
+import           GHC.Stack
+#endif
 import           Language.Haskell.TH
 -------------------------------------------------------------------------------
 import           Katip.Core
@@ -235,7 +241,7 @@ deriving instance (Monad m, KatipContext m) => KatipContext (KatipT m)
 -- very low level and you typically can use 'logTM' in its
 -- place. Automatically supplies payload and namespace.
 logItemM
-    :: (Applicative m, KatipContext m)
+    :: (Applicative m, KatipContext m, HasCallStack)
     => Maybe Loc
     -> Severity
     -> LogStr
@@ -272,10 +278,13 @@ logTM = [| logItemM (Just $(getLocTH)) |]
 
 
 -------------------------------------------------------------------------------
--- | 'Loc'-tagged logging when using <https://hackage.haskell.org/package/base-4.8.2.0/docs/GHC-Stack.html#v:getCallStack implicit-callstacks>.
+-- | 'Loc'-tagged logging when using 'GHC.Stack.getCallStack' implicit-callstacks>.
 --   Automatically supplies payload and namespace.
 --
 -- Same consideration as `logLoc` applies.
+--
+-- Location will be logged from the module that invokes 'logLocM' so
+-- be aware that wrapping 'logLocM' will make location reporting useless.
 --
 -- This function does not require template-haskell. Using GHC <= 7.8 will result
 -- in the emission of a log line without any location information.
@@ -283,7 +292,7 @@ logTM = [| logItemM (Just $(getLocTH)) |]
 -- `logTM` for maximum compatibility.
 --
 -- @logLocM InfoS "Hello world"@
-logLocM :: (Applicative m, KatipContext m)
+logLocM :: (Applicative m, KatipContext m, HasCallStack)
         => Severity
         -> LogStr
         -> m ()

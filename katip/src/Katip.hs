@@ -166,6 +166,7 @@ module Katip
     , KatipContext (..)
     , logFM
     , logTM
+    , logLocM
     , logItemM
     , logExceptionM
     , AnyLogContext
