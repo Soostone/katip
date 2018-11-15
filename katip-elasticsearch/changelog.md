@@ -1,3 +1,7 @@
+0.5.1.1
+=======
+* Loosen katip dep
+
 0.5.1.0
 =======
 * Loosen deps
