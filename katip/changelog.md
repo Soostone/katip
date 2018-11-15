@@ -1,3 +1,8 @@
+0.7.0.0
+=======
+* Exclusively use HasCallstack for location reporting in errors. Credit to [Domen Kožar](https://github.com/domenkozar)
+* Drop support for GHC 7.x
+
 0.6.3.0
 =======
 * Add `ToJSON`/`FromJSON` instances for Verbosity. Credit to [Aleksey Khudyakov](https://github.com/Shimuuar).

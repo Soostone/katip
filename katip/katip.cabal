@@ -1,5 +1,5 @@
 name:                katip
-version:             0.6.3.0
+version:             0.7.0.0
 synopsis:            A structured logging framework.
 description:
   Katip is a structured logging framework. See README.md for more details.
@@ -25,7 +25,7 @@ extra-source-files:
   test/Katip/Tests/Scribes/Handle.hs
   test/Katip/Tests/Scribes/Handle-text.golden
   test/Katip/Tests/Format/Time.hs
-tested-with: GHC == 7.8.4, GHC== 7.10.3
+tested-with: GHC == 8.0.1, GHC == 8.2.2, GHC == 8.4.3
 
 source-repository head
   type:     git
