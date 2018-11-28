@@ -22,7 +22,7 @@
 --     -- Reasonable for production
 --     defaultEsScribeCfgV5
 --     -- Reasonable for single-node in development
---     -- defaultEsScribeCfgV5 { essIndexSettings = IndexSettings (ShardCound 1) (ReplicaCount 0)}
+--     -- defaultEsScribeCfgV5 { essIndexSettings = IndexSettings (ShardCound 1) (ReplicaCount 0)} :: EsScribeCfg ESV5
 --     bhe
 --       (IndexName "all-indices-prefixed-with")
 --       (MappingName "application-logs")

@@ -18,11 +18,12 @@ main :: IO ()
 main = do
   mgr <- newManager defaultManagerSettings
   let bhe = mkBHEnv (Server "http://localhost:9200") mgr
+  -- You may need to specify the version in a type signature when customizing your index settings
+  let _customizedExample =  defaultEsScribeCfgV5 { essIndexSettings = IndexSettings (ShardCount 1) (ReplicaCount 0)} :: EsScribeCfg ESV5
   esScribe <- mkEsScribe
     -- Reasonable for production
     defaultEsScribeCfgV5
     -- Reasonable for single-node in development
-    -- defaultEsScribeCfgV5 { essIndexSettings = IndexSettings (ShardCound 1) (ReplicaCount 0)}
     bhe
     (IndexName "all-indices-prefixed-with")
     (MappingName "application-logs")
