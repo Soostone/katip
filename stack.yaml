@@ -11,3 +11,5 @@ flags:
     lib-Werror: true
   katip-elasticsearch:
     lib-Werror: true
+  katip-datadog:
+    lib-Werror: true
