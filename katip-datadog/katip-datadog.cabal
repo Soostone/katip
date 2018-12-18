@@ -1,0 +1,49 @@
+name:                katip-datadog
+version:             0.0.1.0
+description:         See README.md for more details.
+license:             BSD3
+license-file:        LICENSE
+author:              Michael Xavier
+maintainer:          michael.xavier@soostone.com
+copyright:           Soostone Inc, 2018
+category:            Data, Text, Logging
+homepage:            https://github.com/Soostone/katip
+bug-reports:         https://github.com/Soostone/katip/issues
+build-type:          Simple
+cabal-version:       >=1.10
+extra-source-files:
+  README.md
+  changelog.md
+
+--TODO: fill this in
+tested-with: GHC == 8.4.3
+
+source-repository head
+  type:     git
+  location: https://github.com/Soostone/katip.git
+
+flag lib-Werror
+  default: False
+  manual: True
+
+
+library
+  exposed-modules:
+    Katip.Scribes.Datadog.TCP
+  build-depends:
+      --TODO: shed a lot of these
+      base >=4.4.0.0 && <5
+    , katip >= 0.2.0.0 && < 0.8
+    , text
+    , connection
+    , resource-pool
+    , time
+    , binary
+    , network
+    , safe-exceptions
+    , retry >= 0.7
+  hs-source-dirs:      src
+  default-language:    Haskell2010
+  hs-source-dirs:      src
+  if flag(lib-Werror)
+    ghc-options: -Wall -Werror
