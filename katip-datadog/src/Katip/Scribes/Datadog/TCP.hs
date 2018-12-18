@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 -- | Creates a scribe as a Custom Forwarder for Datadog that sends log
 -- messages over TCP via their TLS endpoint.
 module Katip.Scribes.Datadog.TCP
@@ -77,14 +78,14 @@ data DataDogScribeSettings = DataDogScribeSettings
 -- authentication.
 directAPIConnectionParams :: C.ConnectionParams
 directAPIConnectionParams = C.ConnectionParams
-  { connectionHostname = "intake.logs.datadoghq.com"
-  , connectionPort = 10516
-  , connectionUseSecure = Just $ C.TLSSettingsSimple
-      { settingDisableCertificateValidation = False
-      , settingDisableSession               = False
-      , settingUseServerName                = False
+  { C.connectionHostname = "intake.logs.datadoghq.com"
+  , C.connectionPort = 10516
+  , C.connectionUseSecure = Just $ C.TLSSettingsSimple
+      { C.settingDisableCertificateValidation = False
+      , C.settingDisableSession               = False
+      , C.settingUseServerName                = False
       }
-  , connectionUseSocks = Nothing
+  , C.connectionUseSocks = Nothing
   }
 
 
@@ -94,10 +95,10 @@ directAPIConnectionParams = C.ConnectionParams
 -- handled by the agent configuration.
 localAgentConnectionParams :: Net.PortNumber -> C.ConnectionParams
 localAgentConnectionParams port = C.ConnectionParams
-  { connectionHostname = "127.0.0.1"
-  , connectionPort = port
-  , connectionUseSecure = Nothing
-  , connectionUseSocks = Nothing
+  { C.connectionHostname = "127.0.0.1"
+  , C.connectionPort = port
+  , C.connectionUseSecure = Nothing
+  , C.connectionUseSocks = Nothing
   }
 
 
