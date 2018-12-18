@@ -85,7 +85,7 @@ data EsScribeCfg v = EsScribeCfg {
 --
 --     * defaultManagerSettings
 --
---     * exponential backoff with 25ms base delay up to 5 retries
+--     * exponential backoff with 25ms base delay up to 5 retries, for a total cumulative delay of 775ms
 --
 --     * Queue size of 1000
 --
@@ -96,7 +96,7 @@ data EsScribeCfg v = EsScribeCfg {
 --     * DailyIndexSharding
 defaultEsScribeCfg' :: ESVersion v => proxy v -> EsScribeCfg v
 defaultEsScribeCfg' prx = EsScribeCfg {
-      essRetryPolicy     = exponentialBackoff 25 <> limitRetries 5
+      essRetryPolicy     = exponentialBackoff 25000 <> limitRetries 5
     , essQueueSize       = EsQueueSize 1000
     , essPoolSize        = EsPoolSize 2
     , essAnnotateTypes   = False
