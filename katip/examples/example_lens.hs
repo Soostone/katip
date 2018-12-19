@@ -51,7 +51,7 @@ main = do
   -- hot-swap scribes at runtime if you need to. 'closeScribes' is
   -- blocking and flushes all messages out of a scribe and cleans up
   -- resources that were allocated at creation.
-  handleScribe <- mkHandleScribe ColorIfTerminal stdout InfoS V2
+  handleScribe <- mkHandleScribe ColorIfTerminal stdout (permitItem InfoS) V2
   let mkLogEnv = registerScribe "stdout" handleScribe defaultScribeSettings =<< initLogEnv "MyApp" "production"
   bracket mkLogEnv closeScribes $ \le -> do
     let s = MyState M.mempty mempty le
