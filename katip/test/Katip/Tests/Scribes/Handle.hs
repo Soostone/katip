@@ -92,7 +92,7 @@ setup :: IO (FilePath, Handle, IO (), LogEnv)
 setup = do
   tempDir <- getTemporaryDirectory
   (fp, h) <- openTempFile tempDir "katip.log"
-  s <- mkHandleScribe (ColorLog False) h DebugS V3
+  s <- mkHandleScribe (ColorLog False) h (permitItem DebugS) V3
   le <- initLogEnv "katip-test" "test"
   le' <- registerScribe "handle" s defaultScribeSettings le
   return (fp, h, void (closeScribes le'), le')
@@ -111,7 +111,7 @@ setupFile = do
   tempDir <- getTemporaryDirectory
   (fp, h) <- openTempFile tempDir "katip.log"
   hClose h
-  s <- mkFileScribe fp DebugS V3
+  s <- mkFileScribe fp (permitItem DebugS) V3
   le <- initLogEnv "katip-test" "test"
   le' <- registerScribe "handle" s defaultScribeSettings le
   return (fp, void (closeScribes le'), le')

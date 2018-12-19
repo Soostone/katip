@@ -29,7 +29,7 @@ import qualified Control.Concurrent.Async              as Async
 import           Control.Concurrent.STM
 import qualified Control.Concurrent.STM.TBQueue as BQ
 import           Control.Exception.Safe
-import           Control.Monad                         (unless, void)
+import           Control.Monad                         (unless, void, when)
 import           Control.Monad.Base
 import           Control.Monad.IO.Class
 import           Control.Monad.IO.Unlift
@@ -532,45 +532,86 @@ itemJson verb a = toJSON $ a & itemPayload %~ payloadObject verb
 --
 -- Scribes should always take a 'Severity' and 'Verbosity'.
 --
--- Severity is used to *exclude log messages* that are < the provided
--- Severity. For instance, if the user passes InfoS, DebugS items
--- should be ignored. Katip provides the 'permitItem' utility for this.
+-- Severity is used to __exclude log messages__ that are lower than
+-- the provided Severity. For instance, if the user passes InfoS,
+-- DebugS items should be ignored. Katip provides the 'permitItem'
+-- utility for this. The user or the scribe may use 'permitAND' and
+-- 'permitOR' to further customize this filtering, even dynamically if
+-- they wish to.
 --
 -- Verbosity is used to select keys from the log item's payload. Each
 -- 'LogItem' instance describes what keys should be retained for each
 -- Verbosity level. Use the 'payloadObject' utility for extracting the keys
--- that should be permitted.
+-- that should be written.
 --
--- There is no built-in mechanism in katip for telling a scribe that
--- its time to shut down. 'unregisterScribe' merely drops it from the
--- 'LogEnv'. This means there are 2 ways to handle resources as a scribe:
+-- Scribes provide a finalizer IO action ('scribeFinalizer') that is
+-- meant to synchronously flush any remaining writes and clean up any
+-- resources acquired when the scribe was created. Internally, katip
+-- keeps a buffer for each scribe's writes. When 'closeScribe' or
+-- 'closeScribes' is called, that buffer stops accepting new log
+-- messages and after the last item in its buffer is sent to 'liPush',
+-- calls the finalizer. Thus, when the finalizer returns, katip can
+-- assume that all resources are cleaned up and all log messages are
+-- durably written.
 --
--- 1. Pass in the resource when the scribe is created. Handle
--- allocation and release of the resource elsewhere. This is what the
--- Handle scribe does.
---
--- 2. Return a finalizing function that tells the scribe to shut
--- down. @katip-elasticsearch@'s @mkEsScribe@ returns an @IO (Scribe,
--- IO ())@. The finalizer will flush any queued log messages and shut
--- down gracefully before returning. This can be hooked into your
--- application's shutdown routine to ensure you never miss any log
--- messages on shutdown.
+-- While katip internally buffers messages per 'ScribeSettings', it
+-- sends them one at a time to the scribe. Depending on the scribe
+-- itself, it may make sense for that scribe to keep its own internal
+-- buffer to batch-send logs if writing items one at a time is not
+-- efficient. The scribe implementer must be sure that on
+-- finalization, all writes are committed synchronously.
+
+-- | Signature of a function passed to `Scribe` constructor and
+--   mkScribe* functions that decides which messages to be
+--   logged. Typically filters based on 'Severity', but can be
+--   combined with other, custom logic with 'permitAND' and 'permitOR'
+type PermitFunc = forall a. Item a -> IO Bool
+
+
+-- | AND together 2 permit functions
+permitAND :: PermitFunc -> PermitFunc -> PermitFunc
+permitAND f1 f2 = \a -> liftA2 (&&) (f1 a) (f2 a)
+
+-- | OR together 2 permit functions
+permitOR :: PermitFunc -> PermitFunc -> PermitFunc
+permitOR f1 f2 = \a -> liftA2 (||) (f1 a) (f2 a)
+
+
 data Scribe = Scribe {
      liPush          :: forall a. LogItem a => Item a -> IO ()
+   -- ^ How do we write an item to the scribe's output?
    , scribeFinalizer :: IO ()
-   -- ^ Provide a *blocking* finalizer to call when your scribe is
-   -- removed. If this is not relevant to your scribe, return () is
-   -- fine.
+   -- ^ Provide a __blocking__ finalizer to call when your scribe is
+   -- removed. All pending writes should be flushed synchronously. If
+   -- this is not relevant to your scribe, return () is fine.
+   , scribePermitItem :: PermitFunc
+   -- ^ Provide a filtering function to allow the item to be logged,
+   --   or not.  It can check Severity or some string in item's
+   --   body. The initial value of this is usually created from
+   --   'permitItem'. Scribes and users can customize this by ANDing
+   --   or ORing onto the default with 'permitAND' or 'permitOR'
    }
 
 
+whenM :: Monad m => m Bool -> m () -> m ()
+whenM mbool = (>>=) mbool . flip when
+
+
+-- | Combine two scribes. Publishes to the left scribe if the left
+-- would permit the item and to the right scribe if the right would
+-- permit the item. Finalizers are called in sequence from left to
+-- right.
 instance Semigroup Scribe where
-  (Scribe pushA finA) <> (Scribe pushB finB) =
-    Scribe (\item -> pushA item >> pushB item) (finA `finally` finB)
+  (Scribe pushA finA permitA) <> (Scribe pushB finB permitB) =
+    Scribe (\item -> whenM (permitA item) (pushA item)
+                  >> whenM (permitB item) (pushB item)
+           )
+           (finA `finally` finB)
+           (permitOR permitA permitB)
 
 
 instance Monoid Scribe where
-    mempty = Scribe (const (return ())) (return ())
+    mempty = Scribe (const (return ())) (return ()) (permitItem DebugS)
     mappend = (<>)
 
 
@@ -589,8 +630,9 @@ data WorkerMessage where
 
 -------------------------------------------------------------------------------
 -- | Should this item be logged given the user's maximum severity?
-permitItem :: Severity -> Item a -> Bool
-permitItem sev i = _itemSeverity i >= sev
+-- Most new scribes will use this as a base for their 'PermitFunc'
+permitItem :: Monad m => Severity -> Item a -> m Bool
+permitItem sev item = return (_itemSeverity item >= sev)
 
 
 -------------------------------------------------------------------------------
@@ -636,7 +678,9 @@ initLogEnv an env = LogEnv
 
 -------------------------------------------------------------------------------
 -- | Add a scribe to the list. All future log calls will go to this
--- scribe in addition to the others.
+-- scribe in addition to the others. Writes will be buffered per the
+-- ScribeSettings to prevent slow scribes from slowing down
+-- logging. Writes will be dropped if the buffer fills.
 registerScribe
     :: Text
     -- ^ Name the scribe
@@ -660,7 +704,7 @@ registerScribe nm scribe ScribeSettings {..} le = do
 
 -------------------------------------------------------------------------------
 spawnScribeWorker :: Scribe -> BQ.TBQueue WorkerMessage -> IO (Async.Async ())
-spawnScribeWorker (Scribe write _) queue = Async.async go
+spawnScribeWorker (Scribe write _ _) queue = Async.async go
   where
     go = do
       newCmd <- atomically (BQ.readTBQueue queue)
@@ -689,7 +733,7 @@ defaultScribeSettings = ScribeSettings 4096
 
 
 -------------------------------------------------------------------------------
--- | Remove a scribe from the environment. This does *not* finalize
+-- | Remove a scribe from the environment. This does __not__ finalize
 -- the scribe. This mainly only makes sense to use with something like
 -- MonadReader's @local@ function to temporarily disavow a single
 -- logger for a block of code.
@@ -702,7 +746,7 @@ unregisterScribe nm =  logEnvScribes %~ M.delete nm
 
 
 -------------------------------------------------------------------------------
--- | Unregister *all* scribes. Note that this is *not* for closing or
+-- | Unregister __all__ scribes. Note that this is __not__ for closing or
 -- finalizing scribes, use 'closeScribes' for that. This mainly only
 -- makes sense to use with something like MonadReader's @local@
 -- function to temporarily disavow any loggers for a block of code.
@@ -714,9 +758,10 @@ clearScribes = logEnvScribes .~ mempty
 
 -------------------------------------------------------------------------------
 -- | Finalize a scribe. The scribe is removed from the environment,
--- its finalizer is called and it can never be written to again. Note
--- that this will throw any exceptions yoru finalizer will throw, and
--- that LogEnv is immutable, so it will not be removed in that case.
+-- its finalizer is called so that it can never be written to again
+-- and all pending writes are flushed. Note that this will throw any
+-- exceptions yoru finalizer will throw, and that LogEnv is immutable,
+-- so it will not be removed in that case.
 closeScribe
     :: Text
     -- ^ Name of the scribe
@@ -896,8 +941,9 @@ logItem a ns loc sev msg = do
         <*> _logEnvTimer
         <*> pure (_logEnvApp <> ns)
         <*> pure loc
-      FT.forM_ (M.elems _logEnvScribes) $ \ ScribeHandle {..} -> atomically (tryWriteTBQueue shChan (NewItem item))
-
+      FT.forM_ (M.elems _logEnvScribes) $ \ ScribeHandle {..} -> do
+        whenM (scribePermitItem shScribe item) $
+          void $ atomically (tryWriteTBQueue shChan (NewItem item))
 
 -------------------------------------------------------------------------------
 tryWriteTBQueue
@@ -909,6 +955,7 @@ tryWriteTBQueue q a = do
   full <- isFullTBQueue q
   unless full (writeTBQueue q a)
   return (not full)
+
 
 -------------------------------------------------------------------------------
 -- | Log with full context, but without any code location.

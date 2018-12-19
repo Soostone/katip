@@ -11,8 +11,8 @@
 --
 -- main :: IO ()
 -- main = do
---   handleScribe <- mkHandleScribe ColorIfTerminal stdout InfoS V2
---   let makeLogEnv = registerScribe "stdout" handleScribe defaultScribeSettings =<< initLogEnv "MyApp" "production"
+--   handleScribe <- mkHandleScribe ColorIfTerminal stdout (permitItem InfoS) V2
+--   let makeLogEnv = registerScribe "stdout" handleScribe defaultScribeSettings =<< initLogEnv \"MyApp\" \"production\"
 --   -- closeScribes will stop accepting new logs, flush existing ones and clean up resources
 --   bracket makeLogEnv closeScribes $ \le -> do
 --     let initialContext = () -- this context will be attached to every log in your app and merged w/ subsequent contexts
@@ -153,7 +153,7 @@ module Katip
     , LogStr (..)
     , logStr, ls, showLS
 
-    -- ** 'Katip' LoggingFunctions
+    -- ** 'Katip' Logging Functions
     -- $katiplogging
     , Katip (..)
     , logF
@@ -186,6 +186,9 @@ module Katip
     , jsonFormat
 
     -- * Tools for implementing Scribes
+    , PermitFunc
+    , permitAND
+    , permitOR
     , permitItem
     , payloadObject
     , itemJson

@@ -141,6 +141,7 @@ loggingTests = testGroup "logging"
       let scribe = Scribe
             { liPush = \i -> atomically (modifyTVar' items (<> [toObject <$> i]))
             , scribeFinalizer = return ()
+            , scribePermitItem = permitItem DebugS
             }
       le1 <- initLogEnv "tests" "test"
       le2 <- registerScribe "recorder" scribe defaultScribeSettings le1
@@ -154,7 +155,7 @@ trivialScribe :: IO (Scribe, TVar Bool)
 trivialScribe = do
   finalizerCalled <- newTVarIO False
   let finalizer = atomically (writeTVar finalizerCalled True)
-  return (Scribe (const (return ())) finalizer, finalizerCalled)
+  return (Scribe (const (return ())) finalizer (permitItem DebugS), finalizerCalled)
 
 
 -------------------------------------------------------------------------------
@@ -164,7 +165,7 @@ brokenScribe scribeNum = do
   let finalizer = do
         atomically (writeTVar finalizerCalled True)
         throw (ScribeBroken scribeNum)
-  return (Scribe (const (return ())) finalizer, finalizerCalled)
+  return (Scribe (const (return ())) finalizer (permitItem DebugS), finalizerCalled)
 
 
 -------------------------------------------------------------------------------
