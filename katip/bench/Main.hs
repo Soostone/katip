@@ -92,7 +92,7 @@ setup dest = do
       return (tmp </> "katip-bench.log")
     DevNull -> return ("/dev/null")
   h <- openFile outFile WriteMode
-  s <- mkHandleScribe ColorIfTerminal h DebugS V0
+  s <- mkHandleScribe ColorIfTerminal h (permitItem DebugS) V0
   let cleanupHandle = hClose h `finally` (when (dest == TempFile) (removeLink outFile))
   return s { scribeFinalizer = scribeFinalizer s `finally` cleanupHandle}
 
@@ -101,4 +101,7 @@ setup dest = do
 deriving instance NFData ThreadIdText
 
 instance NFData Scribe where
-  rnf (Scribe a b) = (a :: Item ExPayload -> IO ()) `seq` b `seq` ()
+  rnf (Scribe a b p) = (a :: Item ExPayload -> IO ())
+                 `seq`  b
+                 `seq` (p :: Item ExPayload -> IO Bool)
+                 `seq` ()

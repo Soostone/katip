@@ -29,7 +29,7 @@ import qualified Control.Concurrent.Async              as Async
 import           Control.Concurrent.STM
 import qualified Control.Concurrent.STM.TBQueue as BQ
 import           Control.Exception.Safe
-import           Control.Monad                         (unless, void)
+import           Control.Monad                         (unless, void, when)
 import           Control.Monad.Base
 import           Control.Monad.IO.Class
 import           Control.Monad.IO.Unlift
@@ -555,22 +555,38 @@ itemJson verb a = toJSON $ a & itemPayload %~ payloadObject verb
 -- down gracefully before returning. This can be hooked into your
 -- application's shutdown routine to ensure you never miss any log
 -- messages on shutdown.
+
+
+-- | Signature of a function passed to `Scribe` constructor and mkScribe* functions
+--   that decides which messages to be logged
+type PermitFunc = forall a. Item a -> IO Bool
+
+
 data Scribe = Scribe {
      liPush          :: forall a. LogItem a => Item a -> IO ()
    , scribeFinalizer :: IO ()
    -- ^ Provide a *blocking* finalizer to call when your scribe is
    -- removed. If this is not relevant to your scribe, return () is
    -- fine.
+   , scribePermitItem :: PermitFunc
+   -- ^ Provide a filtering function to allow the item to be logged, or not.
+   --   It can check Severity or some string in item's body.
    }
 
+whenM :: Monad m => m Bool -> m () -> m ()
+whenM mbool = (>>=) mbool . flip when
 
 instance Semigroup Scribe where
-  (Scribe pushA finA) <> (Scribe pushB finB) =
-    Scribe (\item -> pushA item >> pushB item) (finA `finally` finB)
+  (Scribe pushA finA permitA) <> (Scribe pushB finB permitB) =
+    Scribe (\item -> whenM (permitA item) (pushA item)
+                  >> whenM (permitB item) (pushB item)
+           )
+           (finA `finally` finB)
+           (\item -> (||) <$> permitA item <*> permitB item)
 
 
 instance Monoid Scribe where
-    mempty = Scribe (const (return ())) (return ())
+    mempty = Scribe (const (return ())) (return ()) (permitItem DebugS)
     mappend = (<>)
 
 
@@ -589,8 +605,8 @@ data WorkerMessage where
 
 -------------------------------------------------------------------------------
 -- | Should this item be logged given the user's maximum severity?
-permitItem :: Severity -> Item a -> Bool
-permitItem sev i = _itemSeverity i >= sev
+permitItem :: Monad m => Severity -> Item a -> m Bool
+permitItem sev Item{..} = return $ _itemSeverity >= sev
 
 
 -------------------------------------------------------------------------------
@@ -660,7 +676,7 @@ registerScribe nm scribe ScribeSettings {..} le = do
 
 -------------------------------------------------------------------------------
 spawnScribeWorker :: Scribe -> BQ.TBQueue WorkerMessage -> IO (Async.Async ())
-spawnScribeWorker (Scribe write _) queue = Async.async go
+spawnScribeWorker (Scribe write _ _) queue = Async.async go
   where
     go = do
       newCmd <- atomically (BQ.readTBQueue queue)
@@ -896,8 +912,9 @@ logItem a ns loc sev msg = do
         <*> _logEnvTimer
         <*> pure (_logEnvApp <> ns)
         <*> pure loc
-      FT.forM_ (M.elems _logEnvScribes) $ \ ScribeHandle {..} -> atomically (tryWriteTBQueue shChan (NewItem item))
-
+      FT.forM_ (M.elems _logEnvScribes) $ \ ScribeHandle {..} -> do
+        whenM (scribePermitItem shScribe item) $
+          void $ atomically (tryWriteTBQueue shChan (NewItem item))
 
 -------------------------------------------------------------------------------
 tryWriteTBQueue

@@ -27,7 +27,7 @@ main = do
     bhe
     (IndexName "all-indices-prefixed-with")
     (MappingName "application-logs")
-    DebugS
+    (permitItem DebugS)
     V3
   let mkLogEnv = registerScribe "es" esScribe defaultScribeSettings =<< initLogEnv "MyApp" "production"
   bracket mkLogEnv closeScribes $ \le -> runKatipT le $ do
