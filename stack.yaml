@@ -1,4 +1,4 @@
-resolver: lts-11.14
+resolver: lts-12.22
 packages:
   - katip
   - katip-elasticsearch

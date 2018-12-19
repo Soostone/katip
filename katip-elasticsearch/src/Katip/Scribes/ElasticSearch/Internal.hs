@@ -269,10 +269,10 @@ mkEsScribe
     -> IndexName v
     -- ^ Treated as a prefix if index sharding is enabled
     -> MappingName v
-    -> Severity
+    -> PermitFunc
     -> Verbosity
     -> IO Scribe
-mkEsScribe cfg@EsScribeCfg {..} env ix mapping sev verb = do
+mkEsScribe cfg@EsScribeCfg {..} env ix mapping permit verb = do
   q <- newTBMQueueIO $ unEsQueueSize essQueueSize
   endSig <- newEmptyMVar
 
@@ -308,10 +308,10 @@ mkEsScribe cfg@EsScribeCfg {..} env ix mapping sev verb = do
     putMVar endSig ()
 
   let finalizer = putMVar endSig () >> takeMVar endSig
-  return (Scribe (logger q) finalizer)
+  return (Scribe (logger q) finalizer permit)
   where
     logger :: forall a. LogItem a => TBMQueue (IndexName v, Value) -> Item a -> IO ()
-    logger q i = when (_itemSeverity i >= sev) $
+    logger q i =
       void $ atomically $ tryWriteTBMQueue q (chooseIxn prx ix essIndexSharding i, itemJson' i)
     prx :: Typeable.Proxy v
     prx = Typeable.Proxy

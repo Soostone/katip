@@ -4,7 +4,6 @@ module Katip.Scribes.Handle where
 import           Control.Applicative    as A
 import           Control.Concurrent
 import           Control.Exception      (bracket_, finally)
-import           Control.Monad
 import           Data.Aeson
 import           Data.Text.Lazy         (toStrict)
 import           Data.Text.Lazy.Encoding     (decodeUtf8)
@@ -63,7 +62,7 @@ data ColorStrategy
 --
 -- Returns the newly-created `Scribe`. The finalizer flushes the
 -- handle. Handle mode is set to 'LineBuffering' automatically.
-mkHandleScribe :: ColorStrategy -> Handle -> Severity -> Verbosity -> IO Scribe
+mkHandleScribe :: ColorStrategy -> Handle -> PermitFunc -> Verbosity -> IO Scribe
 mkHandleScribe = mkHandleScribeWithFormatter bracketFormat
 
 -- | Logs to a file handle such as stdout, stderr, or a file. Takes a custom
@@ -71,17 +70,22 @@ mkHandleScribe = mkHandleScribeWithFormatter bracketFormat
 --
 -- Returns the newly-created `Scribe`. The finalizer flushes the
 -- handle. Handle mode is set to 'LineBuffering' automatically.
-mkHandleScribeWithFormatter :: (forall a . LogItem a => ItemFormatter a) -> ColorStrategy -> Handle -> Severity -> Verbosity -> IO Scribe
-mkHandleScribeWithFormatter itemFormatter cs h sev verb = do
+mkHandleScribeWithFormatter :: (forall a . LogItem a => ItemFormatter a)
+                            -> ColorStrategy
+                            -> Handle
+                            -> PermitFunc
+                            -> Verbosity
+                            -> IO Scribe
+mkHandleScribeWithFormatter itemFormatter cs h permitF verb = do
     hSetBuffering h LineBuffering
     colorize <- case cs of
       ColorIfTerminal -> hIsTerminalDevice h
       ColorLog b      -> return b
     lock <- newMVar ()
     let logger i@Item{..} = do
-          when (permitItem sev i) $ bracket_ (takeMVar lock) (putMVar lock ()) $
+          bracket_ (takeMVar lock) (putMVar lock ()) $
             T.hPutStrLn h $ toLazyText $ itemFormatter colorize verb i
-    return $ Scribe logger (hFlush h)
+    return $ Scribe logger (hFlush h) permitF
 
 
 -------------------------------------------------------------------------------
@@ -90,11 +94,11 @@ mkHandleScribeWithFormatter itemFormatter cs h sev verb = do
 -- 'AppendMode' and will close the file handle on
 -- 'closeScribe'/'closeScribes'. Does not do log coloring. Sets handle
 -- to 'LineBuffering' mode.
-mkFileScribe :: FilePath -> Severity -> Verbosity -> IO Scribe
-mkFileScribe f sev verb = do
+mkFileScribe :: FilePath -> PermitFunc -> Verbosity -> IO Scribe
+mkFileScribe f permitF verb = do
   h <- openFile f AppendMode
-  Scribe logger finalizer <- mkHandleScribe (ColorLog False) h sev verb
-  return (Scribe logger (finalizer `finally` hClose h))
+  Scribe logger finalizer permit <- mkHandleScribe (ColorLog False) h permitF verb
+  return (Scribe logger (finalizer `finally` hClose h) permit)
 
 
 -------------------------------------------------------------------------------
@@ -169,8 +173,8 @@ colorBySeverity withColor severity msg = case severity of
 -- stdout. This is a decent example of how to build a LogEnv and is
 -- best for scripts that just need a quick, reasonable set up to log
 -- to stdout.
-ioLogEnv :: Severity -> Verbosity -> IO LogEnv
-ioLogEnv sev verb = do
+ioLogEnv :: PermitFunc -> Verbosity -> IO LogEnv
+ioLogEnv permit verb = do
   le <- initLogEnv "io" "io"
-  lh <- mkHandleScribe ColorIfTerminal stdout sev verb
+  lh <- mkHandleScribe ColorIfTerminal stdout permit verb
   registerScribe "stdout" lh defaultScribeSettings le
