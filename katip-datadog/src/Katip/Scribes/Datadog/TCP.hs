@@ -23,13 +23,11 @@ import qualified Control.Retry          as Retry
 import qualified Data.Aeson             as A
 import qualified Data.Binary.Builder    as BB
 import qualified Data.ByteString.Lazy   as BSL
-import           Data.Monoid
 import qualified Data.Pool              as Pool
 import           Data.Text              (Text)
 import qualified Data.Text.Encoding     as T
 import qualified Data.Text.Lazy.Builder as B
 import           Data.Time              (NominalDiffTime)
-import           Debug.Trace --TODO: drop
 import           Katip
 import           Katip.Core             (LocJs (..))
 import qualified Network                as Net
@@ -44,8 +42,6 @@ newtype APIKey = APIKey
   { apiKey :: Text
   } deriving (Show, Eq)
 
-
---TODO: retry policy
 
 data DataDogAuth =
     NoAuthLocal
@@ -136,8 +132,9 @@ mkDataDogScribe settings sev verb = do
     (dataDogScribeSettings_connectionKeepalive settings)
     (dataDogScribeSettings_connsPerStripe settings)
   pure $ Scribe
-    { liPush = pushPool (dataDogScribeSettings_retry settings) pool keyBuilder sev verb
+    { liPush = pushPool (dataDogScribeSettings_retry settings) pool keyBuilder verb
     , scribeFinalizer = Pool.destroyAllResources pool
+    , scribePermitItem = permitItem sev
     }
   where
     !keyBuilder = case dataDogScribeSettings_auth settings of
@@ -151,18 +148,16 @@ pushPool
   -> Pool.Pool C.Connection
   -> Maybe BB.Builder
   -- ^ Rendered API key
-  -> Severity
   -> Verbosity
   -> Item a
   -> IO ()
-pushPool retryPolicy pool token sev verb item
-  | permitItem sev item = void $ Retry.retrying retryPolicy (\_status shouldRetry -> pure (traceShowId shouldRetry)) $ \_status -> do
-      res <- EX.tryAny $ Pool.withResource pool $ \conn -> do
-        C.connectionPut conn rendered
-      pure $ case res of
-        Left e  -> traceShow e True
-        Right _ -> False
-  | otherwise = pure ()
+pushPool retryPolicy pool token verb item =
+  void $ Retry.retrying retryPolicy (\_status shouldRetry -> pure shouldRetry) $ \_status -> do
+    res <- EX.tryAny $ Pool.withResource pool $ \conn -> do
+      C.connectionPut conn rendered
+    pure $ case res of
+      Left _  -> True
+      Right _ -> False
   where
     payloadBuilder = A.fromEncoding (encodeDatadog verb item) <> "\n"
     messageBuilder = case token of

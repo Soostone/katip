@@ -35,7 +35,7 @@ library
       base >=4.4.0.0 && <5
     , aeson >= 1.0.0.0
     , bytestring
-    , katip >= 0.2.0.0 && < 0.8
+    , katip >= 0.8.0.0
     , text
     , connection
     , resource-pool
