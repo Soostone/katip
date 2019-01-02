@@ -31,7 +31,6 @@ library
   exposed-modules:
     Katip.Scribes.Datadog.TCP
   build-depends:
-      --TODO: shed a lot of these
       base >=4.4.0.0 && <5
     , aeson >= 1.0.0.0
     , bytestring
