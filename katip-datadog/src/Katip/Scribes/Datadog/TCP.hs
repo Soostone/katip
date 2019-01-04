@@ -53,19 +53,19 @@ data DatadogAuth =
 
 
 data DatadogScribeSettings = DatadogScribeSettings
-  { dataDogScribeSettings_connectionParams    :: C.ConnectionParams
+  { datadogScribeSettings_connectionParams    :: C.ConnectionParams
   -- ^ Specify where the logs should go. If writing directly to the
   -- main intake API, you can use 'directAPIConnectionParams'. If
   -- writing to a local agent, we recommend
   -- 'localAgentConnectionParams'
-  , dataDogScribeSettings_auth                :: DatadogAuth
-  , dataDogScribeSettings_poolStripes         :: Int
+  , datadogScribeSettings_auth                :: DatadogAuth
+  , datadogScribeSettings_poolStripes         :: Int
   -- ^ How many stripes should be used in the connection pool. 1 is a reasonable default
-  , dataDogScribeSettings_connsPerStripe      :: Int
+  , datadogScribeSettings_connsPerStripe      :: Int
   -- ^ How many TCP connections per stripe should be maintained in the pool.
-  , dataDogScribeSettings_connectionKeepalive :: NominalDiffTime
+  , datadogScribeSettings_connectionKeepalive :: NominalDiffTime
   -- ^ How long should a TCP connection be kept open. 30 (seconds) is a reasonable default. Anything around 60 will tend to time out a lot.
-  , dataDogScribeSettings_retry               :: Retry.RetryPolicyM IO
+  , datadogScribeSettings_retry               :: Retry.RetryPolicyM IO
   -- ^ How should exceptions during write be retried?
   }
 
@@ -107,12 +107,12 @@ mkDatadogScribeSettings :: C.ConnectionParams -> DatadogAuth -> IO DatadogScribe
 mkDatadogScribeSettings connectionParams auth = do
   capabilities <- Conc.getNumCapabilities
   pure $ DatadogScribeSettings
-    { dataDogScribeSettings_connectionParams = connectionParams
-    , dataDogScribeSettings_auth = auth
-    , dataDogScribeSettings_poolStripes = 1
-    , dataDogScribeSettings_connsPerStripe = capabilities
-    , dataDogScribeSettings_connectionKeepalive = 30
-    , dataDogScribeSettings_retry = Retry.exponentialBackoff 25000 <> Retry.limitRetries 5
+    { datadogScribeSettings_connectionParams = connectionParams
+    , datadogScribeSettings_auth = auth
+    , datadogScribeSettings_poolStripes = 1
+    , datadogScribeSettings_connsPerStripe = capabilities
+    , datadogScribeSettings_connectionKeepalive = 30
+    , datadogScribeSettings_retry = Retry.exponentialBackoff 25000 <> Retry.limitRetries 5
     }
 
 
@@ -127,18 +127,18 @@ mkDatadogScribe
 mkDatadogScribe settings permit verb = do
   connectionContext <- C.initConnectionContext
   pool <- Pool.createPool
-    (C.connectTo connectionContext (dataDogScribeSettings_connectionParams settings))
+    (C.connectTo connectionContext (datadogScribeSettings_connectionParams settings))
     C.connectionClose
-    (dataDogScribeSettings_poolStripes settings)
-    (dataDogScribeSettings_connectionKeepalive settings)
-    (dataDogScribeSettings_connsPerStripe settings)
+    (datadogScribeSettings_poolStripes settings)
+    (datadogScribeSettings_connectionKeepalive settings)
+    (datadogScribeSettings_connsPerStripe settings)
   pure $ Scribe
-    { liPush = pushPool (dataDogScribeSettings_retry settings) pool keyBuilder verb
+    { liPush = pushPool (datadogScribeSettings_retry settings) pool keyBuilder verb
     , scribeFinalizer = Pool.destroyAllResources pool
     , scribePermitItem = permit
     }
   where
-    !keyBuilder = case dataDogScribeSettings_auth settings of
+    !keyBuilder = case datadogScribeSettings_auth settings of
       NoAuthLocal           -> Nothing
       DirectAuth (APIKey k) -> Just (BB.fromByteString (T.encodeUtf8 k))
 
