@@ -79,8 +79,8 @@ collectLogs f = do
     closeLE = closeScribes
     port = 1337
     mkLE = do
-      dataDogScribeSettings <- mkDataDogScribeSettings (localAgentConnectionParams (fromInteger port)) NoAuthLocal
-      scribe <- mkDataDogScribe dataDogScribeSettings DebugS V3
+      datadogScribeSettings <- mkDatadogScribeSettings (localAgentConnectionParams (fromInteger port)) NoAuthLocal
+      scribe <- mkDatadogScribe datadogScribeSettings (permitItem DebugS) V3
       registerScribe "datadog" scribe defaultScribeSettings =<< initLogEnv "katip-datadog-tests" "test"
     startServer capturedRef = CN.runTCPServer (CN.serverSettings (fromInteger port) "*") $ \appData -> C.runConduit $
        CN.appSource appData C..|

@@ -10,8 +10,8 @@ module Katip.Scribes.Datadog.TCP
     , directAPIConnectionParams
     , localAgentConnectionParams
     -- * Scribe construction
-    , mkDataDogScribeSettings
-    , mkDataDogScribe
+    , mkDatadogScribeSettings
+    , mkDatadogScribe
     ) where
 
 
@@ -103,8 +103,8 @@ localAgentConnectionParams port = C.ConnectionParams
 -- connections with a number of connections per stripe equal to
 -- 'getNumCapabilities'. Retry policy will do an exponential backoff
 -- with a 25ms base delay for up to 5 retries for a total cumulative delay of 775ms
-mkDataDogScribeSettings :: C.ConnectionParams -> DataDogAuth -> IO DataDogScribeSettings
-mkDataDogScribeSettings connectionParams auth = do
+mkDatadogScribeSettings :: C.ConnectionParams -> DataDogAuth -> IO DataDogScribeSettings
+mkDatadogScribeSettings connectionParams auth = do
   capabilities <- Conc.getNumCapabilities
   pure $ DataDogScribeSettings
     { dataDogScribeSettings_connectionParams = connectionParams
@@ -117,14 +117,14 @@ mkDataDogScribeSettings connectionParams auth = do
 
 
 -------------------------------------------------------------------------------
-mkDataDogScribe
+mkDatadogScribe
   :: DataDogScribeSettings
   -> PermitFunc
   -- ^ Function on whether to permit items, e.g. @permitItem InfoS@
   -> Verbosity
   -- ^ Verbosity level to observe
   -> IO Scribe
-mkDataDogScribe settings permit verb = do
+mkDatadogScribe settings permit verb = do
   connectionContext <- C.initConnectionContext
   pool <- Pool.createPool
     (C.connectTo connectionContext (dataDogScribeSettings_connectionParams settings))
