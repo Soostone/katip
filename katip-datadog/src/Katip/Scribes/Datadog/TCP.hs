@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes        #-}
 -- | Creates a scribe as a Custom Forwarder for Datadog that sends log
 -- messages over TCP via their TLS endpoint.
 module Katip.Scribes.Datadog.TCP
@@ -118,12 +119,12 @@ mkDataDogScribeSettings connectionParams auth = do
 -------------------------------------------------------------------------------
 mkDataDogScribe
   :: DataDogScribeSettings
-  -> Severity
-  -- ^ Severity level to observe
+  -> PermitFunc
+  -- ^ Function on whether to permit items, e.g. @permitItem InfoS@
   -> Verbosity
   -- ^ Verbosity level to observe
   -> IO Scribe
-mkDataDogScribe settings sev verb = do
+mkDataDogScribe settings permit verb = do
   connectionContext <- C.initConnectionContext
   pool <- Pool.createPool
     (C.connectTo connectionContext (dataDogScribeSettings_connectionParams settings))
@@ -134,7 +135,7 @@ mkDataDogScribe settings sev verb = do
   pure $ Scribe
     { liPush = pushPool (dataDogScribeSettings_retry settings) pool keyBuilder verb
     , scribeFinalizer = Pool.destroyAllResources pool
-    , scribePermitItem = permitItem sev
+    , scribePermitItem = permit
     }
   where
     !keyBuilder = case dataDogScribeSettings_auth settings of
