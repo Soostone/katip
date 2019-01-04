@@ -5,8 +5,8 @@
 module Katip.Scribes.Datadog.TCP
     ( -- * Types
       APIKey(..)
-    , DataDogScribeSettings(..)
-    , DataDogAuth(..)
+    , DatadogScribeSettings(..)
+    , DatadogAuth(..)
     , directAPIConnectionParams
     , localAgentConnectionParams
     -- * Scribe construction
@@ -44,7 +44,7 @@ newtype APIKey = APIKey
   } deriving (Show, Eq)
 
 
-data DataDogAuth =
+data DatadogAuth =
     NoAuthLocal
   -- ^ Writing to the local agent, no auth required
   | DirectAuth APIKey
@@ -52,13 +52,13 @@ data DataDogAuth =
   -- required. Using a local agent is recommended.
 
 
-data DataDogScribeSettings = DataDogScribeSettings
+data DatadogScribeSettings = DatadogScribeSettings
   { dataDogScribeSettings_connectionParams    :: C.ConnectionParams
   -- ^ Specify where the logs should go. If writing directly to the
   -- main intake API, you can use 'directAPIConnectionParams'. If
   -- writing to a local agent, we recommend
   -- 'localAgentConnectionParams'
-  , dataDogScribeSettings_auth                :: DataDogAuth
+  , dataDogScribeSettings_auth                :: DatadogAuth
   , dataDogScribeSettings_poolStripes         :: Int
   -- ^ How many stripes should be used in the connection pool. 1 is a reasonable default
   , dataDogScribeSettings_connsPerStripe      :: Int
@@ -86,7 +86,7 @@ directAPIConnectionParams = C.ConnectionParams
   }
 
 
--- | Configure to talk to a local DataDog agent at 127.0.0.1. TLS is not
+-- | Configure to talk to a local Datadog agent at 127.0.0.1. TLS is not
 -- utilized. This is the preferred type of connection because
 -- authentication, buffering, and other more advanced features are
 -- handled by the agent configuration.
@@ -103,10 +103,10 @@ localAgentConnectionParams port = C.ConnectionParams
 -- connections with a number of connections per stripe equal to
 -- 'getNumCapabilities'. Retry policy will do an exponential backoff
 -- with a 25ms base delay for up to 5 retries for a total cumulative delay of 775ms
-mkDatadogScribeSettings :: C.ConnectionParams -> DataDogAuth -> IO DataDogScribeSettings
+mkDatadogScribeSettings :: C.ConnectionParams -> DatadogAuth -> IO DatadogScribeSettings
 mkDatadogScribeSettings connectionParams auth = do
   capabilities <- Conc.getNumCapabilities
-  pure $ DataDogScribeSettings
+  pure $ DatadogScribeSettings
     { dataDogScribeSettings_connectionParams = connectionParams
     , dataDogScribeSettings_auth = auth
     , dataDogScribeSettings_poolStripes = 1
@@ -118,7 +118,7 @@ mkDatadogScribeSettings connectionParams auth = do
 
 -------------------------------------------------------------------------------
 mkDatadogScribe
-  :: DataDogScribeSettings
+  :: DatadogScribeSettings
   -> PermitFunc
   -- ^ Function on whether to permit items, e.g. @permitItem InfoS@
   -> Verbosity
