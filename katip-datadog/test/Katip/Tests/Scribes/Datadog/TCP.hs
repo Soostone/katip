@@ -8,6 +8,7 @@ module Katip.Tests.Scribes.Datadog.TCP
 import           Control.Concurrent.Async
 import qualified Control.Exception.Safe    as EX
 import qualified Data.Aeson                as A
+import qualified Data.Char                 as Char
 import qualified Data.Conduit              as C
 import qualified Data.Conduit.Binary       as CB
 import qualified Data.Conduit.List         as CL
@@ -16,7 +17,8 @@ import           Data.Foldable             (toList)
 import qualified Data.HashMap.Strict       as HM
 import           Data.IORef
 import           Data.Sequence             ((|>))
-import           Data.Text
+import           Data.Text                 (Text)
+import qualified Data.Text                 as T
 import           Test.Tasty
 import           Test.Tasty.HUnit
 -------------------------------------------------------------------------------
@@ -31,14 +33,15 @@ tests = testGroup "Katip.Scribes.Datadog.TCP"
   [ testCase "logs well-formed messages in order" $ do
        logs <- collectLogs $ do
          logItem (sl "foo" ("bar" :: Text)) "mynamespace" noLoc InfoS "a message"
-       logs @?=
-         [ CapturedLog
-             { capturedLog_namespace = Namespace ["katip-datadog-tests", "mynamespace"]
-             , capturedLog_data = A.Object (HM.singleton "foo" (A.String "bar"))
-             , capturedLog_sev = InfoS
-             , capturedLog_message = "a message"
-             }
-         ]
+       length logs @?= 1
+       let (CapturedLog ns dta sev msg thread) = head logs
+       ns @?= Namespace ["katip-datadog-tests", "mynamespace"]
+       dta @?= A.Object (HM.singleton "foo" (A.String "bar"))
+       sev @?= InfoS
+       msg @?= "a message"
+       if T.all Char.isNumber thread && T.length thread > 0
+         then pure ()
+         else assertFailure ("Expected thread id to just be a number but it was " <> T.unpack thread)
   ]
   where
     noLoc = Nothing
@@ -51,6 +54,7 @@ data CapturedLog = CapturedLog
   , capturedLog_data      :: A.Value
   , capturedLog_sev       :: Severity
   , capturedLog_message   :: Text
+  , capturedLog_thread    :: Text
   } deriving (Show, Eq)
 
 
@@ -60,12 +64,15 @@ instance A.FromJSON CapturedLog where
     sev <- o A..: "severity"
     dta <- o A..: "data"
     namespace <- o A..: "ns"
+    thread <- o A..: "thread"
     pure $ CapturedLog
       { capturedLog_namespace = namespace
       , capturedLog_data  = dta
       , capturedLog_sev = sev
       , capturedLog_message = message
+      , capturedLog_thread = thread
       }
+
 
 -------------------------------------------------------------------------------
 collectLogs :: KatipT IO () -> IO [CapturedLog]

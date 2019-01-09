@@ -56,9 +56,9 @@ data ColorStrategy
 -- and other information will be flattened out into bracketed
 -- fields. For example:
 --
--- > [2016-05-11 21:01:15][MyApp][Info][myhost.example.com][1724][ThreadId 1154][main:Helpers.Logging Helpers/Logging.hs:32:7] Started
--- > [2016-05-11 21:01:15][MyApp.confrabulation][Debug][myhost.example.com][1724][ThreadId 1154][confrab_factor:42.0][main:Helpers.Logging Helpers/Logging.hs:41:9] Confrabulating widgets, with extra namespace and context
--- > [2016-05-11 21:01:15][MyApp][Info][myhost.example.com][1724][ThreadId 1154][main:Helpers.Logging Helpers/Logging.hs:43:7] Namespace and context are back to normal
+-- > [2016-05-11 21:01:15][MyApp][Info][myhost.example.com][PID 1724][ThreadId 1154][main:Helpers.Logging Helpers/Logging.hs:32:7] Started
+-- > [2016-05-11 21:01:15][MyApp.confrabulation][Debug][myhost.example.com][PID 1724][ThreadId 1154][confrab_factor:42.0][main:Helpers.Logging Helpers/Logging.hs:41:9] Confrabulating widgets, with extra namespace and context
+-- > [2016-05-11 21:01:15][MyApp][Info][myhost.example.com][PID 1724][ThreadId 1154][main:Helpers.Logging Helpers/Logging.hs:43:7] Namespace and context are back to normal
 --
 -- Returns the newly-created `Scribe`. The finalizer flushes the
 -- handle. Handle mode is set to 'LineBuffering' automatically.
@@ -117,17 +117,17 @@ formatItem = bracketFormat
 -- | A traditional 'bracketed' log format. Contexts and other information will
 -- be flattened out into bracketed fields. For example:
 --
--- > [2016-05-11 21:01:15][MyApp][Info][myhost.example.com][1724][ThreadId 1154][main:Helpers.Logging Helpers/Logging.hs:32:7] Started
--- > [2016-05-11 21:01:15][MyApp.confrabulation][Debug][myhost.example.com][1724][ThreadId 1154][confrab_factor:42.0][main:Helpers.Logging Helpers/Logging.hs:41:9] Confrabulating widgets, with extra namespace and context
--- > [2016-05-11 21:01:15][MyApp][Info][myhost.example.com][1724][ThreadId 1154][main:Helpers.Logging Helpers/Logging.hs:43:7] Namespace and context are back to normal
+-- > [2016-05-11 21:01:15][MyApp][Info][myhost.example.com][PID 1724][ThreadId 1154][main:Helpers.Logging Helpers/Logging.hs:32:7] Started
+-- > [2016-05-11 21:01:15][MyApp.confrabulation][Debug][myhost.example.com][PID 1724][ThreadId 1154][confrab_factor:42.0][main:Helpers.Logging Helpers/Logging.hs:41:9] Confrabulating widgets, with extra namespace and context
+-- > [2016-05-11 21:01:15][MyApp][Info][myhost.example.com][PID 1724][ThreadId 1154][main:Helpers.Logging Helpers/Logging.hs:43:7] Namespace and context are back to normal
 bracketFormat :: LogItem a => ItemFormatter a
 bracketFormat withColor verb Item{..} =
     brackets nowStr <>
     brackets (mconcat $ map fromText $ intercalateNs _itemNamespace) <>
     brackets (fromText (renderSeverity' _itemSeverity)) <>
     brackets (fromString _itemHost) <>
-    brackets (fromString (show _itemProcess)) <>
-    brackets (fromText (getThreadIdText _itemThread)) <>
+    brackets ("PID " <> fromString (show _itemProcess)) <>
+    brackets ("ThreadId " <> fromText (getThreadIdText _itemThread)) <>
     mconcat ks <>
     maybe mempty (brackets . fromString . locationToString) _itemLoc <>
     fromText " " <> (unLogStr _itemMessage)

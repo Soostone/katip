@@ -39,7 +39,7 @@ tests = testGroup "Katip.Scribes.Handle"
        runKatipT le $ logItem dummyLogItem "test" Nothing InfoS "wont make it in"
        hClose h
        res <- readFile path
-       let pat = "\\[[[:digit:]]{4}-[[:digit:]]{2}-[[:digit:]]{2} [[:digit:]]{2}:[[:digit:]]{2}:[[:digit:]]{2}\\]\\[katip-test.test\\]\\[Info\\]\\[.+\\]\\[[[:digit:]]+\\]\\[ThreadId [[:digit:]]+\\]\\[note.deep:some note\\] test message" :: String
+       let pat = "\\[[[:digit:]]{4}-[[:digit:]]{2}-[[:digit:]]{2} [[:digit:]]{2}:[[:digit:]]{2}:[[:digit:]]{2}\\]\\[katip-test.test\\]\\[Info\\]\\[.+\\]\\[[PID [:digit:]]+\\]\\[ThreadId [[:digit:]]+\\]\\[note.deep:some note\\] test message" :: String
        let matches = res =~ pat
        assertBool (show res M.<> " did not match") matches
   , withResource setupFile (const (return ())) $ \setupScribe -> testCase "logs correct data to a file" $ do
@@ -48,7 +48,7 @@ tests = testGroup "Katip.Scribes.Handle"
       fin
       runKatipT le $ logItem dummyLogItem "test" Nothing InfoS "wont make it in"
       res <- readFile path
-      let pat = "\\[[[:digit:]]{4}-[[:digit:]]{2}-[[:digit:]]{2} [[:digit:]]{2}:[[:digit:]]{2}:[[:digit:]]{2}\\]\\[katip-test.test\\]\\[Info\\]\\[.+\\]\\[[[:digit:]]+\\]\\[ThreadId [[:digit:]]+\\]\\[note.deep:some note\\] test message" :: String
+      let pat = "\\[[[:digit:]]{4}-[[:digit:]]{2}-[[:digit:]]{2} [[:digit:]]{2}:[[:digit:]]{2}:[[:digit:]]{2}\\]\\[katip-test.test\\]\\[Info\\]\\[.+\\]\\[[PID [:digit:]]+\\]\\[ThreadId [[:digit:]]+\\]\\[note.deep:some note\\] test message" :: String
       let matches = res =~ pat
       assertBool (show res <> " did not match") matches
   , withResource setupTempFile teardownTempFile $ \setupFn ->
