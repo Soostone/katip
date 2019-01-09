@@ -22,14 +22,14 @@
 module Katip.Core where
 
 -------------------------------------------------------------------------------
-import           Control.Applicative                   as A
+import           Control.Applicative               as A
 import           Control.AutoUpdate
 import           Control.Concurrent
-import qualified Control.Concurrent.Async              as Async
+import qualified Control.Concurrent.Async          as Async
 import           Control.Concurrent.STM
-import qualified Control.Concurrent.STM.TBQueue as BQ
+import qualified Control.Concurrent.STM.TBQueue    as BQ
 import           Control.Exception.Safe
-import           Control.Monad                         (unless, void, when)
+import           Control.Monad                     (unless, void, when)
 import           Control.Monad.Base
 import           Control.Monad.IO.Class
 import           Control.Monad.IO.Unlift
@@ -41,28 +41,30 @@ import           Control.Monad.Trans.Either
 import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.Reader
-import           Control.Monad.Trans.Resource          (ResourceT, transResourceT)
-import           Control.Monad.Trans.State.Lazy (StateT, mapStateT)
-import qualified Control.Monad.Trans.State.Strict as Strict (StateT, mapStateT)
-import           Control.Monad.Trans.Writer.Lazy (WriterT, mapWriterT)
-import qualified Control.Monad.Trans.Writer.Strict as Strict (WriterT, mapWriterT)
-import           Control.Monad.Trans.RWS.Lazy (RWST, mapRWST)
-import qualified Control.Monad.Trans.RWS.Strict as Strict (RWST, mapRWST)
-import           Data.Aeson                   (FromJSON (..), ToJSON (..),
-                                               object)
-import qualified Data.Aeson                   as A
-import           Data.Foldable                as FT
-import qualified Data.HashMap.Strict          as HM
+import           Control.Monad.Trans.Resource      (ResourceT, transResourceT)
+import           Control.Monad.Trans.RWS.Lazy      (RWST, mapRWST)
+import qualified Control.Monad.Trans.RWS.Strict    as Strict (RWST, mapRWST)
+import           Control.Monad.Trans.State.Lazy    (StateT, mapStateT)
+import qualified Control.Monad.Trans.State.Strict  as Strict (StateT, mapStateT)
+import           Control.Monad.Trans.Writer.Lazy   (WriterT, mapWriterT)
+import qualified Control.Monad.Trans.Writer.Strict as Strict (WriterT,
+                                                              mapWriterT)
+import           Data.Aeson                        (FromJSON (..), ToJSON (..),
+                                                    object)
+import qualified Data.Aeson                        as A
+import           Data.Foldable                     as FT
+import qualified Data.HashMap.Strict               as HM
 import           Data.List
-import qualified Data.Map.Strict                       as M
-import           Data.Semigroup as SG
+import qualified Data.Map.Strict                   as M
+import           Data.Maybe                        (fromMaybe)
+import           Data.Semigroup                    as SG
 import           Data.String
 import           Data.String.Conv
-import           Data.Text                             (Text)
-import qualified Data.Text                             as T
-import qualified Data.Text.Lazy.Builder                as B
+import           Data.Text                         (Text)
+import qualified Data.Text                         as T
+import qualified Data.Text.Lazy.Builder            as B
 import           Data.Time
-import           GHC.Generics                          hiding (to)
+import           GHC.Generics                      hiding (to)
 #if MIN_VERSION_base(4, 8, 0)
 #if !MIN_VERSION_base(4, 9, 0)
 import           GHC.SrcLoc
@@ -70,7 +72,7 @@ import           GHC.SrcLoc
 import           GHC.Stack
 #endif
 import           Language.Haskell.TH
-import qualified Language.Haskell.TH.Syntax            as TH
+import qualified Language.Haskell.TH.Syntax        as TH
 import           Lens.Micro
 import           Lens.Micro.TH
 import           Network.HostName
@@ -244,7 +246,9 @@ newtype ThreadIdText = ThreadIdText {
 
 
 mkThreadIdText :: ThreadId -> ThreadIdText
-mkThreadIdText = ThreadIdText . T.pack . show
+mkThreadIdText = ThreadIdText . stripPrefix' "ThreadId " . T.pack . show
+  where
+    stripPrefix' pfx t = fromMaybe t (T.stripPrefix pfx t)
 
 
 -------------------------------------------------------------------------------
@@ -578,9 +582,9 @@ permitOR f1 f2 = \a -> liftA2 (||) (f1 a) (f2 a)
 
 
 data Scribe = Scribe {
-     liPush          :: forall a. LogItem a => Item a -> IO ()
+     liPush           :: forall a. LogItem a => Item a -> IO ()
    -- ^ How do we write an item to the scribe's output?
-   , scribeFinalizer :: IO ()
+   , scribeFinalizer  :: IO ()
    -- ^ Provide a __blocking__ finalizer to call when your scribe is
    -- removed. All pending writes should be flushed synchronously. If
    -- this is not relevant to your scribe, return () is fine.
@@ -618,7 +622,7 @@ instance Monoid Scribe where
 -------------------------------------------------------------------------------
 data ScribeHandle = ScribeHandle {
       shScribe :: Scribe
-    , shChan :: BQ.TBQueue WorkerMessage
+    , shChan   :: BQ.TBQueue WorkerMessage
     }
 
 
