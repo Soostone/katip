@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns      #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
 -- | Creates a scribe as a Custom Forwarder for Datadog that sends log
@@ -24,6 +25,7 @@ import qualified Control.Retry          as Retry
 import qualified Data.Aeson             as A
 import qualified Data.Binary.Builder    as BB
 import qualified Data.ByteString.Lazy   as BSL
+import           Data.Monoid            as Monoid
 import qualified Data.Pool              as Pool
 import           Data.Text              (Text)
 import qualified Data.Text.Encoding     as T
@@ -160,7 +162,7 @@ pushPool retryPolicy pool token verb item =
       Left _  -> True
       Right _ -> False
   where
-    payloadBuilder = A.fromEncoding (encodeDatadog verb item) <> "\n"
+    payloadBuilder = A.fromEncoding (encodeDatadog verb item) Monoid.<> "\n"
     messageBuilder = case token of
       --TODO: lots of conversion going on here. could use a bench
       Nothing        -> payloadBuilder
