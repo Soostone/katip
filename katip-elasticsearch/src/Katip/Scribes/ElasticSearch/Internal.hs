@@ -16,8 +16,7 @@ import           Control.Applicative                     as A
 import           Control.Concurrent
 import           Control.Concurrent.Async
 import           Control.Concurrent.STM.TBMQueue
-import           Control.Exception.Base
-import           Control.Exception.Enclosed
+import qualified Control.Exception.Safe                  as EX
 import           Control.Monad
 import           Control.Monad.Catch
 import           Control.Monad.IO.Class
@@ -28,7 +27,7 @@ import           Control.Retry                           (RetryPolicy,
                                                           recovering)
 import           Data.Aeson
 import           Data.ByteString.Lazy                    (ByteString)
-import           Data.List.NonEmpty                      (NonEmpty(..))
+import           Data.List.NonEmpty                      (NonEmpty (..))
 import           Data.Monoid                             ((<>))
 import           Data.Text                               (Text)
 import qualified Data.Text                               as T
@@ -282,21 +281,21 @@ mkEsScribe cfg@EsScribeCfg {..} env ix mapping permit verb = do
          -- create or update
          res <- putTemplate prx tpl tplName
          unless (statusIsSuccessful (responseStatus res)) $
-           liftIO $ throwIO (CouldNotPutTemplate res)
+           liftIO $ EX.throwIO (CouldNotPutTemplate res)
        else do
          ixExists <- indexExists prx ix
          if ixExists
             then do
               res <- updateIndexSettings prx (toUpdatabaleIndexSettings prx essIndexSettings) ix
               unless (statusIsSuccessful (responseStatus res)) $
-                liftIO $ throwIO (CouldNotUpdateIndexSettings res)
+                liftIO $ EX.throwIO (CouldNotUpdateIndexSettings res)
             else do
               r1 <- createIndex prx essIndexSettings ix
               unless (statusIsSuccessful (responseStatus r1)) $
-                liftIO $ throwIO (CouldNotCreateIndex r1)
+                liftIO $ EX.throwIO (CouldNotCreateIndex r1)
               r2 <- putMapping prx ix mapping base
               unless (statusIsSuccessful (responseStatus r2)) $
-                liftIO $ throwIO (CouldNotCreateMapping r2)
+                liftIO $ EX.throwIO (CouldNotCreateMapping r2)
 
   workers <- replicateM (unEsPoolSize essPoolSize) $ async $
     startWorker cfg env mapping q
@@ -421,7 +420,7 @@ startWorker EsScribeCfg {..} env mapping q = go
       popped <- atomically $ readTBMQueue q
       case popped of
         Just (ixn, v) -> do
-          sendLog ixn v `catchAny` eat
+          sendLog ixn v `EX.catchAny` eat
           go
         Nothing -> return ()
     prx :: Typeable.Proxy v
@@ -434,8 +433,8 @@ startWorker EsScribeCfg {..} env mapping q = go
     eat _ = return ()
     handler _ = Handler $ \e ->
       case fromException e of
-        Just (_ :: AsyncException) -> return False
-        _                          -> return True
+        Just (_ :: EX.SomeAsyncException) -> return False
+        _                                 -> return True
 
 
 -------------------------------------------------------------------------------
