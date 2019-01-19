@@ -1,0 +1,63 @@
+name:                katip-logzio
+version:             0.0.1.0
+description:         See README.md for more details.
+license:             BSD3
+license-file:        LICENSE
+author:              Michael Xavier
+maintainer:          michael.xavier@soostone.com
+copyright:           Soostone Inc, 2018
+category:            Data, Text, Logging
+homepage:            https://github.com/Soostone/katip
+bug-reports:         https://github.com/Soostone/katip/issues
+build-type:          Simple
+cabal-version:       >=1.10
+extra-source-files:
+  README.md
+  changelog.md
+
+--TODO: fill this in
+tested-with: GHC == 8.4.3
+
+source-repository head
+  type:     git
+  location: https://github.com/Soostone/katip.git
+
+flag lib-Werror
+  default: False
+  manual: True
+
+
+library
+  exposed-modules:
+    Katip.Scribes.LogzIO.HTTPS
+  build-depends:
+      base >=4.8.0.0 && <5
+    , katip >= 0.8.0.0
+    , safe-exceptions
+    , stm >= 2.1.1
+    , async
+    , time
+    , aeson >= 0.10.0.0
+    , unix
+    , unordered-containers
+  hs-source-dirs:      src
+  default-language:    Haskell2010
+  hs-source-dirs:      src
+  ghc-options: -Wall
+  if flag(lib-Werror)
+    ghc-options: -Werror
+
+
+test-suite test
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  hs-source-dirs: test
+  default-language:    Haskell2010
+  -- other-modules:
+  build-depends: base
+               , katip
+               , katip-logzio
+               , tasty
+  ghc-options: -Wall
+  if flag(lib-Werror)
+    ghc-options: -Werror

@@ -3,6 +3,7 @@ packages:
   - katip
   - katip-elasticsearch
   - katip-datadog
+  - katip-logzio
 extra-deps:
   - bloodhound-0.16.0.0
   - unliftio-core-0.1.2.0
@@ -12,4 +13,6 @@ flags:
   katip-elasticsearch:
     lib-Werror: true
   katip-datadog:
+    lib-Werror: true
+  katip-logzio:
     lib-Werror: true
