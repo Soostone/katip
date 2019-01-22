@@ -49,6 +49,7 @@ import qualified Data.ByteString.Lazy       as LBS
 import qualified Data.ByteString.Lazy.Char8 as LBS8
 import qualified Data.HashMap.Strict        as HM
 import           Data.Int
+import qualified Data.Scientific            as Scientific
 import           Data.String                (IsString)
 import qualified Data.Text                  as T
 import qualified Data.Text.Encoding         as TE
@@ -472,7 +473,7 @@ fullItemObject verbosity item = HM.fromList
   , "thread" A..= K.getThreadIdText (K._itemThread item)
   , "host" A..= K._itemHost item
   , "pid" A..= pidInt
-  , "data" A..= K.payloadObject verbosity (K._itemPayload item)
+  , "data" A..= annotateKeys (K.payloadObject verbosity (K._itemPayload item))
   -- Slight deviation, logz.io uses "message" instead of "msg"
   , "message" A..= TB.toLazyText (K.unLogStr (K._itemMessage item))
   -- Another slight deviation, logz.io uses "@timestamp" instead of
@@ -617,3 +618,53 @@ bufferItem' customMaxPayload customMaxItem maxItems verb item bulkBuffer =
 -- will always return 'FlushNow' with an empty new buffer.
 forceFlush :: (Monoid buf) => buf -> LogAction buf
 forceFlush buf = FlushNow buf mempty
+
+
+-------------------------------------------------------------------------------
+-- Annotation borrowed from katip-elasticsearch. There are fixed
+-- fields in katip logs which should stay the same type forever and
+-- thus won't need annotation. However, any code in userland may
+-- choose to add akey to their log's metadata with a type that's
+-- incompatible with the mapping. If the first value that's picked up
+-- restrictive (e.g. a long), subsequent values will be rejected. By
+-- differentiating types by their name, this is guaranteed not to
+-- happen.
+
+annotateValue :: A.Value -> A.Value
+annotateValue (A.Object o) = A.Object (annotateKeys o)
+annotateValue (A.Array a)  = A.Array (annotateValue <$> a)
+annotateValue x            = x
+
+
+annotateKeys :: A.Object -> A.Object
+annotateKeys = HM.fromList . map go . HM.toList
+  where
+    go (k, A.Object o) = (k, A.Object (annotateKeys o))
+    go (k, A.Array a)  = (k, A.Array (annotateValue <$> a))
+    go (k, s@(A.String _)) = (k <> stringAnn, s)
+    go (k, n@(A.Number sci)) = if Scientific.isFloating sci
+                               then (k <> doubleAnn, n)
+                               else (k <> longAnn, n)
+    go (k, b@(A.Bool _)) = (k <> booleanAnn, b)
+    go (k, A.Null) = (k <> nullAnn, A.Null)
+
+
+-------------------------------------------------------------------------------
+-- Annotation Constants
+-------------------------------------------------------------------------------
+
+
+stringAnn :: T.Text
+stringAnn = "::s"
+
+doubleAnn :: T.Text
+doubleAnn = "::d"
+
+longAnn :: T.Text
+longAnn = "::l"
+
+booleanAnn :: T.Text
+booleanAnn = "::b"
+
+nullAnn :: T.Text
+nullAnn = "::n"
