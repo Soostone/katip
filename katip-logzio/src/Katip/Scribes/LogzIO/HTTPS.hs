@@ -482,7 +482,7 @@ fullItemObject verbosity item = HM.fromList
   -- past. They seem to support 3 decimal places of
   -- precision. Formatting like this requires time 1.8.0.2, which is
   -- reflected in the cabal file.
-  , "@timestamp" A..= A.String (T.pack (Time.formatTime Time.defaultTimeLocale "%Y-%m-%dT%H:%M:%03QZ" (K._itemTime item)))
+  , "@timestamp" A..= A.String (T.pack (Time.formatTime Time.defaultTimeLocale "%Y-%m-%dT%H:%M:%S%03QZ" (K._itemTime item)))
   , "ns" A..= K._itemNamespace item
   , "loc" A..= (LocJs <$> K._itemLoc item)
   ]
