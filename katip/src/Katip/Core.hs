@@ -139,7 +139,7 @@ data Severity
 -- - 'V3' implies the maximum amount of payload information.
 -- - Anything in between is left to the discretion of the developer.
 data Verbosity = V0 | V1 | V2 | V3
-  deriving (Eq, Ord, Show, Read, Generic, Enum)
+  deriving (Eq, Ord, Show, Read, Generic, Enum, Bounded)
 
 
 -------------------------------------------------------------------------------

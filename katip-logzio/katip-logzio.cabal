@@ -15,7 +15,6 @@ extra-source-files:
   README.md
   changelog.md
 
---TODO: fill this in
 tested-with: GHC == 8.4.3
 
 source-repository head
@@ -33,17 +32,25 @@ library
   build-depends:
       base >=4.8.0.0 && <5
     , katip >= 0.8.0.0
-    , safe-exceptions
     , stm >= 2.1.1
     , async
-    , time
+    , time >= 1.8.0.2
     , aeson >= 0.10.0.0
     , unix
     , unordered-containers
+    , http-client >= 0.1.0
+    , http-client-tls >= 0.3.4
+    , uri-bytestring
+    , errors >= 2.0.0
+    , safe-exceptions
+    , retry
+    , http-types
+    , text
+    , bytestring
   hs-source-dirs:      src
   default-language:    Haskell2010
   hs-source-dirs:      src
-  ghc-options: -Wall
+  ghc-options: -Wall -j -Wall -Wnoncanonical-monad-instances
   if flag(lib-Werror)
     ghc-options: -Werror
 
@@ -53,11 +60,32 @@ test-suite test
   main-is: Main.hs
   hs-source-dirs: test
   default-language:    Haskell2010
-  -- other-modules:
+  other-modules:
+    Katip.Tests.Scribes.LogzIO.HTTPS
   build-depends: base
                , katip
                , katip-logzio
                , tasty
-  ghc-options: -Wall
+               , tasty-hedgehog
+               , tasty-hunit
+               , hedgehog
+               , vector
+               , unordered-containers
+               , text
+               , bytestring
+               , time
+               , template-haskell
+               , aeson
+               , scientific
+               , unix
+               , hostname
+               , scotty
+               , stm
+               , async
+               , safe-exceptions
+               , uri-bytestring
+               , warp
+               , http-types
+  ghc-options: -j -Wall -threaded -rtsopts -with-rtsopts=-N  -Wnoncanonical-monad-instances
   if flag(lib-Werror)
     ghc-options: -Werror
