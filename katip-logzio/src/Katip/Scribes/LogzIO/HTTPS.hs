@@ -50,6 +50,7 @@ import qualified Data.ByteString.Lazy.Char8 as LBS8
 import qualified Data.HashMap.Strict        as HM
 import           Data.Int
 import qualified Data.Scientific            as Scientific
+import           Data.Semigroup             as Semigroup
 import           Data.String                (IsString)
 import qualified Data.Text                  as T
 import qualified Data.Text.Encoding         as TE
@@ -197,7 +198,7 @@ httpPort = URIBS.Port 8070
 -- | A reasonable retry policy: exponential backoff with 25ms base
 -- delay up to 5 retries, for a total cumulative delay of 775ms.
 defaultRetryPolicy :: (Monad m) => Retry.RetryPolicyM m
-defaultRetryPolicy = Retry.exponentialBackoff 25000 <> Retry.limitRetries 5
+defaultRetryPolicy = Retry.exponentialBackoff 25000 `mappend` Retry.limitRetries 5
 
 -------------------------------------------------------------------------------
 mkLogzIOScribe
@@ -544,7 +545,7 @@ data BulkBuffer = BulkBuffer
   }
 
 
-instance Semigroup BulkBuffer where
+instance Semigroup.Semigroup BulkBuffer where
   (BulkBuffer bytesUsedA bufferA itemCountA) <>
     (BulkBuffer bytesUsedB bufferB itemCountB) = BulkBuffer
       (bytesUsedA + bytesUsedB)
