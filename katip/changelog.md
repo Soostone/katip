@@ -1,3 +1,19 @@
+0.8.0.0
+=======
+* **Breaking change**: switch from severity based log level filtering to
+  user-definable `PermitFunc`. To upgrade, any time you initialize one
+  of the standard scribes, rather than providing a severity like
+  `InfoS`, instead pass in `(permitItem InfoS)`. Credit to
+  [vlatkoB](https://github.com/vlatkoB).
+* Update some misformatted and outdated docs.
+* Set lower bound of base to 4.9.0.0, the version shipped with GHC
+  8.0.2. Support for GHC versions older than that is removed.
+* Update default formatter of Handle scribe to format pid as `[PID
+  1234]` instead of `[1234]` and `[ThreadId 1234]` instead of
+  `[1234]`.
+* Add missing `Bounded` instance for `Verbosity`. This allows you to
+  easily enumerate all verbosities via `[minBound..maxBound]`.
+
 0.7.0.0
 =======
 * Exclusively use HasCallstack for location reporting in errors. Credit to [Domen Kožar](https://github.com/domenkozar)
