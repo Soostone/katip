@@ -1,5 +1,6 @@
 name:                katip-logzio
 version:             0.0.1.0
+synopsis:            Logz.IO scribe for the Katip logging framework
 description:         See README.md for more details.
 license:             BSD3
 license-file:        LICENSE
