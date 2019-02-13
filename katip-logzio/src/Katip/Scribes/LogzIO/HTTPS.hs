@@ -443,7 +443,7 @@ flushBuffer config mgr bulkBuffer
 -------------------------------------------------------------------------------
 newtype Bytes = Bytes
   { bytes :: Int64
-  } deriving (Show, Eq, Num, Ord)
+  } deriving (Show, Eq, Num, Ord, Bounded)
 
 
 -- | How big of a body can we send? The limit is defined
@@ -599,7 +599,7 @@ bufferItem' customMaxPayload customMaxItem maxItems verb item bulkBuffer =
   let (encodedLine, spaceNeeded) = renderLineTruncated' customMaxItem verb item
       newBytesUsed = bulkBuffer_bytesUsed bulkBuffer + spaceNeeded
       newItemCount = bulkBuffer_itemCount bulkBuffer + 1
-  in if newItemCount > maxItems || newBytesUsed > customMaxPayload
+  in if newItemCount >= maxItems || newBytesUsed >= customMaxPayload
        then FlushNow
               bulkBuffer
               BulkBuffer

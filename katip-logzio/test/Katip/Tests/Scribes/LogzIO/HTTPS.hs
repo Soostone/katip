@@ -223,6 +223,15 @@ bufferItemTests = testGroup "bufferItem"
       case logAction of
         FlushNow _ newBuffer -> bulkBuffer_itemCount newBuffer === 1
         _                    -> pure ()
+  , testProperty "flushes when the buffer is exactly at the limit" $ property $ do
+      maxItems <- forAll (Gen.int (Range.linear 1 20))
+      item <- forAllWith showSimplePayloadItem genSimplePayloadItem
+      bulkBuffer <- forAllWith inspectBulkBuffer ((\b -> b { bulkBuffer_itemCount = maxItems - 1 }) <$> genBulkBuffer)
+      verbosity <- forAll genVerbosity
+      let logAction = bufferItem' maxBound maxBound maxItems verbosity item bulkBuffer
+      case logAction of
+        FlushNow _ _ -> pure ()
+        Buffered _ -> fail "Expected a FlushNow but got a Buffered"
   ]
   where
     assertFlushNow (FlushNow _ _) = pure ()
