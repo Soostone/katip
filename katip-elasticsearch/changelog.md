@@ -1,3 +1,14 @@
+0.6.0.0
+=======
+* Update to katip-0.8.0.0 `PermitFunc` convention. To update, for
+  example, if you were passing `InfoS` to `mkEsScribe` to filter
+  severities, instead you should pass `(permitItem InfoS)`.
+* Update examples to add necessary type signature for the default
+  scribe config.
+* Bugfix: the default error retry policy was much more rapid than
+  documented.
+* Internally switch to safe-exceptions from encolosed-exceptions.
+
 0.5.1.1
 =======
 * Loosen katip dep
