@@ -15,8 +15,6 @@ addons:
 # change flags or use --stack-yaml to point to a different file.
 matrix:
   include:
-    - env: ARGS="--resolver=lts-8" ESVERSION=1.5.2 ESURL=https://download.elastic.co/elasticsearch/elasticsearch ESTESTARGS="--es-version 1"
-    - env: ARGS="--resolver=lts-9" ESVERSION=1.5.2 ESURL=https://download.elastic.co/elasticsearch/elasticsearch ESTESTARGS="--es-version 1"
     - env: ARGS="--resolver=lts-10" ESVERSION=1.5.2 ESURL=https://download.elastic.co/elasticsearch/elasticsearch ESTESTARGS="--es-version 1"
     - env: ARGS="--resolver=lts-11" ESVERSION=1.5.2 ESURL=https://download.elastic.co/elasticsearch/elasticsearch ESTESTARGS="--es-version 1"
     - env: ARGS="--resolver=lts-12" ESVERSION=1.5.2 ESURL=https://download.elastic.co/elasticsearch/elasticsearch ESTESTARGS="--es-version 1"
