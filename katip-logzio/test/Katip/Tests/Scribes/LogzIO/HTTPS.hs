@@ -108,6 +108,15 @@ scribeTests = withLock $ \mkSem -> testGroup "scribe"
           case loggingError of
             BadToken -> pure ()
             _ -> assertFailure ("Expected BadToken error but got " <> show loggingError)
+  , testCase "flushes all queued logs on close" $ do
+      sem <- mkSem
+      withServer sem $ \receivedMessages -> do
+        withScribe (\cfg -> cfg { logzIOScribeConfiguration_bufferItems = 100, logzIOScribeConfiguration_bufferTimeout = 100}) $ \scribe -> do
+          (liPush scribe) (genericLog "message 1")
+          (liPush scribe) (genericLog "message 2")
+        messages <- atomically (flushTQueue receivedMessages)
+        let allLogs = receivedLog_message <$> mconcat (requestLog_logs <$> messages)
+        allLogs @?= ["message 1", "message 2"]
   ]
   where
     second = 1000000
@@ -231,7 +240,7 @@ bufferItemTests = testGroup "bufferItem"
       let logAction = bufferItem' maxBound maxBound maxItems verbosity item bulkBuffer
       case logAction of
         FlushNow _ _ -> pure ()
-        Buffered _ -> fail "Expected a FlushNow but got a Buffered"
+        Buffered _   -> fail "Expected a FlushNow but got a Buffered"
   ]
   where
     assertFlushNow (FlushNow _ _) = pure ()

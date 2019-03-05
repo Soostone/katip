@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns               #-}
+{-# LANGUAGE GADTs                      #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE RankNTypes                 #-}
@@ -38,33 +39,34 @@ module Katip.Scribes.LogzIO.HTTPS
 
 -------------------------------------------------------------------------------
 import           Control.Applicative
-import qualified Control.Concurrent.Async   as Async
-import qualified Control.Concurrent.STM     as STM
-import qualified Control.Error              as E
-import qualified Control.Exception.Safe     as EX
-import qualified Control.Retry              as Retry
-import qualified Data.Aeson                 as A
-import qualified Data.ByteString.Builder    as BB
-import qualified Data.ByteString.Lazy       as LBS
-import qualified Data.ByteString.Lazy.Char8 as LBS8
-import qualified Data.HashMap.Strict        as HM
+import qualified Control.Concurrent.Async        as Async
+import qualified Control.Concurrent.STM          as STM
+import qualified Control.Concurrent.STM.TBMQueue as STM
+import qualified Control.Error                   as E
+import qualified Control.Exception.Safe          as EX
+import           Control.Monad
+import qualified Control.Retry                   as Retry
+import qualified Data.Aeson                      as A
+import qualified Data.ByteString.Builder         as BB
+import qualified Data.ByteString.Lazy            as LBS
+import qualified Data.ByteString.Lazy.Char8      as LBS8
+import qualified Data.HashMap.Strict             as HM
 import           Data.Int
-import qualified Data.Scientific            as Scientific
-import           Data.Semigroup             as Semigroup
-import           Data.String                (IsString)
-import qualified Data.Text                  as T
-import qualified Data.Text.Encoding         as TE
-import qualified Data.Text.Lazy             as TL
-import qualified Data.Text.Lazy.Builder     as TB
-import qualified Data.Time                  as Time
-import qualified Katip                      as K
-import           Katip.Core                 (LocJs (..))
-import qualified Network.HTTP.Client        as HTTP
-import qualified Network.HTTP.Client.TLS    as HTTPS
-import qualified Network.HTTP.Types         as HTypes
-import qualified System.Posix.Types         as POSIX
-import qualified URI.ByteString             as URIBS
--------------------------------------------------------------------------------
+import qualified Data.Scientific                 as Scientific
+import           Data.Semigroup                  as Semigroup
+import           Data.String                     (IsString)
+import qualified Data.Text                       as T
+import qualified Data.Text.Encoding              as TE
+import qualified Data.Text.Lazy                  as TL
+import qualified Data.Text.Lazy.Builder          as TB
+import qualified Data.Time                       as Time
+import qualified Katip                           as K
+import           Katip.Core                      (LocJs (..))
+import qualified Network.HTTP.Client             as HTTP
+import qualified Network.HTTP.Client.TLS         as HTTPS
+import qualified Network.HTTP.Types              as HTypes
+import qualified System.Posix.Types              as POSIX
+import qualified URI.ByteString                  as URIBS
 -------------------------------------------------------------------------------
 
 
@@ -207,130 +209,113 @@ mkLogzIOScribe
   -> K.Verbosity
   -> IO K.Scribe
 mkLogzIOScribe config permitItem verbosity = do
-  -- Accumulating buffer for each item
-  bufferState <- STM.newTVarIO (mempty :: BulkBuffer)
-  -- Single-slot TMVar when something is ready to write. Katip buffers
-  -- for us upstream so we can simplify shutdown and flush guarantees
-  -- by synchronously writing when we need to.
-  readyMVar <- STM.newEmptyTMVarIO :: IO (STM.TMVar BulkBuffer)
+  -- This size is actually somewhat arbitrary. We're just making sure
+  -- it isn't infinite so we don't consume the whole backlog right
+  -- away and take up lots of memory.. Katip above us does bounded
+  -- buffering and load-shedding when there's too much of a
+  -- backlog. Our writes are blocking to apply backpressure up to
+  -- katip. This value just holds onto values temporarily while we
+  -- concatenate them into a buffer.
+  ingestionQueue <- STM.newTBMQueueIO (itemBufferSize * 10)
 
-  -- We create a TVar that is set to ShutDown when its time to stop
-  killSwitch <- STM.newTVarIO Continue
-
-  -- Create a mutable ref to whether the timer has expired. This lets
-  -- us replace the timer when its time to start timing again. We
-  -- reset the timer __after__ a write goes out, not as soon as it expires
-  timerRef <- STM.newTVarIO =<< STM.registerDelay itemBufferTimeoutMicros
+  let newTimer = STM.registerDelay itemBufferTimeoutMicros
+  timerRef <- STM.newTVarIO =<< newTimer
 
   -- Set up a connection manager for requests
   mgr <- case scheme of
     HTTPS -> HTTPS.newTlsManager
     HTTP  -> HTTP.newManager HTTP.defaultManagerSettings
 
-  -- In STM: resolve an action with the buffers
-  let processLogAction :: LogAction BulkBuffer -> STM.STM ()
-      processLogAction logAction = case logAction of
-        -- No write needed right now
-        Buffered !newBuffer -> STM.writeTVar bufferState newBuffer
-        -- Time to flush and put excess in the next buffer
-        FlushNow !toFlush !newBuffer -> do
-          STM.writeTVar bufferState newBuffer
-          STM.putTMVar readyMVar toFlush
+  -- An STM transaction that will return true when writes are stopped
+  -- and backlog is emptied.
+  let workExhausted :: STM.STM Bool
+      workExhausted = (&&)
+        <$> STM.isClosedTBMQueue ingestionQueue
+        <*> STM.isEmptyTBMQueue ingestionQueue
+  -- Block until there's no more work
+  let waitWorkExhausted :: STM.STM ()
+      waitWorkExhausted = STM.check =<< workExhausted
+  let pop :: STM.STM (Tick AnyLogItem)
+      pop = maybe WorkExhausted NewItem <$> STM.readTBMQueue ingestionQueue
 
-  -- Recompute the new buffer state from a new log item and take action
-  let push :: (K.LogItem a) => K.Item a -> STM.STM ()
-      push !logItem = do
-        !curBuffer <- STM.readTVar bufferState
-        processLogAction (bufferItem itemBufferSize verbosity logItem curBuffer)
+  let timeExpired :: STM.STM (Tick a)
+      timeExpired = do
+        isExpired <- STM.readTVar =<< STM.readTVar timerRef
+        STM.check isExpired
+        pure TimeExpired
 
+  -- Circular transaction that checks for completion of work, time
+  -- expiration, or new events.
+  let nextTick :: STM.STM (Tick AnyLogItem)
+      nextTick =
+        timeExpired <|>
+        pop <|>
+        (WorkExhausted <$ waitWorkExhausted)
 
-  -- A transaction that retries until its time to shutdown
-  let waitShutdown :: STM.STM ()
-      waitShutdown = do
-        killStatus <- STM.readTVar killSwitch
-        STM.check (killStatus == ShutDown)
+  -- Blocking push. This applies backpressure upstream to katip, which does its own buffering
+  let push :: AnyLogItem -> STM.STM ()
+      push = void . STM.writeTBMQueue ingestionQueue
 
-  -- Retry transaction until timer has expired. When it does, take action on the buffer.
-  let waitTimer :: STM.STM ()
-      waitTimer = do
-        -- get the timer we'll be using
-        timer <- STM.readTVar timerRef
-        -- do not proceed until its ready
-        timerExpired <- STM.readTVar timer
-        STM.check timerExpired
-        -- do not wake again until this message is out the door
-        STM.writeTVar timer False
-        -- we waited long enough, grab the current buffer
-        !curBuffer <- STM.readTVar bufferState
-        -- and tell it to flush right now
-        processLogAction (forceFlush curBuffer)
+  let sealQueue = STM.atomically (STM.closeTBMQueue ingestionQueue)
 
-  -- run the timer in a loop until its time to shut down
-  let timedFlushLoop :: IO ()
-      timedFlushLoop = do
-        res <- STM.atomically $
-          raceAlt
-            waitShutdown
-            waitTimer
+  -- Replace the timer with a new one
+  let resetTimer = STM.atomically . STM.writeTVar timerRef =<< newTimer
+
+  -- Send the buffer and then reset the timer
+  let flush curBuffer = do
+        res <- flushBuffer config mgr curBuffer
         case res of
-          Left ()  -> pure () -- exit loop
-          Right () -> timedFlushLoop -- wait for another timer or shutdown
+          Left e   -> onErrorSafe e
+          Right () -> pure ()
+        resetTimer
 
-  timedFlusher <- Async.async timedFlushLoop
+  let flushLoop :: BulkBuffer -> IO ()
+      flushLoop curBuffer = do
+        tick <- STM.atomically nextTick
+        case tick of
+          WorkExhausted -> do
+            flush curBuffer -- flush what you've got
+            pure () -- stop looping
+          TimeExpired -> do
+            flush curBuffer
+            flushLoop mempty
+          NewItem (AnyLogItem item) -> do
+            case bufferItem (logzIOScribeConfiguration_bufferItems config) verbosity item curBuffer of
+              Buffered newBuffer -> flushLoop newBuffer
+              FlushNow flushThis newBuffer -> do
+                flush flushThis
+                flushLoop newBuffer
 
-  -- flush the buffer until its time to shutdown and we're out of items to log
-  let flushLoop :: IO ()
-      flushLoop = do
-        -- hold until something comes in to flush or we're told to stop. If we're told to stop but get a log first, we'll catch it on the next loop
-        readyBufferOrDie <- STM.atomically $
-           raceAlt
-             (STM.takeTMVar readyMVar)
-             waitShutdown
-        case readyBufferOrDie of
-          Right () -> pure () -- we caught shutdown before any new data arrived
-          -- There's some logs to write
-          Left readyBuffer -> do
-            -- flush in IO
-            res <- flushBuffer config mgr readyBuffer
-            case res of
-              Left ex  -> onErrorSafe ex
-              Right () -> pure ()
-            -- reset the timeout before the next flush on each write
-            !newTimer <- STM.registerDelay itemBufferTimeoutMicros
-            STM.atomically $ do
-              STM.writeTVar timerRef newTimer
-            -- start over
-            flushLoop
-  flusher <- Async.async flushLoop
+  flushThread <- Async.async (flushLoop mempty)
 
-  -- Blocking call which sends a poison pill to the workers and waits
-  -- for them to exit, swallowing exceptions. This follows the
-  -- semantics that when katip calls the finalizer, no more log
-  -- entries will be sent.
-  let shutdown :: IO ()
-      shutdown = do
-        -- tell workers this is the last loop
-        STM.atomically (STM.writeTVar killSwitch ShutDown)
-        -- wait for workers to finish
-        _ <- Async.waitCatch timedFlusher
-        _ <- Async.waitCatch flusher
-        -- stop blocking
+  let close = do
+        sealQueue
+        _ <- Async.waitCatch flushThread
         pure ()
 
-
   pure $ K.Scribe
-    { K.liPush = STM.atomically . push
-    , K.scribeFinalizer = shutdown
+    { K.liPush = STM.atomically . push . AnyLogItem
+    , K.scribeFinalizer = close
     , K.scribePermitItem = permitItem
     }
   where
     itemBufferSize = logzIOScribeConfiguration_bufferItems config
     itemBufferTimeoutMicros = ndtToMicros (logzIOScribeConfiguration_bufferTimeout config)
     scheme = logzIOScribeConfiguration_scheme config
-    -- should this be async?
     onErrorSafe ex = do
       _ <- EX.tryAny (logzIOScribeConfiguration_onError config ex)
       pure ()
+
+
+data AnyLogItem where
+  AnyLogItem :: K.LogItem a => K.Item a -> AnyLogItem
+
+
+-------------------------------------------------------------------------------
+data Tick a =
+    TimeExpired
+  | NewItem !a
+  | WorkExhausted
 
 
 -------------------------------------------------------------------------------
@@ -348,23 +333,6 @@ ndtToMicros :: Time.NominalDiffTime -> Int
 ndtToMicros t = round (((fromIntegral (ndtPicos t)) :: Double) / picosInMicro)
   where
     picosInMicro = 10 ^ (3 :: Int)
-
-
--------------------------------------------------------------------------------
--- | An internal mode flag used to shut down worker
--- threads. Internally, we assume htere is no going back from
--- ShutDown.
-data KillSwitch =
-    Continue
-  | ShutDown
-  deriving (Eq)
-
-
--------------------------------------------------------------------------------
--- | When applied to STM, it will try the left side first and if that
--- retries, the right, and if that retries, start from the beginning.
-raceAlt :: (Alternative m) => m a -> m b -> m (Either a b)
-raceAlt a b = (Left <$> a) <|> (Right <$> b)
 
 
 -------------------------------------------------------------------------------
