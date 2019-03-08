@@ -159,6 +159,7 @@ module Katip
     , logF
     , logMsg
     , logT
+    , logLoc
     , logItem
     , logException
     -- ** 'KatipContext': Logging With Context
