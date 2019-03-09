@@ -1,3 +1,7 @@
+0.8.1.0
+=======
+* Export `logLoc`. Credit to [Brian McKenna](https://github.com/puffnfresh)
+
 0.8.0.0
 =======
 * **Breaking change**: switch from severity based log level filtering to
