@@ -44,7 +44,7 @@
 --
 -- newtype App m a = App {
 --   unApp :: ReaderT Config m a
--- } deriving (Functor, Applicative, Monad) -- more instances as needed
+-- } deriving (Functor, Applicative, Monad, MonadIO, MonadReader Config) -- these are necessary
 --
 --
 -- -- These instances get even easier with lenses!
