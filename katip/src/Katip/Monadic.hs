@@ -44,6 +44,9 @@ import           Control.Applicative
 import           Control.Exception.Safe
 import           Control.Monad.Base
 import           Control.Monad.Error.Class
+#if MIN_VERSION_base(4, 9, 0)
+import qualified Control.Monad.Fail                as MF
+#endif
 import           Control.Monad.IO.Class
 import           Control.Monad.IO.Unlift
 import           Control.Monad.Reader
@@ -396,6 +399,11 @@ instance MonadUnliftIO m => MonadUnliftIO (KatipContextT m) where
                 withUnliftIO $ \u ->
                 pure (UnliftIO (unliftIO u . unKatipContextT))
 
+#if MIN_VERSION_base(4, 9, 0)
+instance MF.MonadFail m => MF.MonadFail (KatipContextT m) where
+    fail msg = lift (MF.fail msg)
+    {-# INLINE fail #-}
+#endif
 
 -------------------------------------------------------------------------------
 runKatipContextT :: (LogItem c) => LogEnv -> c -> Namespace -> KatipContextT m a -> m a
