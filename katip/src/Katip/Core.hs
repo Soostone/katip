@@ -31,6 +31,9 @@ import qualified Control.Concurrent.STM.TBQueue    as BQ
 import           Control.Exception.Safe
 import           Control.Monad                     (unless, void, when)
 import           Control.Monad.Base
+#if MIN_VERSION_base(4, 9, 0)
+import qualified Control.Monad.Fail                as MF
+#endif
 import           Control.Monad.IO.Class
 import           Control.Monad.IO.Unlift
 import           Control.Monad.Trans.Class
@@ -901,6 +904,12 @@ instance MonadUnliftIO m => MonadUnliftIO (KatipT m) where
   askUnliftIO = KatipT $
                 withUnliftIO $ \u ->
                 pure (UnliftIO (unliftIO u . unKatipT))
+
+#if MIN_VERSION_base(4, 9, 0)
+instance MF.MonadFail m => MF.MonadFail (KatipT m) where
+    fail msg = lift (MF.fail msg)
+    {-# INLINE fail #-}
+#endif
 
 -------------------------------------------------------------------------------
 -- | Execute 'KatipT' on a log env.
