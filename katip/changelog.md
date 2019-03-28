@@ -1,3 +1,7 @@
+0.8.2.0
+=======
+* Add `MonadFail` instances for `base` >= 4.9.0.0 [Koray Al](https://github.com/korayal)
+
 0.8.1.0
 =======
 * Export `logLoc`. Credit to [Brian McKenna](https://github.com/puffnfresh)
