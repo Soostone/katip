@@ -941,19 +941,29 @@ logItem
     -> m ()
 logItem a ns loc sev msg = do
     LogEnv{..} <- getLogEnv
-    liftIO $ do
-      item <- Item
-        <$> pure _logEnvApp
-        <*> pure _logEnvEnv
-        <*> pure sev
-        <*> (mkThreadIdText <$> myThreadId)
-        <*> pure _logEnvHost
-        <*> pure _logEnvPid
-        <*> pure a
-        <*> pure msg
-        <*> _logEnvTimer
-        <*> pure (_logEnvApp <> ns)
-        <*> pure loc
+    logKatipItem =<< liftIO
+      (Item <$> pure _logEnvApp
+            <*> pure _logEnvEnv
+            <*> pure sev
+            <*> (mkThreadIdText <$> myThreadId)
+            <*> pure _logEnvHost
+            <*> pure _logEnvPid
+            <*> pure a
+            <*> pure msg
+            <*> _logEnvTimer
+            <*> pure (_logEnvApp <> ns)
+            <*> pure loc)
+
+-- | Log already constructed 'Item'. This is the lowest level function that other log*
+--   functions use.
+--   It can be useful when implementing centralised logging services.
+logKatipItem
+    :: (A.Applicative m, LogItem a, Katip m)
+    => Item a
+    -> m ()
+logKatipItem item = do
+    LogEnv{..} <- getLogEnv
+    liftIO $
       FT.forM_ (M.elems _logEnvScribes) $ \ ScribeHandle {..} -> do
         whenM (scribePermitItem shScribe item) $
           void $ atomically (tryWriteTBQueue shChan (NewItem item))
