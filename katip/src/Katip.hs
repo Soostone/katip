@@ -161,6 +161,7 @@ module Katip
     , logT
     , logLoc
     , logItem
+    , logKatipItem
     , logException
     -- ** 'KatipContext': Logging With Context
     -- $katipcontextlogging
