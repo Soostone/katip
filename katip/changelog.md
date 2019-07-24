@@ -1,3 +1,8 @@
+0.8.3.0
+=======
+
+* Add `logKatipItem` function and reimplement `logItem` to use it. [vlatkoB](https://github.com/vlatkoB)
+
 0.8.2.0
 =======
 * Add `MonadFail` instances for `base` >= 4.9.0.0 [Koray Al](https://github.com/korayal)
