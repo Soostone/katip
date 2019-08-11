@@ -315,7 +315,7 @@ logExceptionM
 logExceptionM action sev = action `catchAny` \e -> f e >> throwM e
   where
     f e = logFM sev (msg e)
-    msg e = ls ("An exception has occured: " :: Text) Semi.<> showLS e
+    msg e = ls ("An exception has occurred: " :: Text) Semi.<> showLS e
 
 
 -------------------------------------------------------------------------------
