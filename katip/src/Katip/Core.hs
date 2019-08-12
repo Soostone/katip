@@ -1012,7 +1012,7 @@ logException
 logException a ns sev action = action `catchAny` \e -> f e >> throwM e
   where
     f e = logF a ns sev (msg e)
-    msg e = ls (T.pack "An exception has occured: ") <> showLS e
+    msg e = ls (T.pack "An exception has occurred: ") <> showLS e
 
 
 -------------------------------------------------------------------------------
