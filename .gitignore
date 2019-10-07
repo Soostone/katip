@@ -7,3 +7,4 @@ TAGS
 *.hi
 *.dyn_o
 *.dyn_hi
+stack.yaml.lock
