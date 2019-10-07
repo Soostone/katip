@@ -87,7 +87,7 @@ library
   if flag(lib-Werror)
     ghc-options: -Werror
   if os(windows)
-    build-depends: Win32 >=2.3 && <2.6
+    build-depends: Win32 >=2.3 && <2.9
     exposed-modules: Katip.Compat
   else
     build-depends: unix >= 2.5 && <2.8

@@ -7,6 +7,7 @@ packages:
 extra-deps:
   - bloodhound-0.16.0.0
   - unliftio-core-0.1.2.0
+  - unix-2.7.2.2
 flags:
   katip:
     lib-Werror: true
