@@ -6,7 +6,8 @@ packages:
   - katip-logzio
 extra-deps:
   - bloodhound-0.16.0.0
-  - unliftio-core-0.1.2.0
+  - unliftio-core-0.2.0.1
+  - resourcet-1.2.3
 flags:
   katip:
     lib-Werror: true

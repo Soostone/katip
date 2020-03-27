@@ -901,9 +901,14 @@ instance (MonadBaseControl b m) => MonadBaseControl b (KatipT m) where
   restoreM = defaultRestoreM
 
 instance MonadUnliftIO m => MonadUnliftIO (KatipT m) where
+#if MIN_VERSION_unliftio_core(0, 2, 0)
+  withRunInIO inner = KatipT $ ReaderT $ \le -> withRunInIO $ \run ->
+    inner (run . runKatipT le)
+#else
   askUnliftIO = KatipT $
-                withUnliftIO $ \u ->
-                pure (UnliftIO (unliftIO u . unKatipT))
+    withUnliftIO $ \u ->
+      pure (UnliftIO (unliftIO u . unKatipT))
+#endif
 
 #if MIN_VERSION_base(4, 9, 0)
 instance MF.MonadFail m => MF.MonadFail (KatipT m) where

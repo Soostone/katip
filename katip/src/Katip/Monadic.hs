@@ -395,9 +395,15 @@ instance (MonadIO m) => KatipContext (KatipContextT m) where
   localKatipNamespace f (KatipContextT m) = KatipContextT $ local (\s -> s { ltsNamespace = f (ltsNamespace s)}) m
 
 instance MonadUnliftIO m => MonadUnliftIO (KatipContextT m) where
+#if MIN_VERSION_unliftio_core(0, 2, 0)
+  withRunInIO inner = KatipContextT $ ReaderT $ \lts -> withRunInIO $ \run ->
+    inner (run . runKatipContextT (ltsLogEnv lts) (ltsContext lts) (ltsNamespace lts))
+#else
   askUnliftIO = KatipContextT $
-                withUnliftIO $ \u ->
-                pure (UnliftIO (unliftIO u . unKatipContextT))
+    withUnliftIO $ \u ->
+      pure (UnliftIO (unliftIO u . unKatipContextT))
+#endif
+
 
 #if MIN_VERSION_base(4, 9, 0)
 instance MF.MonadFail m => MF.MonadFail (KatipContextT m) where
@@ -482,9 +488,15 @@ instance MonadBaseControl b m => MonadBaseControl b (NoLoggingT m) where
      restoreM = NoLoggingT . restoreM
 
 instance MonadUnliftIO m => MonadUnliftIO (NoLoggingT m) where
+#if MIN_VERSION_unliftio_core(0, 2, 0)
+  withRunInIO inner = NoLoggingT $ withRunInIO $ \run ->
+    inner (run . runNoLoggingT)
+#else
   askUnliftIO = NoLoggingT $
-                withUnliftIO $ \u ->
-                pure (UnliftIO (unliftIO u . runNoLoggingT))
+    withUnliftIO $ \u ->
+      pure (UnliftIO (unliftIO u . runNoLoggingT))
+#endif
+
 
 instance MonadIO m => Katip (NoLoggingT m) where
   getLogEnv = liftIO (initLogEnv "NoLoggingT" "no-logging")
