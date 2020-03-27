@@ -9,7 +9,7 @@ addons:
   apt:
     packages:
     - libgmp-dev
-    - oracle-java8-installer
+    - openjdk-8-jdk
 
 # The different configurations we want to test. You could also do things like
 # change flags or use --stack-yaml to point to a different file.
