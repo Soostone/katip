@@ -1,3 +1,7 @@
+0.8.4.0
+=======
+* Add support for unliftio-core 0.2 while maintaining backwards-compatible support for 0.1
+
 0.8.3.0
 =======
 
