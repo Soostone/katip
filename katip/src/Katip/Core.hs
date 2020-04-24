@@ -811,12 +811,12 @@ closeScribes le = do
 -- of the log env that are reverted when the supplied monad
 -- completes. 'katipNoLogging', for example, uses this to temporarily
 -- pause log outputs.
-class MonadIO m => Katip m where
+class Katip m where
     getLogEnv :: m LogEnv
     localLogEnv :: (LogEnv -> LogEnv) -> m a -> m a
 
 
-instance Katip m => Katip (ReaderT s m) where
+instance (Katip m, Monad m) => Katip (ReaderT s m) where
     getLogEnv = lift getLogEnv
     localLogEnv = mapReaderT . localLogEnv
 
@@ -828,47 +828,47 @@ instance Katip m => Katip (EitherT s m) where
 #endif
 
 
-instance Katip m => Katip (ExceptT s m) where
+instance (Katip m, Monad m) => Katip (ExceptT s m) where
     getLogEnv = lift getLogEnv
     localLogEnv = mapExceptT . localLogEnv
 
 
-instance Katip m => Katip (MaybeT m) where
+instance (Katip m, Monad m) => Katip (MaybeT m) where
     getLogEnv = lift getLogEnv
     localLogEnv = mapMaybeT . localLogEnv
 
 
-instance Katip m => Katip (StateT s m) where
+instance (Katip m, Monad m) => Katip (StateT s m) where
     getLogEnv = lift getLogEnv
     localLogEnv = mapStateT . localLogEnv
 
 
-instance (Katip m, Monoid w) => Katip (RWST r w s m) where
+instance (Katip m, Monoid w, Monad m) => Katip (RWST r w s m) where
     getLogEnv = lift getLogEnv
     localLogEnv = mapRWST . localLogEnv
 
 
-instance (Katip m, Monoid w) => Katip (Strict.RWST r w s m) where
+instance (Katip m, Monoid w, Monad m) => Katip (Strict.RWST r w s m) where
     getLogEnv = lift getLogEnv
     localLogEnv = Strict.mapRWST . localLogEnv
 
 
-instance Katip m => Katip (Strict.StateT s m) where
+instance (Katip m, Monad m) => Katip (Strict.StateT s m) where
     getLogEnv = lift getLogEnv
     localLogEnv = Strict.mapStateT . localLogEnv
 
 
-instance (Katip m, Monoid s) => Katip (WriterT s m) where
+instance (Katip m, Monoid s, Monad m) => Katip (WriterT s m) where
     getLogEnv = lift getLogEnv
     localLogEnv = mapWriterT . localLogEnv
 
 
-instance (Katip m, Monoid s) => Katip (Strict.WriterT s m) where
+instance (Katip m, Monoid s, Monad m) => Katip (Strict.WriterT s m) where
     getLogEnv = lift getLogEnv
     localLogEnv = Strict.mapWriterT . localLogEnv
 
 
-instance (Katip m) => Katip (ResourceT m) where
+instance (Katip m, Monad m) => Katip (ResourceT m) where
     getLogEnv = lift getLogEnv
     localLogEnv = transResourceT . localLogEnv
 
@@ -937,7 +937,7 @@ katipNoLogging = localLogEnv (\le -> set logEnvScribes mempty le)
 -- | Log with everything, including a source code location. This is
 -- very low level and you typically can use 'logT' in its place.
 logItem
-    :: (A.Applicative m, LogItem a, Katip m)
+    :: (A.Applicative m, LogItem a, Katip m, MonadIO m)
     => a
     -> Namespace
     -> Maybe Loc
@@ -963,7 +963,7 @@ logItem a ns loc sev msg = do
 --   functions use.
 --   It can be useful when implementing centralised logging services.
 logKatipItem
-    :: (A.Applicative m, LogItem a, Katip m)
+    :: (A.Applicative m, LogItem a, Katip m, MonadIO m)
     => Item a
     -> m ()
 logKatipItem item = do
@@ -988,7 +988,7 @@ tryWriteTBQueue q a = do
 -------------------------------------------------------------------------------
 -- | Log with full context, but without any code location.
 logF
-  :: (Applicative m, LogItem a, Katip m)
+  :: (Applicative m, LogItem a, Katip m, MonadIO m)
   => a
   -- ^ Contextual payload for the log
   -> Namespace
@@ -1008,7 +1008,7 @@ logF a ns sev msg = logItem a ns Nothing sev msg
 --
 -- >>>> logException () mempty ErrorS (error "foo")
 logException
-    :: (Katip m, LogItem a, MonadCatch m, Applicative m)
+    :: (Katip m, LogItem a, MonadCatch m, Applicative m, MonadIO m)
     => a                        -- ^ Log context
     -> Namespace                -- ^ Namespace
     -> Severity                 -- ^ Severity
@@ -1023,7 +1023,7 @@ logException a ns sev action = action `catchAny` \e -> f e >> throwM e
 -------------------------------------------------------------------------------
 -- | Log a message without any payload/context or code location.
 logMsg
-    :: (Applicative m, Katip m)
+    :: (Applicative m, Katip m, MonadIO m)
     => Namespace
     -> Severity
     -> LogStr
@@ -1121,9 +1121,9 @@ logT = [| \ a ns sev msg -> logItem a ns (Just $(getLocTH)) sev msg |]
 --
 -- @logLoc obj mempty InfoS "Hello world"@
 #if MIN_VERSION_base(4, 8, 0)
-logLoc :: (Applicative m, LogItem a, Katip m, HasCallStack)
+logLoc :: (Applicative m, LogItem a, Katip m, HasCallStack, MonadIO m)
 #else
-logLoc :: (Applicative m, LogItem a, Katip m)
+logLoc :: (Applicative m, LogItem a, Katip m, MonadIO m)
 #endif
        => a
        -> Namespace

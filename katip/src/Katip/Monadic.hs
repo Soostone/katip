@@ -151,14 +151,14 @@ class Katip m => KatipContext m where
   -- supplied monad. Used in 'katipAddNamespace'
   localKatipNamespace :: (Namespace -> Namespace) -> m a -> m a
 
-instance (KatipContext m, Katip (IdentityT m)) => KatipContext (IdentityT m) where
+instance (KatipContext m, Katip (IdentityT m), Monad m) => KatipContext (IdentityT m) where
   getKatipContext = lift getKatipContext
   localKatipContext = mapIdentityT . localKatipContext
   getKatipNamespace = lift getKatipNamespace
   localKatipNamespace = mapIdentityT . localKatipNamespace
 
 
-instance (KatipContext m, Katip (MaybeT m)) => KatipContext (MaybeT m) where
+instance (KatipContext m, Katip (MaybeT m), Monad m) => KatipContext (MaybeT m) where
   getKatipContext = lift getKatipContext
   localKatipContext = mapMaybeT . localKatipContext
   getKatipNamespace = lift getKatipNamespace
@@ -166,7 +166,7 @@ instance (KatipContext m, Katip (MaybeT m)) => KatipContext (MaybeT m) where
 
 
 #if !MIN_VERSION_either(4, 5, 0)
-instance (KatipContext m, Katip (EitherT e m)) => KatipContext (EitherT e m) where
+instance (KatipContext m, Katip (EitherT e m), Monad m) => KatipContext (EitherT e m) where
   getKatipContext = lift getKatipContext
   localKatipContext = mapEitherT . localKatipContext
   getKatipNamespace = lift getKatipNamespace
@@ -174,77 +174,77 @@ instance (KatipContext m, Katip (EitherT e m)) => KatipContext (EitherT e m) whe
 #endif
 
 
-instance (KatipContext m, Katip (ReaderT r m)) => KatipContext (ReaderT r m) where
+instance (KatipContext m, Katip (ReaderT r m), Monad m) => KatipContext (ReaderT r m) where
   getKatipContext = lift getKatipContext
   localKatipContext = mapReaderT . localKatipContext
   getKatipNamespace = lift getKatipNamespace
   localKatipNamespace = mapReaderT . localKatipNamespace
 
 
-instance (KatipContext m, Katip (ResourceT m)) => KatipContext (ResourceT m) where
+instance (KatipContext m, Katip (ResourceT m), Monad m) => KatipContext (ResourceT m) where
   getKatipContext = lift getKatipContext
   localKatipContext = transResourceT . localKatipContext
   getKatipNamespace = lift getKatipNamespace
   localKatipNamespace = transResourceT . localKatipNamespace
 
 
-instance (KatipContext m, Katip (Strict.StateT s m)) => KatipContext (Strict.StateT s m) where
+instance (KatipContext m, Katip (Strict.StateT s m), Monad m) => KatipContext (Strict.StateT s m) where
   getKatipContext = lift getKatipContext
   localKatipContext = Strict.mapStateT . localKatipContext
   getKatipNamespace = lift getKatipNamespace
   localKatipNamespace = Strict.mapStateT . localKatipNamespace
 
 
-instance (KatipContext m, Katip (StateT s m)) => KatipContext (StateT s m) where
+instance (KatipContext m, Katip (StateT s m), Monad m) => KatipContext (StateT s m) where
   getKatipContext = lift getKatipContext
   localKatipContext = mapStateT . localKatipContext
   getKatipNamespace = lift getKatipNamespace
   localKatipNamespace = mapStateT . localKatipNamespace
 
 
-instance (KatipContext m, Katip (ExceptT e m)) => KatipContext (ExceptT e m) where
+instance (KatipContext m, Katip (ExceptT e m), Monad m) => KatipContext (ExceptT e m) where
   getKatipContext = lift getKatipContext
   localKatipContext = mapExceptT . localKatipContext
   getKatipNamespace = lift getKatipNamespace
   localKatipNamespace = mapExceptT . localKatipNamespace
 
 
-instance (Monoid w, KatipContext m, Katip (Strict.WriterT w m)) => KatipContext (Strict.WriterT w m) where
+instance (Monoid w, KatipContext m, Katip (Strict.WriterT w m), Monad m) => KatipContext (Strict.WriterT w m) where
   getKatipContext = lift getKatipContext
   localKatipContext = Strict.mapWriterT . localKatipContext
   getKatipNamespace = lift getKatipNamespace
   localKatipNamespace = Strict.mapWriterT . localKatipNamespace
 
 
-instance (Monoid w, KatipContext m, Katip (WriterT w m)) => KatipContext (WriterT w m) where
+instance (Monoid w, KatipContext m, Katip (WriterT w m), Monad m) => KatipContext (WriterT w m) where
   getKatipContext = lift getKatipContext
   localKatipContext = mapWriterT . localKatipContext
   getKatipNamespace = lift getKatipNamespace
   localKatipNamespace = mapWriterT . localKatipNamespace
 
 
-instance (Monoid w, KatipContext m, Katip (Strict.RWST r w s m)) => KatipContext (Strict.RWST r w s m) where
+instance (Monoid w, KatipContext m, Katip (Strict.RWST r w s m), Monad m) => KatipContext (Strict.RWST r w s m) where
   getKatipContext = lift getKatipContext
   localKatipContext = Strict.mapRWST . localKatipContext
   getKatipNamespace = lift getKatipNamespace
   localKatipNamespace = Strict.mapRWST . localKatipNamespace
 
 
-instance (Monoid w, KatipContext m, Katip (RWST r w s m)) => KatipContext (RWST r w s m) where
+instance (Monoid w, KatipContext m, Katip (RWST r w s m), Monad m) => KatipContext (RWST r w s m) where
   getKatipContext = lift getKatipContext
   localKatipContext = mapRWST . localKatipContext
   getKatipNamespace = lift getKatipNamespace
   localKatipNamespace = mapRWST . localKatipNamespace
 
 
-deriving instance (Monad m, KatipContext m) => KatipContext (KatipT m)
+deriving instance (MonadIO m, KatipContext m) => KatipContext (KatipT m)
 
 -------------------------------------------------------------------------------
 -- | Log with everything, including a source code location. This is
 -- very low level and you typically can use 'logTM' in its
 -- place. Automatically supplies payload and namespace.
 logItemM
-    :: (Applicative m, KatipContext m, HasCallStack)
+    :: (Applicative m, KatipContext m, HasCallStack, MonadIO m)
     => Maybe Loc
     -> Severity
     -> LogStr
@@ -259,7 +259,7 @@ logItemM loc sev msg = do
 -- | Log with full context, but without any code
 -- location. Automatically supplies payload and namespace.
 logFM
-  :: (Applicative m, KatipContext m)
+  :: (Applicative m, KatipContext m, MonadIO m)
   => Severity
   -- ^ Severity of the message
   -> LogStr
@@ -295,7 +295,7 @@ logTM = [| logItemM (Just $(getLocTH)) |]
 -- `logTM` for maximum compatibility.
 --
 -- @logLocM InfoS "Hello world"@
-logLocM :: (Applicative m, KatipContext m, HasCallStack)
+logLocM :: (Applicative m, KatipContext m, HasCallStack, MonadIO m)
         => Severity
         -> LogStr
         -> m ()
@@ -308,7 +308,7 @@ logLocM = logItemM getLoc
 --
 -- >>>> error "foo" `logExceptionM` ErrorS
 logExceptionM
-    :: (KatipContext m, MonadCatch m, Applicative m)
+    :: (KatipContext m, MonadCatch m, Applicative m, MonadIO m)
     => m a                      -- ^ Main action to run
     -> Severity                 -- ^ Severity
     -> m a
@@ -511,7 +511,7 @@ instance MonadIO m => KatipContext (NoLoggingT m) where
 
 -- | Convenience function for when you have to integrate with a third
 -- party API that takes a generic logging function as an argument.
-askLoggerIO :: (Applicative m, KatipContext m) => m (Severity -> LogStr -> IO ())
+askLoggerIO :: (Applicative m, KatipContext m, MonadIO m) => m (Severity -> LogStr -> IO ())
 askLoggerIO = do
   ctx <- getKatipContext
   ns <- getKatipNamespace
