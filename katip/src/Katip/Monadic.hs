@@ -58,7 +58,8 @@ import           Control.Monad.Trans.Either        (EitherT, mapEitherT)
 import           Control.Monad.Trans.Except        (ExceptT, mapExceptT)
 import           Control.Monad.Trans.Identity      (IdentityT, mapIdentityT)
 import           Control.Monad.Trans.Maybe         (MaybeT, mapMaybeT)
-import           Control.Monad.Trans.Resource      (ResourceT, transResourceT)
+import           Control.Monad.Trans.Resource      (MonadResource,
+                                                    ResourceT, transResourceT)
 import           Control.Monad.Trans.RWS           (RWST, mapRWST)
 import qualified Control.Monad.Trans.RWS.Strict    as Strict (RWST, mapRWST)
 import qualified Control.Monad.Trans.State.Strict  as Strict (StateT, mapStateT)
@@ -349,6 +350,7 @@ newtype KatipContextT m a = KatipContextT {
                , MonadWriter w
                , MonadError e
                , MonadPlus
+               , MonadResource
                , Alternative
                , MonadFix
                , MonadTrans

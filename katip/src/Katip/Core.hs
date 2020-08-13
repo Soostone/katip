@@ -44,7 +44,8 @@ import           Control.Monad.Trans.Either
 import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.Reader
-import           Control.Monad.Trans.Resource      (ResourceT, transResourceT)
+import           Control.Monad.Trans.Resource      (MonadResource, ResourceT,
+                                                    transResourceT)
 import           Control.Monad.Trans.RWS.Lazy      (RWST, mapRWST)
 import qualified Control.Monad.Trans.RWS.Strict    as Strict (RWST, mapRWST)
 import           Control.Monad.Trans.State.Lazy    (StateT, mapStateT)
@@ -879,7 +880,8 @@ instance (Katip m) => Katip (ResourceT m) where
 -- opposed to implementing 'Katip' for your monad.
 newtype KatipT m a = KatipT { unKatipT :: ReaderT LogEnv m a }
   deriving ( Functor, Applicative, Monad, MonadIO
-           , MonadMask, MonadCatch, MonadThrow, MonadTrans, MonadBase b)
+           , MonadMask, MonadCatch, MonadThrow, MonadResource, MonadTrans
+           , MonadBase b)
 
 
 instance MonadIO m => Katip (KatipT m) where
