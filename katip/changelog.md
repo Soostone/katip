@@ -1,3 +1,7 @@
+0.8.5.0
+=======
+* Add MonadResource instances (#121)[https://github.com/Soostone/katip/pull/121]
+
 0.8.4.0
 =======
 * Add support for unliftio-core 0.2 while maintaining backwards-compatible support for 0.1
