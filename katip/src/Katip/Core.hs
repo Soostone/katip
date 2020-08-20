@@ -665,7 +665,7 @@ makeLenses ''LogEnv
 
 
 -------------------------------------------------------------------------------
--- | Create a reasonable default InitLogEnv. Uses an 'AutoUdate' which
+-- | Create a reasonable default InitLogEnv. Uses an 'AutoUpdate' which
 -- updates the timer every 1ms. If you need even more timestamp
 -- precision at the cost of performance, consider setting
 -- '_logEnvTimer' with 'getCurrentTime'.
