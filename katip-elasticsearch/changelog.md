@@ -1,3 +1,13 @@
+0.7.0.0
+=======
+* Make compatible with unreleased bloodhound 0.17
+* Deprecate use of ES version 1 which has been removed from bloodhound
+  0.17. All users should move over to ESV5 which should work for
+  versions 5 and up.
+* Default configuration to ESV5
+* Add deprecation warnings for ESV1. Support for ESV1 will be removed
+  in the future.
+
 0.6.0.0
 =======
 * Update to katip-0.8.0.0 `PermitFunc` convention. To update, for
