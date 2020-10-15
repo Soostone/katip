@@ -15,11 +15,11 @@ import qualified Data.HashMap.Strict                  as HM
 import           Data.Proxy                           (Proxy (..))
 import           System.Random
 import qualified Data.Text                            as T
-import           Database.V1.Bloodhound.Types
+import           Database.Bloodhound.Types
 import           Numeric
 -------------------------------------------------------------------------------
 import           Katip.Scribes.ElasticSearch
-import           Katip.Scribes.ElasticSearch.Internal (ESV1)
+import           Katip.Scribes.ElasticSearch.Internal (ESV5)
 -------------------------------------------------------------------------------
 
 main :: IO ()
@@ -34,7 +34,7 @@ main = do
 mkDocIdBenchmark :: Benchmark
 mkDocIdBenchmark = bgroup "mkDocId"
   [
-    bench "mkDocId (randomIO)" $ nfIO (mkDocId (Proxy :: Proxy ESV1))
+    bench "mkDocId (randomIO)" $ nfIO (mkDocId (Proxy :: Proxy ESV5))
   , bench "mkDocId' (shared )" $ nfIO mkDocId'
   ]
 
