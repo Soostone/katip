@@ -33,8 +33,8 @@ import qualified Data.Text.Lazy.Builder as B
 import           Data.Time              (NominalDiffTime)
 import           Katip
 import           Katip.Core             (LocJs (..))
-import qualified Network                as Net
 import qualified Network.Connection     as C
+import qualified Network.Socket         as Net
 import qualified System.Posix.Types     as POSIX
 -------------------------------------------------------------------------------
 
