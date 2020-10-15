@@ -1,0 +1,10 @@
+version: "3.7"
+services:
+  # https://hub.docker.com/_/elasticsearch
+  elasticsearch:
+    image: elasticsearch:5-alpine
+    ports:
+      - target: 9200
+        published: 9200
+        protocol: tcp
+        mode: host

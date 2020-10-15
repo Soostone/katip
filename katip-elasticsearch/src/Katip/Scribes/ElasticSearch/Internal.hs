@@ -28,7 +28,7 @@ import           Control.Retry                           (RetryPolicy,
 import           Data.Aeson
 import           Data.ByteString.Lazy                    (ByteString)
 import           Data.List.NonEmpty                      (NonEmpty (..))
-import           Data.Monoid                             ((<>))
+import           Data.Monoid  as Monoid
 import           Data.Text                               (Text)
 import qualified Data.Text                               as T
 import qualified Data.Text.Encoding                      as T
@@ -37,8 +37,12 @@ import           Data.Time.Calendar.WeekDate
 import           Data.Typeable                           as Typeable
 import           Data.UUID
 import qualified Data.UUID.V4                            as UUID4
+#if MIN_VERSION_bloodhound(0,17,0)
+import qualified Database.Bloodhound                  as V5
+#else
 import qualified Database.V1.Bloodhound                  as V1
 import qualified Database.V5.Bloodhound                  as V5
+#endif
 import           Network.HTTP.Client
 import           Network.HTTP.Types.Status
 import           Text.Printf                             (printf)
@@ -95,7 +99,7 @@ data EsScribeCfg v = EsScribeCfg {
 --     * DailyIndexSharding
 defaultEsScribeCfg' :: ESVersion v => proxy v -> EsScribeCfg v
 defaultEsScribeCfg' prx = EsScribeCfg {
-      essRetryPolicy     = exponentialBackoff 25000 <> limitRetries 5
+      essRetryPolicy     = exponentialBackoff 25000 Monoid.<> limitRetries 5
     , essQueueSize       = EsQueueSize 1000
     , essPoolSize        = EsPoolSize 2
     , essAnnotateTypes   = False
@@ -104,19 +108,22 @@ defaultEsScribeCfg' prx = EsScribeCfg {
     }
 
 
+
+
 -------------------------------------------------------------------------------
--- | Alias of 'defaultEsScribeCfgV1' to minimize API
+-- | Alias of 'defaultEsScribeCfgV5' to minimize API
 -- breakage. Previous versions of katip-elasticsearch only supported
--- ES version 1.
-defaultEsScribeCfg :: EsScribeCfg ESV1
-defaultEsScribeCfg = defaultEsScribeCfgV1
+-- ES version 1 and defaulted to it.
+defaultEsScribeCfg :: EsScribeCfg ESV5
+defaultEsScribeCfg = defaultEsScribeCfgV5
 
 
 -------------------------------------------------------------------------------
+#if !MIN_VERSION_bloodhound(0,17,0)
 -- | EsScribeCfg that will use ElasticSearch V1
 defaultEsScribeCfgV1 :: EsScribeCfg ESV1
 defaultEsScribeCfgV1 = defaultEsScribeCfg' (Typeable.Proxy :: Typeable.Proxy ESV1)
-
+#endif
 
 -------------------------------------------------------------------------------
 -- | EsScribeCfg that will use ElasticSearch V5
@@ -484,7 +491,10 @@ class ESVersion v where
 
 
 
+#if !MIN_VERSION_bloodhound(0,17,0)
 data ESV1 = ESV1
+{-# DEPRECATED ESV1 "ESV1 is deprecated and removed in bloodhound >= 0.17.0" #-}
+
 
 instance ESVersion ESV1 where
   type BHEnv ESV1 = V1.BHEnv
@@ -524,6 +534,7 @@ instance ESVersion ESV1 where
     [ "type" .= String  "string"
     , "index" .= String "analyzed"
     ]
+#endif
 
 
 data ESV5 = ESV5

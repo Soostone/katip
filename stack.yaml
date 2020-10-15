@@ -1,13 +1,14 @@
-resolver: lts-12.26
+resolver: lts-16.18
 packages:
   - katip
   - katip-elasticsearch
   - katip-datadog
   - katip-logzio
 extra-deps:
-  - bloodhound-0.16.0.0
-  - unliftio-core-0.2.0.1
-  - resourcet-1.2.3
+  # ghc 8.8 support
+  - github: wireapp/bloodhound
+    commit: b409f52b518f20a4c20651b5893c31b7b85cb9b1
+allow-newer: true
 flags:
   katip:
     lib-Werror: true

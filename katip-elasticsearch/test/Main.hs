@@ -34,8 +34,12 @@ import           Data.Time
 import           Data.Time.Calendar.WeekDate
 import           Data.Typeable                           as Typeable
 import qualified Data.Vector                             as V
+#if MIN_VERSION_bloodhound(0,17,0)
+import qualified Database.Bloodhound                     as V5
+#else
 import qualified Database.V1.Bloodhound                  as V1
 import qualified Database.V5.Bloodhound                  as V5
+#endif
 import           Network.HTTP.Client
 import           Network.HTTP.Types.Status
 import           Test.QuickCheck.Instances               ()
@@ -54,8 +58,10 @@ main :: IO ()
 main = defaultMainWithIngredients ings $ askOption $ \vers -> testGroup "katip-elasticsearch"
   [
     case vers of
-      TestV1 -> esTests (Typeable.Proxy :: Typeable.Proxy ESV1)
-      TestV5 -> esTests (Typeable.Proxy :: Typeable.Proxy ESV5)
+#if !MIN_VERSION_bloodhound(0,17,0)
+    TestV1 -> esTests (Typeable.Proxy :: Typeable.Proxy ESV1)
+#endif
+    TestV5 -> esTests (Typeable.Proxy :: Typeable.Proxy ESV5)
   , typeAnnotatedTests
   , roundToSundayTests
   ]
@@ -64,18 +70,26 @@ main = defaultMainWithIngredients ings $ askOption $ \vers -> testGroup "katip-e
 
 
 -------------------------------------------------------------------------------
-data TestWithESVersion = TestV1
-                       | TestV5
-                       deriving (Typeable)
+data TestWithESVersion = TestV5
+#if !MIN_VERSION_bloodhound(0,17,0)
+                       | TestV1
+#endif
+  deriving (Typeable)
 
 
 instance IsOption TestWithESVersion where
-  defaultValue = TestV1
+  defaultValue = TestV5
+#if !MIN_VERSION_bloodhound(0,17,0)
   parseValue "1" = Just TestV1
+#endif
   parseValue "5" = Just TestV5
   parseValue _   = Nothing
   optionName = Tagged "es-version"
-  optionHelp = Tagged "Version of ES to test against, either 1 or 5, defaulting to 1."
+#if MIN_VERSION_bloodhound(0,17,0)
+  optionHelp = Tagged "Version of ES to test against, either 1 or 5, defaulting to 5."
+#else
+  optionHelp = Tagged "Version of ES to test against, only v5 is supported, but should work for higher versions."
+#endif
 
 
 class ESVersion v => TestESVersion v where
@@ -101,6 +115,7 @@ class ESVersion v => TestESVersion v where
   searchByIndex :: proxy v -> IndexName v -> Search v -> BH v IO (Response ByteString)
 
 
+#if !MIN_VERSION_bloodhound(0,17,0)
 instance TestESVersion ESV1 where
   type Server ESV1 = V1.Server
   toServer _ = V1.Server
@@ -122,6 +137,7 @@ instance TestESVersion ESV1 where
   refreshIndex _ = V1.refreshIndex
   withBH _ = V1.withBH
   searchByIndex _ = V1.searchByIndex
+#endif
 
 
 instance TestESVersion ESV5 where

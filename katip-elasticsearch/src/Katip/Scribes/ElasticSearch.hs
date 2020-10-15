@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 -- | Includes a scribe that can be used to log structured, JSON log
 -- messages to ElasticSearch. These logs can be explored easily using
 -- <https://www.elastic.co/products/kibana kibana> or your tool of
@@ -67,12 +68,16 @@ module Katip.Scribes.ElasticSearch
     , essIndexSettings
     , essIndexSharding
     , defaultEsScribeCfg
+#if !MIN_VERSION_bloodhound(0,17,0)
     , defaultEsScribeCfgV1
+#endif
     , defaultEsScribeCfgV5
     -- ** Version-Proxied APIS
     -- $versionproxies
     , defaultEsScribeCfg'
+#if !MIN_VERSION_bloodhound(0,17,0)
     , ESV1
+#endif
     , ESV5
     -- * Utilities
     , mkDocId

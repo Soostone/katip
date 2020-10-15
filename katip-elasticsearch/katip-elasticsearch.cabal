@@ -108,7 +108,4 @@ test-suite test
     , bytestring
     , tagged
 
-  if flag(lib-Werror)
-    ghc-options: -Wall -Werror
-
   ghc-options: -threaded -rtsopts

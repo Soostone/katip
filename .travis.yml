@@ -14,8 +14,8 @@ addons:
 # change flags or use --stack-yaml to point to a different file.
 matrix:
   include:
-    - env: ARGS="--resolver=lts-12" ESVERSION=5.5.0 ESURL=https://artifacts.elastic.co/downloads/elasticsearch ESTESTARGS="--es-version 5" ES_JAVA_OPTS="-Xms500m -Xmx750m"
-    - env: ARGS="--resolver=lts-12" ESVERSION=6.2.2 ESURL=https://artifacts.elastic.co/downloads/elasticsearch ESTESTARGS="--es-version 5" ES_JAVA_OPTS="-Xms500m -Xmx750m"
+    - env: ARGS="--resolver=lts-16" ESVERSION=5.5.0 ESURL=https://artifacts.elastic.co/downloads/elasticsearch ESTESTARGS="--es-version 5" ES_JAVA_OPTS="-Xms500m -Xmx750m"
+    - env: ARGS="--resolver=lts-16" ESVERSION=6.2.2 ESURL=https://artifacts.elastic.co/downloads/elasticsearch ESTESTARGS="--es-version 5" ES_JAVA_OPTS="-Xms500m -Xmx750m"
     - env: ARGS="--resolver=nightly" ESVERSION=5.5.0 ESURL=https://artifacts.elastic.co/downloads/elasticsearch ESTESTARGS="--es-version 5" ES_JAVA_OPTS="-Xms500m -Xmx750m"
     - env: ARGS="--resolver=nightly" ESVERSION=6.2.2 ESURL=https://artifacts.elastic.co/downloads/elasticsearch ESTESTARGS="--es-version 5" ES_JAVA_OPTS="-Xms500m -Xmx750m"
   # nightlies may fail usually due to lagging dependencies
