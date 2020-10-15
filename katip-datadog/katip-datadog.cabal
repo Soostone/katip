@@ -1,5 +1,5 @@
 name:                katip-datadog
-version:             0.1.0.0
+version:             0.2.0.0
 synopsis:            Datadog scribe for the Katip logging framework
 description:         See README.md for more details.
 license:             BSD3
