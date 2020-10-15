@@ -6,7 +6,7 @@ module Main
 
 -------------------------------------------------------------------------------
 import           Control.Exception
-import           Database.V5.Bloodhound
+import           Database.Bloodhound
 import           Network.HTTP.Client
 -------------------------------------------------------------------------------
 import           Katip
