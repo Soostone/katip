@@ -16,7 +16,7 @@ Kâtip (pronounced kah-tip) is the Turkish word for scribe.
   add context that will be automatically merged in with existing log
   context.
 
-* *Easy to Integration:* Katip was designed to be easily integrated
+* *Easy Integration:* Katip was designed to be easily integrated
   into existing monads. By using typeclasses for logging facilities,
   individual subsystems and even libraries can easily add their own
   namespacing and context without having any knowledge of their
