@@ -148,6 +148,8 @@ module Katip
     -- * Finalizing scribes at shutdown
     , closeScribes
     , closeScribe
+    -- * Memory brackets
+    , withLogEnv
 
     -- * Logging Functions
     , LogStr (..)
@@ -201,6 +203,8 @@ module Katip
     ) where
 
 -------------------------------------------------------------------------------
+import           Control.Exception (bracket)
+import           Control.Monad.IO.Unlift (MonadUnliftIO(..))
 import           Katip.Core
 import           Katip.Monadic
 import           Katip.Scribes.Handle
@@ -293,3 +297,17 @@ transformer stack and want to add your own version of these, check out
 <https://github.com/Soostone/katip/tree/master/katip/examples these
 examples>.
 -}
+
+
+-- | Manage the logging environment
+--
+-- Cleanup the resources used by logging even if the inner computation throws an excaption
+withLogEnv :: MonadUnliftIO m =>
+              IO LogEnv -- ^ See `registerScribe` and `mkHandleScribe`
+           -> (LogEnv -> m a) -- ^ User program
+           -> m a
+withLogEnv mkLogEnv inner = withRunInIO $ \io ->
+  bracket mkLogEnv closeScribes (\hdl -> io (inner hdl))
+
+
+
