@@ -6,6 +6,8 @@
 --
 -- @
 --
+-- {-# LANGUAGE OverloadedStrings #-}
+-- {-# LANGUAGE TemplateHaskell #-}
 -- import Control.Exception
 -- import Katip
 --
@@ -14,7 +16,7 @@
 --   handleScribe <- mkHandleScribe ColorIfTerminal stdout (permitItem InfoS) V2
 --   let makeLogEnv = registerScribe "stdout" handleScribe defaultScribeSettings =<< initLogEnv \"MyApp\" \"production\"
 --   -- closeScribes will stop accepting new logs, flush existing ones and clean up resources
---   bracket makeLogEnv closeScribes $ \le -> do
+--   bracket makeLogEnv closeScribes $ \\le -> do
 --     let initialContext = () -- this context will be attached to every log in your app and merged w/ subsequent contexts
 --     let initialNamespace = "main"
 --     runKatipContextT le initialContext initialNamespace $ do
@@ -24,6 +26,14 @@
 --         $(logTM) WarningS "Now we're getting fancy"
 --       katipNoLogging $ do
 --         $(logTM) DebugS "You will never see this!"
+--
+-- @
+--
+-- And here is the output:
+--
+-- @
+-- [2021-06-14 20:24:24][MyApp.main][Info][yourhostname][PID 14420][ThreadId 27][main:Main app/Main.hs:26:9] Hello Katip
+-- [2021-06-14 20:24:24][MyApp.main.additional_namespace][Warning][yourhostname][PID 14420][ThreadId 27][some_context:True][main:Main app/Main.hs:29:11] Now we're getting fancy
 --
 -- @
 --
