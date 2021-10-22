@@ -1,73 +1,76 @@
-{-# LANGUAGE CPP                 #-}
-{-# LANGUAGE DeriveDataTypeable  #-}
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE KindSignatures      #-}
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
-{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
-module Main
-    ( main
-    ) where
 
+module Main
+  ( main,
+  )
+where
 
 -------------------------------------------------------------------------------
-import           Control.Applicative                     as A
-import           Control.Concurrent.STM
-import           Control.Exception
-import           Control.Lens                            hiding (mapping, (.=))
-import           Control.Monad
-import           Control.Monad.IO.Class
-import           Data.Aeson
-import           Data.Aeson.Lens
-import           Data.Aeson.Types
-import           Data.ByteString.Lazy                    (ByteString)
-import qualified Data.HashMap.Strict                     as HM
-import           Data.Monoid                             as M
-import           Data.Scientific
-import           Data.Tagged
-import           Data.Text                               (Text)
-import           Data.Time
-import           Data.Time.Calendar.WeekDate
-import           Data.Typeable                           as Typeable
-import qualified Data.Vector                             as V
+import Control.Applicative as A
+import Control.Concurrent.STM
+import Control.Exception
+import Control.Lens hiding (mapping, (.=))
+import Control.Monad
+import Control.Monad.IO.Class
+import Data.Aeson
+import Data.Aeson.Lens
+import Data.Aeson.Types
+import Data.ByteString.Lazy (ByteString)
+import qualified Data.HashMap.Strict as HM
+import Data.Monoid as M
+import Data.Scientific
+import Data.Tagged
+import Data.Text (Text)
+import Data.Time
+import Data.Time.Calendar.WeekDate
+import Data.Typeable as Typeable
+import qualified Data.Vector as V
 #if MIN_VERSION_bloodhound(0,17,0)
 import qualified Database.Bloodhound                     as V5
 #else
 import qualified Database.V1.Bloodhound                  as V1
 import qualified Database.V5.Bloodhound                  as V5
 #endif
-import           Network.HTTP.Client
-import           Network.HTTP.Types.Status
-import           Test.QuickCheck.Instances               ()
-import           Test.Tasty
-import           Test.Tasty.HUnit
-import           Test.Tasty.Options
-import           Test.Tasty.QuickCheck
--------------------------------------------------------------------------------
-import           Katip
-import           Katip.Scribes.ElasticSearch.Annotations
-import           Katip.Scribes.ElasticSearch.Internal
--------------------------------------------------------------------------------
 
+-------------------------------------------------------------------------------
+import Katip
+import Katip.Scribes.ElasticSearch.Annotations
+import Katip.Scribes.ElasticSearch.Internal
+import Network.HTTP.Client
+import Network.HTTP.Types.Status
+import Test.QuickCheck.Instances ()
+import Test.Tasty
+import Test.Tasty.HUnit
+import Test.Tasty.Options
+import Test.Tasty.QuickCheck
+
+-------------------------------------------------------------------------------
 
 main :: IO ()
-main = defaultMainWithIngredients ings $ askOption $ \vers -> testGroup "katip-elasticsearch"
-  [
-    case vers of
+main = defaultMainWithIngredients ings $
+  askOption $ \vers ->
+    testGroup
+      "katip-elasticsearch"
+      [ case vers of
 #if !MIN_VERSION_bloodhound(0,17,0)
     TestV1 -> esTests (Typeable.Proxy :: Typeable.Proxy ESV1)
 #endif
-    TestV5 -> esTests (Typeable.Proxy :: Typeable.Proxy ESV5)
-  , typeAnnotatedTests
-  , roundToSundayTests
-  ]
+          TestV5 -> esTests (Typeable.Proxy :: Typeable.Proxy ESV5),
+        typeAnnotatedTests,
+        roundToSundayTests
+      ]
   where
-    ings = (includingOptions [Option (Typeable.Proxy :: Typeable.Proxy TestWithESVersion)]):defaultIngredients
-
+    ings = (includingOptions [Option (Typeable.Proxy :: Typeable.Proxy TestWithESVersion)]) : defaultIngredients
 
 -------------------------------------------------------------------------------
 data TestWithESVersion = TestV5
@@ -76,21 +79,21 @@ data TestWithESVersion = TestV5
 #endif
   deriving (Typeable)
 
-
 instance IsOption TestWithESVersion where
   defaultValue = TestV5
+
 #if !MIN_VERSION_bloodhound(0,17,0)
   parseValue "1" = Just TestV1
 #endif
   parseValue "5" = Just TestV5
-  parseValue _   = Nothing
+  parseValue _ = Nothing
   optionName = Tagged "es-version"
+
 #if MIN_VERSION_bloodhound(0,17,0)
   optionHelp = Tagged "Version of ES to test against, either 1 or 5, defaulting to 5."
 #else
   optionHelp = Tagged "Version of ES to test against, only v5 is supported, but should work for higher versions."
 #endif
-
 
 class ESVersion v => TestESVersion v where
   type Server v
@@ -113,7 +116,6 @@ class ESVersion v => TestESVersion v where
   refreshIndex :: proxy v -> IndexName v -> BH v IO (Response ByteString)
   withBH :: proxy v -> ManagerSettings -> Server v -> BH v IO a -> IO a
   searchByIndex :: proxy v -> IndexName v -> Search v -> BH v IO (Response ByteString)
-
 
 #if !MIN_VERSION_bloodhound(0,17,0)
 instance TestESVersion ESV1 where
@@ -139,7 +141,6 @@ instance TestESVersion ESV1 where
   searchByIndex _ = V1.searchByIndex
 #endif
 
-
 instance TestESVersion ESV5 where
   type Server ESV5 = V5.Server
   toServer _ = V5.Server
@@ -153,8 +154,8 @@ instance TestESVersion ESV5 where
   toReplicaCount _ = V5.ReplicaCount
   mkSearch _ = V5.mkSearch
   mkBHEnv _ = V5.mkBHEnv
-  indexShards _ = lens V5.indexShards (\s v -> s { V5.indexShards = v})
-  indexReplicas _ = lens V5.indexReplicas (\r v -> r { V5.indexReplicas = v})
+  indexShards _ = lens V5.indexShards (\s v -> s {V5.indexShards = v})
+  indexReplicas _ = lens V5.indexReplicas (\r v -> r {V5.indexReplicas = v})
 
   deleteIndex _ = V5.deleteIndex
   deleteTemplate _ = V5.deleteTemplate
@@ -162,144 +163,144 @@ instance TestESVersion ESV5 where
   withBH _ = V5.withBH
   searchByIndex _ = V5.searchByIndex
 
-
 -------------------------------------------------------------------------------
-setupSearch
-  :: forall proxy v. ( TestESVersion v
-                     , MonadIO (BH v IO)
+setupSearch ::
+  forall proxy v.
+  ( TestESVersion v,
+    MonadIO (BH v IO)
 #if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ < 800
                      , Functor (BH v IO)
 #endif
-                     )
-  => proxy v
-  -> (EsScribeCfg v -> EsScribeCfg v)
-  -> IO Scribe
+  ) =>
+  proxy v ->
+  (EsScribeCfg v -> EsScribeCfg v) ->
+  IO Scribe
 setupSearch prx modScribeCfg = do
-    bh prx (dropESSchema prx)
-    mgr <- newManager defaultManagerSettings
-    mkEsScribe cfg (mkBHEnv prx (svr prx) mgr) (ixn prx) (mn prx) (permitItem DebugS) V3
+  bh prx (dropESSchema prx)
+  mgr <- newManager defaultManagerSettings
+  mkEsScribe cfg (mkBHEnv prx (svr prx) mgr) (ixn prx) (mn prx) (permitItem DebugS) V3
   where
     cfg :: EsScribeCfg v
-    cfg = modScribeCfg $
-      (defaultEsScribeCfg' prx)
-        { essAnnotateTypes = True
-        , essIndexSettings = ixs prx
-        }
-
+    cfg =
+      modScribeCfg $
+        (defaultEsScribeCfg' prx)
+          { essAnnotateTypes = True,
+            essIndexSettings = ixs prx
+          }
 
 -------------------------------------------------------------------------------
-teardownSearch
-  :: ( TestESVersion v
-     , Monad (BH v IO)
+teardownSearch ::
+  ( TestESVersion v,
+    Monad (BH v IO)
 #if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ < 800
      , Functor (BH v IO)
 #endif
-     )
-  => proxy v
-  -> IO ()
+  ) =>
+  proxy v ->
+  IO ()
 teardownSearch prx = do
   bh prx $ do
     dropESSchema prx
     dropESSTemplate prx
 
-
 -------------------------------------------------------------------------------
-withSearch
-  :: ( TestESVersion v
-     , MonadIO (BH v IO)
+withSearch ::
+  ( TestESVersion v,
+    MonadIO (BH v IO)
 #if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ < 800
      , Functor (BH v IO)
 #endif
-     )
-  => proxy v
-  -> (IO Scribe -> TestTree)
-  -> TestTree
+  ) =>
+  proxy v ->
+  (IO Scribe -> TestTree) ->
+  TestTree
 withSearch = withSearch' id
 
-
 -------------------------------------------------------------------------------
-withSearch'
-  :: ( TestESVersion v
-     , MonadIO (BH v IO)
+withSearch' ::
+  ( TestESVersion v,
+    MonadIO (BH v IO)
 #if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ < 800
      , Functor (BH v IO)
 #endif
-     )
-  => (EsScribeCfg v -> EsScribeCfg v)
-  -> proxy v
-  -> (IO Scribe -> TestTree)
-  -> TestTree
+  ) =>
+  (EsScribeCfg v -> EsScribeCfg v) ->
+  proxy v ->
+  (IO Scribe -> TestTree) ->
+  TestTree
 withSearch' modScribeCfg prx = withResource (setupSearch prx modScribeCfg) (const (teardownSearch prx))
 
-
 -------------------------------------------------------------------------------
-esTests
-  :: ( TestESVersion v
-     , MonadIO (BH v IO)
+esTests ::
+  ( TestESVersion v,
+    MonadIO (BH v IO),
 #if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ < 800
      , Functor (BH v IO)
 #endif
-     , Show (IndexName v)
-     )
-  => proxy v
-  -> TestTree
-esTests prx = testGroup "elasticsearch scribe"
-  [
-    withSearch' (\c -> c { essIndexSharding = NoIndexSharding}) prx $ \setup -> testCase "it flushes to elasticsearch" $ withTestLogging prx setup $ \done -> do
-       $(logT) (ExampleCtx True) M.mempty InfoS "A test message"
-       liftIO $ do
-         void done
-         logs <- getLogs prx
-         length logs @?= 1
-         let l = head logs
-         l ^? key "_source" . key "msg" . _String @?= Just "A test message"
-         l ^? key "_source" . key "data" . key "whatever::b" . _Bool @?= Just True
-  , testCase "can set up twice with no sharding" $ do
-      let setup = bracket_ (setupSearch prx (\c -> c { essIndexSharding = NoIndexSharding })) (teardownSearch prx)
-      setup $ setup $
-        return ()
-  , testCase "can set up twice with sharding" $ do
-      let setup = bracket_ (setupSearch prx (\c -> c { essIndexSharding = DailyIndexSharding })) (teardownSearch prx)
-      setup $ setup $
-        return ()
-  , withSearch prx $ \setup -> testCase "date-based index sharding" $ do
-      let t1 = mkTime 2016 1 2 3 4 5
-      fakeClock <- newTVarIO t1
-      withTestLogging' (set logEnvTimer (readTVarIO fakeClock)) prx setup $ \done -> do
-        $(logT) (ExampleCtx True) mempty InfoS "today"
-        let t2 = mkTime 2016 1 3 3 4 5
-        liftIO (atomically (writeTVar fakeClock t2))
-        $(logT) (ExampleCtx True) mempty InfoS "tomorrow"
-        liftIO $ do
-          void done
-          todayLogs <- getLogsByIndex prx (toIndexName prx "katip-elasticsearch-tests-2016-01-02")
-          tomorrowLogs <- getLogsByIndex prx (toIndexName prx "katip-elasticsearch-tests-2016-01-03")
-          assertBool ("todayLogs has " <> show (length todayLogs) <> " items") (length todayLogs == 1)
-          assertBool ("tomorrowLogs has " <> show (length tomorrowLogs) <> " items") (length tomorrowLogs == 1)
-          let logToday = head todayLogs
-          let logTomorrow = head tomorrowLogs
-          logToday ^? key "_source" . key "msg" . _String @?= Just "today"
-          logTomorrow ^? key "_source" . key "msg" . _String @?= Just "tomorrow"
-  , withSearch' (\c -> c { essIndexSharding = WeeklyIndexSharding}) prx $ \setup -> testCase "weekly index sharding rounds to previous sunday" $ do
-      let t1 = mkTime 2016 3 5 0 0 0 -- saturday, march 5th
-      fakeClock <- newTVarIO t1
-      withTestLogging' (set logEnvTimer (readTVarIO fakeClock)) prx setup $ \done -> do
-        $(logT) (ExampleCtx True) mempty InfoS "today"
-        let t2 = mkTime 2016 3 6 0 0 0 -- sunday march 6th
-        liftIO (atomically (writeTVar fakeClock t2))
-        $(logT) (ExampleCtx True) mempty InfoS "tomorrow"
-        liftIO $ do
-          void done
-          todayLogs <- getLogsByIndex prx (toIndexName prx "katip-elasticsearch-tests-2016-02-28") -- rounds back to previous sunday
-          tomorrowLogs <- getLogsByIndex prx (toIndexName prx "katip-elasticsearch-tests-2016-03-06") -- is on sunday, so uses current date
-          assertBool ("todayLogs has " <> show (length todayLogs) <> " items") (length todayLogs == 1)
-          assertBool ("tomorrowLogs has " <> show (length tomorrowLogs) <> " items") (length tomorrowLogs == 1)
-          let logToday = head todayLogs
-          let logTomorrow = head tomorrowLogs
-          logToday ^? key "_source" . key "msg" . _String @?= Just "today"
-          logTomorrow ^? key "_source" . key "msg" . _String @?= Just "tomorrow"
-  ]
-
+    Show (IndexName v)
+  ) =>
+  proxy v ->
+  TestTree
+esTests prx =
+  testGroup
+    "elasticsearch scribe"
+    [ withSearch' (\c -> c {essIndexSharding = NoIndexSharding}) prx $ \setup -> testCase "it flushes to elasticsearch" $
+        withTestLogging prx setup $ \done -> do
+          $(logT) (ExampleCtx True) M.mempty InfoS "A test message"
+          liftIO $ do
+            void done
+            logs <- getLogs prx
+            length logs @?= 1
+            let l = head logs
+            l ^? key "_source" . key "msg" . _String @?= Just "A test message"
+            l ^? key "_source" . key "data" . key "whatever::b" . _Bool @?= Just True,
+      testCase "can set up twice with no sharding" $ do
+        let setup = bracket_ (setupSearch prx (\c -> c {essIndexSharding = NoIndexSharding})) (teardownSearch prx)
+        setup $
+          setup $
+            return (),
+      testCase "can set up twice with sharding" $ do
+        let setup = bracket_ (setupSearch prx (\c -> c {essIndexSharding = DailyIndexSharding})) (teardownSearch prx)
+        setup $
+          setup $
+            return (),
+      withSearch prx $ \setup -> testCase "date-based index sharding" $ do
+        let t1 = mkTime 2016 1 2 3 4 5
+        fakeClock <- newTVarIO t1
+        withTestLogging' (set logEnvTimer (readTVarIO fakeClock)) prx setup $ \done -> do
+          $(logT) (ExampleCtx True) mempty InfoS "today"
+          let t2 = mkTime 2016 1 3 3 4 5
+          liftIO (atomically (writeTVar fakeClock t2))
+          $(logT) (ExampleCtx True) mempty InfoS "tomorrow"
+          liftIO $ do
+            void done
+            todayLogs <- getLogsByIndex prx (toIndexName prx "katip-elasticsearch-tests-2016-01-02")
+            tomorrowLogs <- getLogsByIndex prx (toIndexName prx "katip-elasticsearch-tests-2016-01-03")
+            assertBool ("todayLogs has " <> show (length todayLogs) <> " items") (length todayLogs == 1)
+            assertBool ("tomorrowLogs has " <> show (length tomorrowLogs) <> " items") (length tomorrowLogs == 1)
+            let logToday = head todayLogs
+            let logTomorrow = head tomorrowLogs
+            logToday ^? key "_source" . key "msg" . _String @?= Just "today"
+            logTomorrow ^? key "_source" . key "msg" . _String @?= Just "tomorrow",
+      withSearch' (\c -> c {essIndexSharding = WeeklyIndexSharding}) prx $ \setup -> testCase "weekly index sharding rounds to previous sunday" $ do
+        let t1 = mkTime 2016 3 5 0 0 0 -- saturday, march 5th
+        fakeClock <- newTVarIO t1
+        withTestLogging' (set logEnvTimer (readTVarIO fakeClock)) prx setup $ \done -> do
+          $(logT) (ExampleCtx True) mempty InfoS "today"
+          let t2 = mkTime 2016 3 6 0 0 0 -- sunday march 6th
+          liftIO (atomically (writeTVar fakeClock t2))
+          $(logT) (ExampleCtx True) mempty InfoS "tomorrow"
+          liftIO $ do
+            void done
+            todayLogs <- getLogsByIndex prx (toIndexName prx "katip-elasticsearch-tests-2016-02-28") -- rounds back to previous sunday
+            tomorrowLogs <- getLogsByIndex prx (toIndexName prx "katip-elasticsearch-tests-2016-03-06") -- is on sunday, so uses current date
+            assertBool ("todayLogs has " <> show (length todayLogs) <> " items") (length todayLogs == 1)
+            assertBool ("tomorrowLogs has " <> show (length tomorrowLogs) <> " items") (length tomorrowLogs == 1)
+            let logToday = head todayLogs
+            let logTomorrow = head tomorrowLogs
+            logToday ^? key "_source" . key "msg" . _String @?= Just "today"
+            logTomorrow ^? key "_source" . key "msg" . _String @?= Just "tomorrow"
+    ]
 
 -------------------------------------------------------------------------------
 mkTime :: Integer -> Int -> Int -> DiffTime -> DiffTime -> DiffTime -> UTCTime
@@ -308,127 +309,122 @@ mkTime y m d hr minute s = UTCTime day dt
     day = mkDay y m d
     dt = s + 60 * minute + 60 * 60 * hr
 
-
 -------------------------------------------------------------------------------
 mkDay :: Integer -> Int -> Int -> Day
 mkDay y m d = day
   where
     Just day = fromGregorianValid y m d
 
-
 -------------------------------------------------------------------------------
-data ExampleCtx = ExampleCtx {
-      ecBool :: Bool
-    }
+data ExampleCtx = ExampleCtx
+  { ecBool :: Bool
+  }
 
 instance ToJSON ExampleCtx where
   toJSON c = object ["whatever" .= ecBool c]
 
-
 instance ToObject ExampleCtx
-
 
 instance LogItem ExampleCtx where
   payloadKeys _ _ = AllKeys
 
 -------------------------------------------------------------------------------
 typeAnnotatedTests :: TestTree
-typeAnnotatedTests = testGroup "TypeAnnotated"
-  [
-    testCase "annotates values on toJSON" $
-      toJSON (TypeAnnotated exampleValue) @?= annotatedExampleValue
-
-  , testCase "annotates values on toObject" $
-      toObject (TypeAnnotated exampleObject) @?= annotatedExampleObject
-
-  , testCase "deannotates on parseJSON" $
-      parseEither parseJSON (toJSON exampleValue) @?= Right exampleValue
-
-  , testProperty "roundtrips the same as raw" $ \(v :: Value) ->
-      let res = typeAnnotatedValue
+typeAnnotatedTests =
+  testGroup
+    "TypeAnnotated"
+    [ testCase "annotates values on toJSON" $
+        toJSON (TypeAnnotated exampleValue) @?= annotatedExampleValue,
+      testCase "annotates values on toObject" $
+        toObject (TypeAnnotated exampleObject) @?= annotatedExampleObject,
+      testCase "deannotates on parseJSON" $
+        parseEither parseJSON (toJSON exampleValue) @?= Right exampleValue,
+      testProperty "roundtrips the same as raw" $ \(v :: Value) ->
+        let res =
+              typeAnnotatedValue
                 <$> parseEither parseJSON (toJSON (TypeAnnotated v))
-      in res === Right v
-  ]
-
+         in res === Right v
+    ]
 
 -------------------------------------------------------------------------------
 roundToSundayTests :: TestTree
-roundToSundayTests = testGroup "roundToSunday"
-  [
-    testProperty "always returns a sunday" $ \d ->
-      getDOW (roundToSunday d) === 7
-  , testProperty "returns input on sunday" $ \d -> getDOW d == 7 ==>
-      roundToSunday d === d
-  , testProperty "goes back a week when not sunday" $ \d -> getDOW d /= 7 ==>
-      roundToSunday d < d
-  ]
+roundToSundayTests =
+  testGroup
+    "roundToSunday"
+    [ testProperty "always returns a sunday" $ \d ->
+        getDOW (roundToSunday d) === 7,
+      testProperty "returns input on sunday" $ \d ->
+        getDOW d == 7
+          ==> roundToSunday d === d,
+      testProperty "goes back a week when not sunday" $ \d ->
+        getDOW d /= 7
+          ==> roundToSunday d < d
+    ]
   where
     getDOW = view _3 . toWeekDate
 
-
 -------------------------------------------------------------------------------
 exampleObject :: Object
-exampleObject = HM.fromList
-  [ ("a bool", Bool False)
-  , ("a long", Number 24)
-  , ("a double", Number 52.3)
-  , ("a string", String "s")
-  , ("a null", Null)
-  , ("a map", Object (HM.singleton "baz" (Bool True)))
-  ]
-
+exampleObject =
+  HM.fromList
+    [ ("a bool", Bool False),
+      ("a long", Number 24),
+      ("a double", Number 52.3),
+      ("a string", String "s"),
+      ("a null", Null),
+      ("a map", Object (HM.singleton "baz" (Bool True)))
+    ]
 
 -------------------------------------------------------------------------------
 annotatedExampleObject :: Object
-annotatedExampleObject = HM.fromList
-  [ ("a map",Object $ HM.fromList [("baz::b", Bool True)])
-  , ("a bool::b", Bool False)
-  , ("a null::n", Null)
-  , ("a string::s", String "s")
-  , ("a double::d", Number 52.3)
-  , ("a long::l", Number 24.0)
-  ]
-
+annotatedExampleObject =
+  HM.fromList
+    [ ("a map", Object $ HM.fromList [("baz::b", Bool True)]),
+      ("a bool::b", Bool False),
+      ("a null::n", Null),
+      ("a string::s", String "s"),
+      ("a double::d", Number 52.3),
+      ("a long::l", Number 24.0)
+    ]
 
 -------------------------------------------------------------------------------
 exampleValue :: Value
 exampleValue = Array $ V.fromList [Null, Object exampleObject]
 
-
 -------------------------------------------------------------------------------
 annotatedExampleValue :: Value
-annotatedExampleValue = Array $ V.fromList
-  [ Null
-  , Object annotatedExampleObject
-  ]
-
+annotatedExampleValue =
+  Array $
+    V.fromList
+      [ Null,
+        Object annotatedExampleObject
+      ]
 
 -------------------------------------------------------------------------------
-getLogs
-  :: ( TestESVersion v
-     , Monad (BH v IO)
+getLogs ::
+  ( TestESVersion v,
+    Monad (BH v IO),
 #if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ < 800
      , Functor (BH v IO)
 #endif
-     , Show (IndexName v)
-     )
-  => proxy v
-  -> IO [Value]
+    Show (IndexName v)
+  ) =>
+  proxy v ->
+  IO [Value]
 getLogs prx = getLogsByIndex prx (ixn prx)
 
-
 -------------------------------------------------------------------------------
-getLogsByIndex
-  :: ( TestESVersion v
-     , Monad (BH v IO)
+getLogsByIndex ::
+  ( TestESVersion v,
+    Monad (BH v IO),
 #if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ < 800
      , Functor (BH v IO)
 #endif
-     , Show (IndexName v)
-     )
-  => proxy v
-  -> IndexName v
-  -> IO [Value]
+    Show (IndexName v)
+  ) =>
+  proxy v ->
+  IndexName v ->
+  IO [Value]
 getLogsByIndex prx i = do
   r <- bh prx $ do
     void (refreshIndex prx i)
@@ -437,30 +433,27 @@ getLogsByIndex prx i = do
   assertBool ("search by " <> show i <> " " <> show actualCode <> " /= 200") (actualCode == 200)
   return $ responseBody r ^.. key "hits" . key "hits" . values
 
-
 -------------------------------------------------------------------------------
 bh :: TestESVersion v => proxy v -> BH v IO a -> IO a
 bh prx = withBH prx defaultManagerSettings (svr prx)
 
-
 -------------------------------------------------------------------------------
-withTestLogging
-  :: TestESVersion v
-  => proxy v
-  -> IO Scribe
-  -> (IO (Response ByteString) -> KatipT IO b)
-  -> IO b
+withTestLogging ::
+  TestESVersion v =>
+  proxy v ->
+  IO Scribe ->
+  (IO (Response ByteString) -> KatipT IO b) ->
+  IO b
 withTestLogging = withTestLogging' id
 
-
 -------------------------------------------------------------------------------
-withTestLogging'
-  :: (TestESVersion v)
-  => (LogEnv -> LogEnv)
-  -> proxy v
-  -> IO Scribe
-  -> (IO (Response ByteString) -> KatipT IO b)
-  -> IO b
+withTestLogging' ::
+  (TestESVersion v) =>
+  (LogEnv -> LogEnv) ->
+  proxy v ->
+  IO Scribe ->
+  (IO (Response ByteString) -> KatipT IO b) ->
+  IO b
 withTestLogging' modEnv prx setup f = do
   scr <- setup
   le <- modEnv <$> initLogEnv ns env
@@ -473,73 +466,67 @@ withTestLogging' modEnv prx setup f = do
     ns = Namespace ["katip-test"]
     env = Environment "test"
 
-
 -------------------------------------------------------------------------------
 svr :: TestESVersion v => proxy v -> Server v
-svr prx = toServer prx  "http://localhost:9200"
-
+svr prx = toServer prx "http://localhost:9200"
 
 -------------------------------------------------------------------------------
 ixn :: TestESVersion v => proxy v -> IndexName v
 ixn prx = toIndexName prx "katip-elasticsearch-tests"
 
-
 -------------------------------------------------------------------------------
 ixs :: TestESVersion v => proxy v -> IndexSettings v
-ixs prx = defaultIndexSettings prx
-  & indexShards prx .~ toShardCount prx 1
-  & indexReplicas prx .~ toReplicaCount prx 1
-
+ixs prx =
+  defaultIndexSettings prx
+    & indexShards prx .~ toShardCount prx 1
+    & indexReplicas prx .~ toReplicaCount prx 1
 
 -------------------------------------------------------------------------------
 tn :: TestESVersion v => proxy v -> TemplateName v
 tn prx = toTemplateName prx "katip-elasticsearch-tests"
 
-
 -------------------------------------------------------------------------------
 mn :: TestESVersion v => proxy v -> MappingName v
 mn prx = toMappingName prx "logs"
 
-
 -------------------------------------------------------------------------------
-dropESSchema
-  :: ( TestESVersion v
-     , Monad (BH v IO)
+dropESSchema ::
+  ( TestESVersion v,
+    Monad (BH v IO)
 #if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ < 800
      , Functor (BH v IO)
 #endif
-     )
-  => proxy v
-  -> BH v IO ()
+  ) =>
+  proxy v ->
+  BH v IO ()
 dropESSchema prx = void $ deleteIndex prx (toIndexName prx "katip-elasticsearch-tests*")
 
-
 -------------------------------------------------------------------------------
-dropESSTemplate
-  :: ( TestESVersion v
-     , Monad (BH v IO)
+dropESSTemplate ::
+  ( TestESVersion v,
+    Monad (BH v IO)
 #if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ < 800
      , Functor (BH v IO)
 #endif
-     )
-  => proxy v
-  -> BH v IO ()
+  ) =>
+  proxy v ->
+  BH v IO ()
 dropESSTemplate prx = void $ deleteTemplate prx (tn prx)
-
 
 -------------------------------------------------------------------------------
 instance Arbitrary Value where
-  arbitrary = oneof
-    [ Object <$> reduceSize arbitrary
-    , Array . V.fromList <$> reduceSize arbitrary
-    , String <$> arbitrary
-    , Number <$> (scientific <$> arbitrary <*> arbitrary)
-    , Bool <$> arbitrary
-    , A.pure Null
-    ]
-
+  arbitrary =
+    oneof
+      [ Object <$> reduceSize arbitrary,
+        Array . V.fromList <$> reduceSize arbitrary,
+        String <$> arbitrary,
+        Number <$> (scientific <$> arbitrary <*> arbitrary),
+        Bool <$> arbitrary,
+        A.pure Null
+      ]
 
 -------------------------------------------------------------------------------
+
 -- | Reduce the size of Arbitrary input for the given generator
 reduceSize :: Gen a -> Gen a
-reduceSize f = sized $ \ n -> resize (n `div` 2) f
+reduceSize f = sized $ \n -> resize (n `div` 2) f

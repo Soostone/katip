@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP #-}
+
 -- | Includes a scribe that can be used to log structured, JSON log
 -- messages to ElasticSearch. These logs can be explored easily using
 -- <https://www.elastic.co/products/kibana kibana> or your tool of
@@ -49,51 +50,54 @@
 -- keeping in mind that you can chage replica counts on a live index
 -- but that changing shard counts requires recreating the index.
 module Katip.Scribes.ElasticSearch
-    (-- * Building a scribe
-      mkEsScribe
+  ( -- * Building a scribe
+    mkEsScribe,
+
     -- * Scribe configuration
-    , EsScribeSetupError(..)
-    , EsQueueSize
-    , mkEsQueueSize
-    , EsPoolSize
-    , mkEsPoolSize
-    , IndexShardingPolicy(..)
-    , IndexNameSegment(..)
+    EsScribeSetupError (..),
+    EsQueueSize,
+    mkEsQueueSize,
+    EsPoolSize,
+    mkEsPoolSize,
+    IndexShardingPolicy (..),
+    IndexNameSegment (..),
+
     -- ** EsScribeCfg and fields
-    , EsScribeCfg
-    , essRetryPolicy
-    , essQueueSize
-    , essPoolSize
-    , essAnnotateTypes
-    , essIndexSettings
-    , essIndexSharding
-    , defaultEsScribeCfg
+    EsScribeCfg,
+    essRetryPolicy,
+    essQueueSize,
+    essPoolSize,
+    essAnnotateTypes,
+    essIndexSettings,
+    essIndexSharding,
+    defaultEsScribeCfg,
 #if !MIN_VERSION_bloodhound(0,17,0)
     , defaultEsScribeCfgV1
 #endif
-    , defaultEsScribeCfgV5
+    defaultEsScribeCfgV5,
+
     -- ** Version-Proxied APIS
     -- $versionproxies
-    , defaultEsScribeCfg'
+    defaultEsScribeCfg',
 #if !MIN_VERSION_bloodhound(0,17,0)
     , ESV1
 #endif
-    , ESV5
+    ESV5,
+
     -- * Utilities
-    , mkDocId
-    , module Katip.Scribes.ElasticSearch.Annotations
-    ) where
-
+    mkDocId,
+    module Katip.Scribes.ElasticSearch.Annotations,
+  )
+where
 
 -------------------------------------------------------------------------------
-import           Katip.Scribes.ElasticSearch.Annotations
-import           Katip.Scribes.ElasticSearch.Internal
+import Katip.Scribes.ElasticSearch.Annotations
+import Katip.Scribes.ElasticSearch.Internal
+
 -------------------------------------------------------------------------------
 
-
-{- $versionproxies
-
-  You may need these these functions and types if type inference
-  fails. For instance, you may need to hint to the compiler that a
-  config is @:: EsScribeCfg ESV5@, for instance.
--}
+-- $versionproxies
+--
+--  You may need these these functions and types if type inference
+--  fails. For instance, you may need to hint to the compiler that a
+--  config is @:: EsScribeCfg ESV5@, for instance.

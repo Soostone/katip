@@ -1,38 +1,37 @@
 module Katip.Scribes.Handle where
 
 -------------------------------------------------------------------------------
-import           Control.Applicative    as A
-import           Control.Concurrent
-import           Control.Exception      (bracket_, finally)
-import           Data.Aeson
-import           Data.Text.Lazy         (toStrict)
-import           Data.Text.Lazy.Encoding     (decodeUtf8)
-import qualified Data.HashMap.Strict    as HM
-import           Data.Monoid            as M
-import           Data.Scientific        as S
-import           Data.Text              (Text)
-import           Data.Text.Lazy.Builder
-import           Data.Text.Lazy.IO      as T
-import           System.IO
+import Control.Applicative as A
+import Control.Concurrent
+import Control.Exception (bracket_, finally)
+import Data.Aeson
+import qualified Data.HashMap.Strict as HM
+import Data.Monoid as M
+import Data.Scientific as S
+import Data.Text (Text)
+import Data.Text.Lazy (toStrict)
+import Data.Text.Lazy.Builder
+import Data.Text.Lazy.Encoding (decodeUtf8)
+import Data.Text.Lazy.IO as T
 -------------------------------------------------------------------------------
-import           Katip.Core
-import           Katip.Format.Time      (formatAsLogTime)
--------------------------------------------------------------------------------
+import Katip.Core
+import Katip.Format.Time (formatAsLogTime)
+import System.IO
 
+-------------------------------------------------------------------------------
 
 -------------------------------------------------------------------------------
 brackets :: Builder -> Builder
 brackets m = fromText "[" M.<> m <> fromText "]"
-
 
 -------------------------------------------------------------------------------
 getKeys :: LogItem s => Verbosity -> s -> [Builder]
 getKeys verb a = concat (renderPair A.<$> HM.toList (payloadObject verb a))
   where
     renderPair :: (Text, Value) -> [Builder]
-    renderPair (k,v) =
+    renderPair (k, v) =
       case v of
-        Object o -> concat [renderPair (k <> "." <> k', v')  | (k', v') <- HM.toList o]
+        Object o -> concat [renderPair (k <> "." <> k', v') | (k', v') <- HM.toList o]
         String t -> [fromText (k <> ":" <> t)]
         Number n -> [fromText (k <> ":") <> fromString (formatNumber n)]
         Bool b -> [fromText (k <> ":") <> fromString (show b)]
@@ -42,16 +41,16 @@ getKeys verb a = concat (renderPair A.<$> HM.toList (payloadObject verb a))
     formatNumber n =
       formatScientific Generic (if isFloating n then Nothing else Just 0) n
 
-
 -------------------------------------------------------------------------------
 data ColorStrategy
-    = ColorLog Bool
-    -- ^ Whether to use color control chars in log output
-    | ColorIfTerminal
-    -- ^ Color if output is a terminal
+  = -- | Whether to use color control chars in log output
+    ColorLog Bool
+  | -- | Color if output is a terminal
+    ColorIfTerminal
   deriving (Show, Eq)
 
 -------------------------------------------------------------------------------
+
 -- | Logs to a file handle such as stdout, stderr, or a file. Contexts
 -- and other information will be flattened out into bracketed
 -- fields. For example:
@@ -70,25 +69,26 @@ mkHandleScribe = mkHandleScribeWithFormatter bracketFormat
 --
 -- Returns the newly-created `Scribe`. The finalizer flushes the
 -- handle. Handle mode is set to 'LineBuffering' automatically.
-mkHandleScribeWithFormatter :: (forall a . LogItem a => ItemFormatter a)
-                            -> ColorStrategy
-                            -> Handle
-                            -> PermitFunc
-                            -> Verbosity
-                            -> IO Scribe
+mkHandleScribeWithFormatter ::
+  (forall a. LogItem a => ItemFormatter a) ->
+  ColorStrategy ->
+  Handle ->
+  PermitFunc ->
+  Verbosity ->
+  IO Scribe
 mkHandleScribeWithFormatter itemFormatter cs h permitF verb = do
-    hSetBuffering h LineBuffering
-    colorize <- case cs of
-      ColorIfTerminal -> hIsTerminalDevice h
-      ColorLog b      -> return b
-    lock <- newMVar ()
-    let logger i@Item{..} = do
-          bracket_ (takeMVar lock) (putMVar lock ()) $
-            T.hPutStrLn h $ toLazyText $ itemFormatter colorize verb i
-    return $ Scribe logger (hFlush h) permitF
-
+  hSetBuffering h LineBuffering
+  colorize <- case cs of
+    ColorIfTerminal -> hIsTerminalDevice h
+    ColorLog b -> return b
+  lock <- newMVar ()
+  let logger i@Item {..} = do
+        bracket_ (takeMVar lock) (putMVar lock ()) $
+          T.hPutStrLn h $ toLazyText $ itemFormatter colorize verb i
+  return $ Scribe logger (hFlush h) permitF
 
 -------------------------------------------------------------------------------
+
 -- | A specialization of 'mkHandleScribe' that takes a 'FilePath'
 -- instead of a 'Handle'. It is responsible for opening the file in
 -- 'AppendMode' and will close the file handle on
@@ -100,15 +100,14 @@ mkFileScribe f permitF verb = do
   Scribe logger finalizer permit <- mkHandleScribe (ColorLog False) h permitF verb
   return (Scribe logger (finalizer `finally` hClose h) permit)
 
-
 -------------------------------------------------------------------------------
+
 -- | A custom ItemFormatter for logging `Item`s. Takes a `Bool` indicating
 -- whether to colorize the output, `Verbosity` of output, and an `Item` to
 -- format.
 --
 -- See `bracketFormat` and `jsonFormat` for examples.
 type ItemFormatter a = Bool -> Verbosity -> Item a -> Builder
-
 
 formatItem :: LogItem a => ItemFormatter a
 formatItem = bracketFormat
@@ -121,16 +120,17 @@ formatItem = bracketFormat
 -- > [2016-05-11 21:01:15][MyApp.confrabulation][Debug][myhost.example.com][PID 1724][ThreadId 1154][confrab_factor:42.0][main:Helpers.Logging Helpers/Logging.hs:41:9] Confrabulating widgets, with extra namespace and context
 -- > [2016-05-11 21:01:15][MyApp][Info][myhost.example.com][PID 1724][ThreadId 1154][main:Helpers.Logging Helpers/Logging.hs:43:7] Namespace and context are back to normal
 bracketFormat :: LogItem a => ItemFormatter a
-bracketFormat withColor verb Item{..} =
-    brackets nowStr <>
-    brackets (mconcat $ map fromText $ intercalateNs _itemNamespace) <>
-    brackets (fromText (renderSeverity' _itemSeverity)) <>
-    brackets (fromString _itemHost) <>
-    brackets ("PID " <> fromString (show _itemProcess)) <>
-    brackets ("ThreadId " <> fromText (getThreadIdText _itemThread)) <>
-    mconcat ks <>
-    maybe mempty (brackets . fromString . locationToString) _itemLoc <>
-    fromText " " <> (unLogStr _itemMessage)
+bracketFormat withColor verb Item {..} =
+  brackets nowStr
+    <> brackets (mconcat $ map fromText $ intercalateNs _itemNamespace)
+    <> brackets (fromText (renderSeverity' _itemSeverity))
+    <> brackets (fromString _itemHost)
+    <> brackets ("PID " <> fromString (show _itemProcess))
+    <> brackets ("ThreadId " <> fromText (getThreadIdText _itemThread))
+    <> mconcat ks
+    <> maybe mempty (brackets . fromString . locationToString) _itemLoc
+    <> fromText " "
+    <> (unLogStr _itemMessage)
   where
     nowStr = fromText (formatAsLogTime _itemTime)
     ks = map brackets $ getKeys verb _itemPayload
@@ -147,8 +147,8 @@ bracketFormat withColor verb Item{..} =
 jsonFormat :: LogItem a => ItemFormatter a
 jsonFormat withColor verb i =
   fromText $
-  colorBySeverity withColor (_itemSeverity i) $
-  toStrict $ decodeUtf8 $ encode $ itemJson verb i
+    colorBySeverity withColor (_itemSeverity i) $
+      toStrict $ decodeUtf8 $ encode $ itemJson verb i
 
 -- | Color a text message based on `Severity`. `ErrorS` and more severe errors
 -- are colored red, `WarningS` is colored yellow, and all other messages are
@@ -156,18 +156,17 @@ jsonFormat withColor verb i =
 colorBySeverity :: Bool -> Severity -> Text -> Text
 colorBySeverity withColor severity msg = case severity of
   EmergencyS -> red msg
-  AlertS     -> red msg
-  CriticalS  -> red msg
-  ErrorS     -> red msg
-  WarningS   -> yellow msg
-  _          -> msg
+  AlertS -> red msg
+  CriticalS -> red msg
+  ErrorS -> red msg
+  WarningS -> yellow msg
+  _ -> msg
   where
     red = colorize "31"
     yellow = colorize "33"
     colorize c s
-      | withColor = "\ESC["<> c <> "m" <> s <> "\ESC[0m"
+      | withColor = "\ESC[" <> c <> "m" <> s <> "\ESC[0m"
       | otherwise = s
-
 
 -- | Provides a simple log environment with 1 scribe going to
 -- stdout. This is a decent example of how to build a LogEnv and is

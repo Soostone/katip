@@ -1,70 +1,72 @@
-{-# LANGUAGE CPP                 #-}
-{-# LANGUAGE DeriveDataTypeable  #-}
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE TypeFamilies #-}
+
 -- | This is an internal module. No guarantees are made in this module
 -- about API stability.
 module Katip.Scribes.ElasticSearch.Internal where
 
-
 -------------------------------------------------------------------------------
-import           Control.Applicative                     as A
-import           Control.Concurrent
-import           Control.Concurrent.Async
-import           Control.Concurrent.STM.TBMQueue
-import qualified Control.Exception.Safe                  as EX
-import           Control.Monad
-import           Control.Monad.Catch
-import           Control.Monad.IO.Class
-import           Control.Monad.STM
-import           Control.Retry                           (RetryPolicy,
-                                                          exponentialBackoff,
-                                                          limitRetries,
-                                                          recovering)
-import           Data.Aeson
-import           Data.ByteString.Lazy                    (ByteString)
-import           Data.List.NonEmpty                      (NonEmpty (..))
-import           Data.Monoid  as Monoid
-import           Data.Text                               (Text)
-import qualified Data.Text                               as T
-import qualified Data.Text.Encoding                      as T
-import           Data.Time
-import           Data.Time.Calendar.WeekDate
-import           Data.Typeable                           as Typeable
-import           Data.UUID
-import qualified Data.UUID.V4                            as UUID4
+import Control.Applicative as A
+import Control.Concurrent
+import Control.Concurrent.Async
+import Control.Concurrent.STM.TBMQueue
+import qualified Control.Exception.Safe as EX
+import Control.Monad
+import Control.Monad.Catch
+import Control.Monad.IO.Class
+import Control.Monad.STM
+import Control.Retry
+  ( RetryPolicy,
+    exponentialBackoff,
+    limitRetries,
+    recovering,
+  )
+import Data.Aeson
+import Data.ByteString.Lazy (ByteString)
+import Data.List.NonEmpty (NonEmpty (..))
+import Data.Monoid as Monoid
+import Data.Text (Text)
+import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
+import Data.Time
+import Data.Time.Calendar.WeekDate
+import Data.Typeable as Typeable
+import Data.UUID
+import qualified Data.UUID.V4 as UUID4
 #if MIN_VERSION_bloodhound(0,17,0)
 import qualified Database.Bloodhound                  as V5
 #else
 import qualified Database.V1.Bloodhound                  as V1
 import qualified Database.V5.Bloodhound                  as V5
 #endif
-import           Network.HTTP.Client
-import           Network.HTTP.Types.Status
-import           Text.Printf                             (printf)
--------------------------------------------------------------------------------
-import           Katip.Core
-import           Katip.Scribes.ElasticSearch.Annotations
--------------------------------------------------------------------------------
 
+-------------------------------------------------------------------------------
+import Katip.Core
+import Katip.Scribes.ElasticSearch.Annotations
+import Network.HTTP.Client
+import Network.HTTP.Types.Status
+import Text.Printf (printf)
+
+-------------------------------------------------------------------------------
 
 -- | EsScribeCfg now carries a type variable for the version of
 -- ElasticSearch it targets, either 'ESV1' or 'ESV5'. You can use
 -- 'defaultEsScribeCfgV1' and 'defaultESScribeCfgV5' for a good
 -- starting point depending on the ES version you have.
-data EsScribeCfg v = EsScribeCfg {
-      essRetryPolicy   :: RetryPolicy
-    -- ^ Retry policy when there are errors sending logs to the server
-    , essQueueSize     :: EsQueueSize
-    -- ^ Maximum size of the bounded log queue
-    , essPoolSize      :: EsPoolSize
-    -- ^ Worker pool size limit for sending data to the
-    , essAnnotateTypes :: Bool
-    -- ^ Different payload items coexist in the "data" attribute in
+data EsScribeCfg v = EsScribeCfg
+  { -- | Retry policy when there are errors sending logs to the server
+    essRetryPolicy :: RetryPolicy,
+    -- | Maximum size of the bounded log queue
+    essQueueSize :: EsQueueSize,
+    -- | Worker pool size limit for sending data to the
+    essPoolSize :: EsPoolSize,
+    -- | Different payload items coexist in the "data" attribute in
     -- ES. It is possible for different payloads to have different
     -- types for the same key, e.g. an "id" key that is sometimes a
     -- number and sometimes a string. If you're having ES do dynamic
@@ -76,13 +78,14 @@ data EsScribeCfg v = EsScribeCfg {
     -- exposes a querying API, we will try to make deserialization and
     -- querying transparently remove the type annotations if this is
     -- enabled.
-    , essIndexSettings :: IndexSettings v
-    -- ^ This will be the IndexSettings type from the appropriate
+    essAnnotateTypes :: Bool,
+    -- | This will be the IndexSettings type from the appropriate
     -- bloodhound module, either @Database.V1.Bloodhound@ or
     -- @Database.V5.Bloodhound@
-    , essIndexSharding :: IndexShardingPolicy
-    } deriving (Typeable)
-
+    essIndexSettings :: IndexSettings v,
+    essIndexSharding :: IndexShardingPolicy
+  }
+  deriving (Typeable)
 
 -- | Reasonable defaults for a config:
 --
@@ -98,25 +101,23 @@ data EsScribeCfg v = EsScribeCfg {
 --
 --     * DailyIndexSharding
 defaultEsScribeCfg' :: ESVersion v => proxy v -> EsScribeCfg v
-defaultEsScribeCfg' prx = EsScribeCfg {
-      essRetryPolicy     = exponentialBackoff 25000 Monoid.<> limitRetries 5
-    , essQueueSize       = EsQueueSize 1000
-    , essPoolSize        = EsPoolSize 2
-    , essAnnotateTypes   = False
-    , essIndexSettings   = defaultIndexSettings prx
-    , essIndexSharding   = DailyIndexSharding
+defaultEsScribeCfg' prx =
+  EsScribeCfg
+    { essRetryPolicy = exponentialBackoff 25000 Monoid.<> limitRetries 5,
+      essQueueSize = EsQueueSize 1000,
+      essPoolSize = EsPoolSize 2,
+      essAnnotateTypes = False,
+      essIndexSettings = defaultIndexSettings prx,
+      essIndexSharding = DailyIndexSharding
     }
 
-
-
-
 -------------------------------------------------------------------------------
+
 -- | Alias of 'defaultEsScribeCfgV5' to minimize API
 -- breakage. Previous versions of katip-elasticsearch only supported
 -- ES version 1 and defaulted to it.
 defaultEsScribeCfg :: EsScribeCfg ESV5
 defaultEsScribeCfg = defaultEsScribeCfgV5
-
 
 -------------------------------------------------------------------------------
 #if !MIN_VERSION_bloodhound(0,17,0)
@@ -126,12 +127,13 @@ defaultEsScribeCfgV1 = defaultEsScribeCfg' (Typeable.Proxy :: Typeable.Proxy ESV
 #endif
 
 -------------------------------------------------------------------------------
+
 -- | EsScribeCfg that will use ElasticSearch V5
 defaultEsScribeCfgV5 :: EsScribeCfg ESV5
 defaultEsScribeCfgV5 = defaultEsScribeCfg' (Typeable.Proxy :: Typeable.Proxy ESV5)
 
-
 -------------------------------------------------------------------------------
+
 -- | How should katip store your log data?
 --
 -- * NoIndexSharding will store all logs in one index name. This is
@@ -162,31 +164,30 @@ defaultEsScribeCfgV5 = defaultEsScribeCfg' (Typeable.Proxy :: Typeable.Proxy ESV
 -- segments of increasing granularity (like year, month, day for
 -- dates). This makes it easier to address groups of indexes
 -- (e.g. @foo-2016-*@).
-data IndexShardingPolicy = NoIndexSharding
-                         | MonthlyIndexSharding
-                         | WeeklyIndexSharding
-                         -- ^ A special case of daily which shards to sunday
-                         | DailyIndexSharding
-                         | HourlyIndexSharding
-                         | EveryMinuteIndexSharding
-                         | CustomIndexSharding (forall a. Item a -> [IndexNameSegment])
-
+data IndexShardingPolicy
+  = NoIndexSharding
+  | MonthlyIndexSharding
+  | -- | A special case of daily which shards to sunday
+    WeeklyIndexSharding
+  | DailyIndexSharding
+  | HourlyIndexSharding
+  | EveryMinuteIndexSharding
+  | CustomIndexSharding (forall a. Item a -> [IndexNameSegment])
 
 instance Show IndexShardingPolicy where
- show NoIndexSharding          = "NoIndexSharding"
- show MonthlyIndexSharding     = "MonthlyIndexSharding"
- show WeeklyIndexSharding      = "WeeklyIndexSharding"
- show DailyIndexSharding       = "DailyIndexSharding"
- show HourlyIndexSharding      = "HourlyIndexSharding"
- show EveryMinuteIndexSharding = "EveryMinuteIndexSharding"
- show (CustomIndexSharding _)  = "CustomIndexSharding λ"
-
+  show NoIndexSharding = "NoIndexSharding"
+  show MonthlyIndexSharding = "MonthlyIndexSharding"
+  show WeeklyIndexSharding = "WeeklyIndexSharding"
+  show DailyIndexSharding = "DailyIndexSharding"
+  show HourlyIndexSharding = "HourlyIndexSharding"
+  show EveryMinuteIndexSharding = "EveryMinuteIndexSharding"
+  show (CustomIndexSharding _) = "CustomIndexSharding λ"
 
 -------------------------------------------------------------------------------
-newtype IndexNameSegment = IndexNameSegment {
-      indexNameSegment :: Text
-    } deriving (Show, Eq, Ord)
-
+newtype IndexNameSegment = IndexNameSegment
+  { indexNameSegment :: Text
+  }
+  deriving (Show, Eq, Ord)
 
 -------------------------------------------------------------------------------
 shardPolicySegs :: IndexShardingPolicy -> Item a -> [IndexNameSegment]
@@ -208,28 +209,26 @@ shardPolicySegs EveryMinuteIndexSharding Item {..} = [sis y, sis m, sis d, sis h
   where
     (y, m, d) = toGregorian (utctDay _itemTime)
     (h, mn) = splitTime (utctDayTime _itemTime)
-shardPolicySegs (CustomIndexSharding f) i  = f i
-
+shardPolicySegs (CustomIndexSharding f) i = f i
 
 -------------------------------------------------------------------------------
+
 -- | If the given day is sunday, returns the input, otherwise returns
 -- the previous sunday
 roundToSunday :: Day -> Day
 roundToSunday d
-    | dow == 7  = d
-    | w > 1     = fromWeekDate y (w - 1) 7
-    | otherwise = fromWeekDate (y - 1) 53 7
+  | dow == 7 = d
+  | w > 1 = fromWeekDate y (w - 1) 7
+  | otherwise = fromWeekDate (y - 1) 53 7
   where
     (y, w, dow) = toWeekDate d
-
 
 -------------------------------------------------------------------------------
 chooseIxn :: ESVersion v => proxy v -> IndexName v -> IndexShardingPolicy -> Item a -> IndexName v
 chooseIxn prx ixn p i =
-  toIndexName prx (T.intercalate "-" ((fromIndexName prx ixn):segs))
+  toIndexName prx (T.intercalate "-" ((fromIndexName prx ixn) : segs))
   where
     segs = indexNameSegment A.<$> shardPolicySegs p i
-
 
 -------------------------------------------------------------------------------
 sis :: Integral a => a -> IndexNameSegment
@@ -237,75 +236,76 @@ sis = IndexNameSegment . T.pack . fmt
   where
     fmt = printf "%02d" . toInteger
 
-
 -------------------------------------------------------------------------------
 splitTime :: DiffTime -> (Int, Int)
 splitTime t = asMins `divMod` 60
   where
     asMins = floor t `div` 60
 
-
 -------------------------------------------------------------------------------
-data EsScribeSetupError = CouldNotCreateIndex !(Response ByteString)
-                        | CouldNotUpdateIndexSettings !(Response ByteString)
-                        | CouldNotCreateMapping !(Response ByteString)
-                        | CouldNotPutTemplate !(Response ByteString)
-                        deriving (Typeable, Show)
-
+data EsScribeSetupError
+  = CouldNotCreateIndex !(Response ByteString)
+  | CouldNotUpdateIndexSettings !(Response ByteString)
+  | CouldNotCreateMapping !(Response ByteString)
+  | CouldNotPutTemplate !(Response ByteString)
+  deriving (Typeable, Show)
 
 instance Exception EsScribeSetupError
 
-
 -------------------------------------------------------------------------------
+
 -- | The Any field tagged with a @v@ corresponds to the type of the
 -- same name in the corresponding @bloodhound@ module. For instance,
 -- if you are configuring for ElasticSearch version 1, import
 -- @Database.V1.Bloodhound@ and @BHEnv v@ will refer to @BHEnv@ from
 -- that module, @IndexName v@ will repsond to @IndexName@ from that
 -- module, etc.
-mkEsScribe
-    :: forall v. ( ESVersion v
-                 , MonadIO (BH v IO)
+mkEsScribe ::
+  forall v.
+  ( ESVersion v,
+    MonadIO (BH v IO)
 #if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ < 800
                  , Functor (BH v IO)
 #endif
-                 )
-    => EsScribeCfg v
-    -> BHEnv v
-    -> IndexName v
-    -- ^ Treated as a prefix if index sharding is enabled
-    -> MappingName v
-    -> PermitFunc
-    -> Verbosity
-    -> IO Scribe
+  ) =>
+  EsScribeCfg v ->
+  BHEnv v ->
+  -- | Treated as a prefix if index sharding is enabled
+  IndexName v ->
+  MappingName v ->
+  PermitFunc ->
+  Verbosity ->
+  IO Scribe
 mkEsScribe cfg@EsScribeCfg {..} env ix mapping permit verb = do
   q <- newTBMQueueIO $ unEsQueueSize essQueueSize
   endSig <- newEmptyMVar
 
   runBH prx env $ do
     if shardingEnabled
-       then do
-         -- create or update
-         res <- putTemplate prx tpl tplName
-         unless (statusIsSuccessful (responseStatus res)) $
-           liftIO $ EX.throwIO (CouldNotPutTemplate res)
-       else do
-         ixExists <- indexExists prx ix
-         if ixExists
-            then do
-              res <- updateIndexSettings prx (toUpdatabaleIndexSettings prx essIndexSettings) ix
-              unless (statusIsSuccessful (responseStatus res)) $
-                liftIO $ EX.throwIO (CouldNotUpdateIndexSettings res)
-            else do
-              r1 <- createIndex prx essIndexSettings ix
-              unless (statusIsSuccessful (responseStatus r1)) $
-                liftIO $ EX.throwIO (CouldNotCreateIndex r1)
-              r2 <- putMapping prx ix mapping base
-              unless (statusIsSuccessful (responseStatus r2)) $
-                liftIO $ EX.throwIO (CouldNotCreateMapping r2)
+      then do
+        -- create or update
+        res <- putTemplate prx tpl tplName
+        unless (statusIsSuccessful (responseStatus res)) $
+          liftIO $ EX.throwIO (CouldNotPutTemplate res)
+      else do
+        ixExists <- indexExists prx ix
+        if ixExists
+          then do
+            res <- updateIndexSettings prx (toUpdatabaleIndexSettings prx essIndexSettings) ix
+            unless (statusIsSuccessful (responseStatus res)) $
+              liftIO $ EX.throwIO (CouldNotUpdateIndexSettings res)
+          else do
+            r1 <- createIndex prx essIndexSettings ix
+            unless (statusIsSuccessful (responseStatus r1)) $
+              liftIO $ EX.throwIO (CouldNotCreateIndex r1)
+            r2 <- putMapping prx ix mapping base
+            unless (statusIsSuccessful (responseStatus r2)) $
+              liftIO $ EX.throwIO (CouldNotCreateMapping r2)
 
-  workers <- replicateM (unEsPoolSize essPoolSize) $ async $
-    startWorker cfg env mapping q
+  workers <-
+    replicateM (unEsPoolSize essPoolSize) $
+      async $
+        startWorker cfg env mapping q
 
   _ <- async $ do
     takeMVar endSig
@@ -324,103 +324,101 @@ mkEsScribe cfg@EsScribeCfg {..} env ix mapping permit verb = do
     tplName = toTemplateName prx ixn
     shardingEnabled = case essIndexSharding of
       NoIndexSharding -> False
-      _               -> True
+      _ -> True
     tpl = toIndexTemplate prx (toTemplatePattern prx (ixn <> "-*")) (Just essIndexSettings) [toJSON base]
     base = baseMapping prx mapping
     ixn = fromIndexName prx ix
     itemJson' :: LogItem a => Item a -> Value
     itemJson' i
       | essAnnotateTypes = itemJson verb (TypeAnnotated <$> i)
-      | otherwise        = itemJson verb i
-
+      | otherwise = itemJson verb i
 
 -------------------------------------------------------------------------------
 baseMapping :: ESVersion v => proxy v -> MappingName v -> Value
 baseMapping prx mn =
-  object [ fromMappingName prx mn .= object ["properties" .= object prs] ]
-  where prs = [ unanalyzedString "thread"
-              , unanalyzedString "sev"
-              , unanalyzedString "pid"
-              -- ns is frequently fulltext searched
-              , analyzedString "ns"
-              -- we want message to be fulltext searchable
-              , analyzedString "msg"
-              , "loc" .= locType
-              , unanalyzedString "host"
-              , unanalyzedString "env"
-              , "at" .= dateType
-              , unanalyzedString "app"
-              ]
-        unanalyzedString k = k .= unanalyzedStringSpec prx
-        analyzedString k = k .= analyzedStringSpec prx
-        locType = object ["properties" .= object locPairs]
-        locPairs = [ unanalyzedString "loc_pkg"
-                   , unanalyzedString "loc_mod"
-                   , unanalyzedString "loc_ln"
-                   , unanalyzedString "loc_fn"
-                   , unanalyzedString "loc_col"
-                   ]
-        dateType = object [ "format" .= esDateFormat
-                          , "type" .= String "date"
-                          ]
-
+  object [fromMappingName prx mn .= object ["properties" .= object prs]]
+  where
+    prs =
+      [ unanalyzedString "thread",
+        unanalyzedString "sev",
+        unanalyzedString "pid",
+        -- ns is frequently fulltext searched
+        analyzedString "ns",
+        -- we want message to be fulltext searchable
+        analyzedString "msg",
+        "loc" .= locType,
+        unanalyzedString "host",
+        unanalyzedString "env",
+        "at" .= dateType,
+        unanalyzedString "app"
+      ]
+    unanalyzedString k = k .= unanalyzedStringSpec prx
+    analyzedString k = k .= analyzedStringSpec prx
+    locType = object ["properties" .= object locPairs]
+    locPairs =
+      [ unanalyzedString "loc_pkg",
+        unanalyzedString "loc_mod",
+        unanalyzedString "loc_ln",
+        unanalyzedString "loc_fn",
+        unanalyzedString "loc_col"
+      ]
+    dateType =
+      object
+        [ "format" .= esDateFormat,
+          "type" .= String "date"
+        ]
 
 -------------------------------------------------------------------------------
+
 -- | Handle both old-style aeson and picosecond-level precision
 esDateFormat :: Text
 esDateFormat = "yyyy-MM-dd'T'HH:mm:ssZ||yyyy-MM-dd'T'HH:mm:ss.SSSZ||yyyy-MM-dd'T'HH:mm:ss.SSSSSSSSSSSSZ"
-
 
 -------------------------------------------------------------------------------
 mkDocId :: ESVersion v => proxy v -> IO (DocId v)
 mkDocId prx = (toDocId prx . T.decodeUtf8 . toASCIIBytes) `fmap` UUID4.nextRandom
 
-
 -------------------------------------------------------------------------------
-newtype EsQueueSize = EsQueueSize {
-       unEsQueueSize :: Int
-     } deriving (Show, Eq, Ord)
-
+newtype EsQueueSize = EsQueueSize
+  { unEsQueueSize :: Int
+  }
+  deriving (Show, Eq, Ord)
 
 instance Bounded EsQueueSize where
   minBound = EsQueueSize 1
   maxBound = EsQueueSize maxBound
 
-
 mkEsQueueSize :: Int -> Maybe EsQueueSize
 mkEsQueueSize = mkNonZero EsQueueSize
 
-
 -------------------------------------------------------------------------------
-newtype EsPoolSize = EsPoolSize {
-      unEsPoolSize :: Int
-    } deriving (Show, Eq, Ord)
-
+newtype EsPoolSize = EsPoolSize
+  { unEsPoolSize :: Int
+  }
+  deriving (Show, Eq, Ord)
 
 instance Bounded EsPoolSize where
   minBound = EsPoolSize 1
   maxBound = EsPoolSize maxBound
 
-
 mkEsPoolSize :: Int -> Maybe EsPoolSize
 mkEsPoolSize = mkNonZero EsPoolSize
-
 
 -------------------------------------------------------------------------------
 mkNonZero :: (Int -> a) -> Int -> Maybe a
 mkNonZero ctor n
-  | n > 0     = Just $ ctor n
+  | n > 0 = Just $ ctor n
   | otherwise = Nothing
 
-
 -------------------------------------------------------------------------------
-startWorker
-    :: forall v. (ESVersion v)
-    => EsScribeCfg v
-    -> BHEnv v
-    -> MappingName v
-    -> TBMQueue (IndexName v, Value)
-    -> IO ()
+startWorker ::
+  forall v.
+  (ESVersion v) =>
+  EsScribeCfg v ->
+  BHEnv v ->
+  MappingName v ->
+  TBMQueue (IndexName v, Value) ->
+  IO ()
 startWorker EsScribeCfg {..} env mapping q = go
   where
     go = do
@@ -433,16 +431,17 @@ startWorker EsScribeCfg {..} env mapping q = go
     prx :: Typeable.Proxy v
     prx = Typeable.Proxy
     sendLog :: IndexName v -> Value -> IO ()
-    sendLog ixn v = void $ recovering essRetryPolicy [handler] $ const $ do
-      did <- mkDocId prx
-      res <- runBH prx env $ indexDocument prx ixn mapping (defaultIndexDocumentSettings prx) v did
-      return res
+    sendLog ixn v = void $
+      recovering essRetryPolicy [handler] $
+        const $ do
+          did <- mkDocId prx
+          res <- runBH prx env $ indexDocument prx ixn mapping (defaultIndexDocumentSettings prx) v did
+          return res
     eat _ = return ()
     handler _ = Handler $ \e ->
       case fromException e of
         Just (_ :: EX.SomeAsyncException) -> return False
-        _                                 -> return True
-
+        _ -> return True
 
 -------------------------------------------------------------------------------
 -- We are spanning multiple versions of ES which use completely
@@ -489,8 +488,6 @@ class ESVersion v where
   unanalyzedStringSpec :: proxy v -> Value
   analyzedStringSpec :: proxy v -> Value
 
-
-
 #if !MIN_VERSION_bloodhound(0,17,0)
 data ESV1 = ESV1
 {-# DEPRECATED ESV1 "ESV1 is deprecated and removed in bloodhound >= 0.17.0" #-}
@@ -536,7 +533,6 @@ instance ESVersion ESV1 where
     ]
 #endif
 
-
 data ESV5 = ESV5
 
 instance ESVersion ESV5 where
@@ -569,9 +565,11 @@ instance ESVersion ESV5 where
   updateIndexSettings _ = V5.updateIndexSettings
   putTemplate _ = V5.putTemplate
   putMapping _ = V5.putMapping
-  unanalyzedStringSpec _ = object
-    [ "type" .= String "keyword"
-    ]
-  analyzedStringSpec _ = object
-    [ "type" .= String "text"
-    ]
+  unanalyzedStringSpec _ =
+    object
+      [ "type" .= String "keyword"
+      ]
+  analyzedStringSpec _ =
+    object
+      [ "type" .= String "text"
+      ]

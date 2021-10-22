@@ -104,202 +104,206 @@
 -- unsupported format or service. If you think it would be useful to
 -- others, consider releasing your own package.
 module Katip
-    (
-
-    -- * Framework Types
-      Namespace (..)
-    , Environment (..)
-    , Severity (..)
-    , renderSeverity
-    , textToSeverity
-    , Verbosity (..)
-    , ToObject (..)
-    , LogItem (..)
-    , Item(..)
-    , ThreadIdText(..)
-    , PayloadSelection (..)
-    , Scribe (..)
-    , LogEnv (..)
-    , SimpleLogPayload, sl
-    , defaultScribeSettings
-    , ScribeSettings
-    , scribeBufferSize
-    , _scribeBufferSize
+  ( -- * Framework Types
+    Namespace (..),
+    Environment (..),
+    Severity (..),
+    renderSeverity,
+    textToSeverity,
+    Verbosity (..),
+    ToObject (..),
+    LogItem (..),
+    Item (..),
+    ThreadIdText (..),
+    PayloadSelection (..),
+    Scribe (..),
+    LogEnv (..),
+    SimpleLogPayload,
+    sl,
+    defaultScribeSettings,
+    ScribeSettings,
+    scribeBufferSize,
+    _scribeBufferSize,
 
     -- ** @lens@-compatible Lenses
-    , itemApp
-    , itemEnv
-    , itemSeverity
-    , itemThread
-    , itemHost
-    , itemProcess
-    , itemPayload
-    , itemMessage
-    , itemTime
-    , itemNamespace
-    , itemLoc
-    , logEnvHost
-    , logEnvPid
-    , logEnvApp
-    , logEnvEnv
-    , logEnvTimer
-    , logEnvScribes
+    itemApp,
+    itemEnv,
+    itemSeverity,
+    itemThread,
+    itemHost,
+    itemProcess,
+    itemPayload,
+    itemMessage,
+    itemTime,
+    itemNamespace,
+    itemLoc,
+    logEnvHost,
+    logEnvPid,
+    logEnvApp,
+    logEnvEnv,
+    logEnvTimer,
+    logEnvScribes,
 
     -- * A Built-in Monad For Simple Logging
-    , KatipT (..)
-    , runKatipT
+    KatipT (..),
+    runKatipT,
 
     -- * Initializing Loggers
-    , initLogEnv
-    , registerScribe
+    initLogEnv,
+    registerScribe,
+
     -- * Dropping scribes temporarily
-    , unregisterScribe
-    , clearScribes
+    unregisterScribe,
+    clearScribes,
+
     -- * Finalizing scribes at shutdown
-    , closeScribes
-    , closeScribe
+    closeScribes,
+    closeScribe,
 
     -- * Logging Functions
-    , LogStr (..)
-    , logStr, ls, showLS
+    LogStr (..),
+    logStr,
+    ls,
+    showLS,
 
     -- ** 'Katip' Logging Functions
     -- $katiplogging
-    , Katip (..)
-    , logF
-    , logMsg
-    , logT
-    , logLoc
-    , logItem
-    , logKatipItem
-    , logException
+    Katip (..),
+    logF,
+    logMsg,
+    logT,
+    logLoc,
+    logItem,
+    logKatipItem,
+    logException,
+
     -- ** 'KatipContext': Logging With Context
     -- $katipcontextlogging
-    , KatipContext (..)
-    , logFM
-    , logTM
-    , logLocM
-    , logItemM
-    , logExceptionM
-    , AnyLogContext
-    , LogContexts, liftPayload
+    KatipContext (..),
+    logFM,
+    logTM,
+    logLocM,
+    logItemM,
+    logExceptionM,
+    AnyLogContext,
+    LogContexts,
+    liftPayload,
+
     -- *** Temporarily Changing Logging Behavior
-    , katipAddNamespace
-    , katipAddContext
-    , katipNoLogging
+    katipAddNamespace,
+    katipAddContext,
+    katipNoLogging,
 
     -- * Included Scribes
-    , mkHandleScribe
-    , mkHandleScribeWithFormatter
-    , mkFileScribe
-    , ColorStrategy (..)
-    , ItemFormatter
-    , bracketFormat
-    , jsonFormat
+    mkHandleScribe,
+    mkHandleScribeWithFormatter,
+    mkFileScribe,
+    ColorStrategy (..),
+    ItemFormatter,
+    bracketFormat,
+    jsonFormat,
 
     -- * Tools for implementing Scribes
-    , PermitFunc
-    , permitAND
-    , permitOR
-    , permitItem
-    , payloadObject
-    , itemJson
+    PermitFunc,
+    permitAND,
+    permitOR,
+    permitItem,
+    payloadObject,
+    itemJson,
 
     -- * KatipContextT - Utility transformer that provides Katip and KatipContext instances
-    , KatipContextT
-    , runKatipContextT
-    ) where
+    KatipContextT,
+    runKatipContextT,
+  )
+where
 
 -------------------------------------------------------------------------------
-import           Katip.Core
-import           Katip.Monadic
-import           Katip.Scribes.Handle
+import Katip.Core
+import Katip.Monadic
+import Katip.Scribes.Handle
+
 -------------------------------------------------------------------------------
 
+-- $katiplogging
+--
+--   These logging functions use the basic 'Katip' constraint and thus
+-- will require varying degrees of explicit detail such as 'Namespace'
+-- and individual log items to be passed in. These can be described as
+-- the primitives of Katip logging. If you find yourself making multiple
+-- log statements within a logical logging context for your app, you may
+-- want to look into the 'KatipContext' family of logging functions like
+-- 'logFM' and 'logTM'. 'KatipContext' in most applications should be
+-- considered the default. Here's an example of the pain point:
+--
+-- @
+-- doDatabaseThings = do
+--  connId <- getConnectionId
+--  logF (ConnectionIDContext connId) "database" InfoS "Doing database stuff"
+--  \-\- ...
+--  logF (ConnectionIDContext connId) "database" InfoS "Wow, passing in the same context is getting tedious"
+-- @
+--
+-- Another pain point to look out for is nesting actions that log in
+-- each other. Let's say you were writing a web app. You want to capture
+-- some detail such as the user's ID in the logs, but you also want that
+-- info to show up in doDatabaseThings' logs so you can associate those
+-- two pieces of information:
+--
+--
+-- @
+-- webRequestHandler = do
+--  uid <- getUserId
+--  logF (UserIDContext uid) "web" InfoS "Starting web request"
+--  doDatabaseThings
+-- @
+--
+-- In the above example, doDatabaseThings would overwrite that
+-- UserIDContext with its own context and namespace. Sometimes this is
+-- what you want and that's why 'logF' and other functions which only
+-- require 'Katip' exist. If you are interested in combining log
+-- contexts and namespaces, see 'KatipContext'.
 
-{- $katiplogging
-
-   These logging functions use the basic 'Katip' constraint and thus
-will require varying degrees of explicit detail such as 'Namespace'
-and individual log items to be passed in. These can be described as
-the primitives of Katip logging. If you find yourself making multiple
-log statements within a logical logging context for your app, you may
-want to look into the 'KatipContext' family of logging functions like
-'logFM' and 'logTM'. 'KatipContext' in most applications should be
-considered the default. Here's an example of the pain point:
-
-@
-doDatabaseThings = do
-  connId <- getConnectionId
-  logF (ConnectionIDContext connId) "database" InfoS "Doing database stuff"
-  \-\- ...
-  logF (ConnectionIDContext connId) "database" InfoS "Wow, passing in the same context is getting tedious"
-@
-
-Another pain point to look out for is nesting actions that log in
-each other. Let's say you were writing a web app. You want to capture
-some detail such as the user's ID in the logs, but you also want that
-info to show up in doDatabaseThings' logs so you can associate those
-two pieces of information:
-
-
-@
-webRequestHandler = do
-  uid <- getUserId
-  logF (UserIDContext uid) "web" InfoS "Starting web request"
-  doDatabaseThings
-@
-
-In the above example, doDatabaseThings would overwrite that
-UserIDContext with its own context and namespace. Sometimes this is
-what you want and that's why 'logF' and other functions which only
-require 'Katip' exist. If you are interested in combining log
-contexts and namespaces, see 'KatipContext'.
--}
-
-
-{- $katipcontextlogging
-
-  These logging functions use the 'KatipContext' constraint which is a
-superclass of 'Katip' that also has a mechanism for keeping track of
-the current context and namespace. This means a few things:
-
-1. Functions that use 'KatipContext' like 'logFM' and 'logTM' do not
-require you to pass in 'LogItem's or 'Namespaces', they pull them from
-the monadic environment.
-
-2. It becomes easy to add functions which add namespaces and/or
-contexts to the current stack of them. You can (and should) make that
-action scoped to a monadic action so that when it finishes, the
-previous context and namespace will be automatically restored.
-
-
-'KatipContextT' provides a simple, 'ReaderT'-based implementation of
-the 'KatipContext' typeclass, and provides 'katipAddContext' and
-'katipAddNamespace' functions to append to the context for the
-duration of a block:
-
-
-@
-main = do
-  le <- initLogEnv "MyApp" "production"
-  \-\- set up scribes here
-  runKatipContext le () "main" $ do
-    katipAddNamespace "nextlevel" $ do
-      $(logTM) InfoS "Logs here will have namespace MyApp.main.nextlevel"
-
-    katipAddContext TrivialContext $ do
-      $(logTM) InfoS "Logs here will have context from TrivialContext"
-
-      katipAddContext AnotherContext $ do
-        $(logTM) InfoS "Logs here will have context from TrivialContext *merged with* context from AnotherContext!"
-
-    $(logTM) InfoS "Log context restored to () and namespace to MyApp.main"
-@
-
-'katipAddNamespace' and 'katipAddContext' are one-liners, implemented
-in terms of 'local' from 'MonadReader'. If you have a custom monad
-transformer stack and want to add your own version of these, check out
-<https://github.com/Soostone/katip/tree/master/katip/examples these
-examples>.
--}
+-- $katipcontextlogging
+--
+--  These logging functions use the 'KatipContext' constraint which is a
+-- superclass of 'Katip' that also has a mechanism for keeping track of
+-- the current context and namespace. This means a few things:
+--
+-- 1. Functions that use 'KatipContext' like 'logFM' and 'logTM' do not
+-- require you to pass in 'LogItem's or 'Namespaces', they pull them from
+-- the monadic environment.
+--
+-- 2. It becomes easy to add functions which add namespaces and/or
+-- contexts to the current stack of them. You can (and should) make that
+-- action scoped to a monadic action so that when it finishes, the
+-- previous context and namespace will be automatically restored.
+--
+--
+-- 'KatipContextT' provides a simple, 'ReaderT'-based implementation of
+-- the 'KatipContext' typeclass, and provides 'katipAddContext' and
+-- 'katipAddNamespace' functions to append to the context for the
+-- duration of a block:
+--
+--
+-- @
+-- main = do
+--  le <- initLogEnv "MyApp" "production"
+--  \-\- set up scribes here
+--  runKatipContext le () "main" $ do
+--    katipAddNamespace "nextlevel" $ do
+--      $(logTM) InfoS "Logs here will have namespace MyApp.main.nextlevel"
+--
+--    katipAddContext TrivialContext $ do
+--      $(logTM) InfoS "Logs here will have context from TrivialContext"
+--
+--      katipAddContext AnotherContext $ do
+--        $(logTM) InfoS "Logs here will have context from TrivialContext *merged with* context from AnotherContext!"
+--
+--    $(logTM) InfoS "Log context restored to () and namespace to MyApp.main"
+-- @
+--
+-- 'katipAddNamespace' and 'katipAddContext' are one-liners, implemented
+-- in terms of 'local' from 'MonadReader'. If you have a custom monad
+-- transformer stack and want to add your own version of these, check out
+-- <https://github.com/Soostone/katip/tree/master/katip/examples these
+-- examples>.

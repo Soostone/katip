@@ -1,22 +1,23 @@
 module Main
-    ( main
-    ) where
-
+  ( main,
+  )
+where
 
 -------------------------------------------------------------------------------
-import           Test.Tasty
+
 -------------------------------------------------------------------------------
 import qualified Katip.Tests.Scribes.LogzIO.HTTPS
+import Test.Tasty
+
 -------------------------------------------------------------------------------
-
-
 
 main :: IO ()
 main = defaultMain tests
 
-
 -------------------------------------------------------------------------------
 tests :: TestTree
-tests = testGroup "katip-logzio"
-  [ Katip.Tests.Scribes.LogzIO.HTTPS.tests
-  ]
+tests =
+  testGroup
+    "katip-logzio"
+    [ Katip.Tests.Scribes.LogzIO.HTTPS.tests
+    ]

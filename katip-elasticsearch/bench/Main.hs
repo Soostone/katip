@@ -1,66 +1,71 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE StandaloneDeriving         #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Main
-    ( main
-    ) where
+  ( main,
+  )
+where
 
 -------------------------------------------------------------------------------
-import           Control.DeepSeq
-import           Control.Monad
-import           Criterion.Main
-import           Data.Aeson
-import qualified Data.HashMap.Strict                  as HM
-import           Data.Proxy                           (Proxy (..))
-import           System.Random
-import qualified Data.Text                            as T
-import           Database.Bloodhound.Types
-import           Numeric
+import Control.DeepSeq
+import Control.Monad
+import Criterion.Main
+import Data.Aeson
+import qualified Data.HashMap.Strict as HM
+import Data.Proxy (Proxy (..))
+import qualified Data.Text as T
+import Database.Bloodhound.Types
 -------------------------------------------------------------------------------
-import           Katip.Scribes.ElasticSearch
-import           Katip.Scribes.ElasticSearch.Internal (ESV5)
+import Katip.Scribes.ElasticSearch
+import Katip.Scribes.ElasticSearch.Internal (ESV5)
+import Numeric
+import System.Random
+
 -------------------------------------------------------------------------------
 
 main :: IO ()
 main = do
-    defaultMain
-      [
-        mkDocIdBenchmark
-      , deannotateValueBenchmark
-      ]
+  defaultMain
+    [ mkDocIdBenchmark,
+      deannotateValueBenchmark
+    ]
 
 -------------------------------------------------------------------------------
 mkDocIdBenchmark :: Benchmark
-mkDocIdBenchmark = bgroup "mkDocId"
-  [
-    bench "mkDocId (randomIO)" $ nfIO (mkDocId (Proxy :: Proxy ESV5))
-  , bench "mkDocId' (shared )" $ nfIO mkDocId'
-  ]
-
+mkDocIdBenchmark =
+  bgroup
+    "mkDocId"
+    [ bench "mkDocId (randomIO)" $ nfIO (mkDocId (Proxy :: Proxy ESV5)),
+      bench "mkDocId' (shared )" $ nfIO mkDocId'
+    ]
 
 -------------------------------------------------------------------------------
 deannotateValueBenchmark :: Benchmark
-deannotateValueBenchmark = bgroup "deannotateValue"
- [
-   bench "deannotateValue" $ nf deannotateValue annotatedValue
- ]
-
+deannotateValueBenchmark =
+  bgroup
+    "deannotateValue"
+    [ bench "deannotateValue" $ nf deannotateValue annotatedValue
+    ]
 
 -------------------------------------------------------------------------------
 annotatedValue :: Value
-annotatedValue = Object $ HM.fromList [ ("a::string", String "whatever")
-                                      , ("b::double", Number 4.5)
-                                      , ("c::long", Number 4)
-                                      , ("d::boolean", Bool True)
-                                      , ("e::null", Null)
-                                      ]
+annotatedValue =
+  Object $
+    HM.fromList
+      [ ("a::string", String "whatever"),
+        ("b::double", Number 4.5),
+        ("c::long", Number 4),
+        ("d::boolean", Bool True),
+        ("e::null", Null)
+      ]
 
 -------------------------------------------------------------------------------
 mkDocId' :: IO DocId
 mkDocId' = do
-    is <- replicateM len (randomRIO (0, 15))
-    return (DocId (T.pack (concatMap (`showHex` "") (is :: [Int]))))
+  is <- replicateM len (randomRIO (0, 15))
+  return (DocId (T.pack (concatMap (`showHex` "") (is :: [Int]))))
   where
     len = 32
 
