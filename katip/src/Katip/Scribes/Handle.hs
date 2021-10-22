@@ -82,7 +82,7 @@ mkHandleScribeWithFormatter itemFormatter cs h permitF verb = do
     ColorIfTerminal -> hIsTerminalDevice h
     ColorLog b -> return b
   lock <- newMVar ()
-  let logger i@Item {..} = do
+  let logger i@Item {} = do
         bracket_ (takeMVar lock) (putMVar lock ()) $
           T.hPutStrLn h $ toLazyText $ itemFormatter colorize verb i
   return $ Scribe logger (hFlush h) permitF

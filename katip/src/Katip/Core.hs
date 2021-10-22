@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveLift #-}
 {-# LANGUAGE CPP                        #-}
 {-# LANGUAGE DefaultSignatures          #-}
 {-# LANGUAGE DeriveFunctor              #-}
@@ -103,7 +104,7 @@ readMay s = case [x | (x,t) <- reads s, ("","") <- lex t] of
 -- IsString/OverloadedStrings, so "foo" will result in Namespace
 -- ["foo"].
 newtype Namespace = Namespace { unNamespace :: [Text] }
-  deriving (Eq,Show,Read,Ord,Generic,ToJSON,FromJSON,SG.Semigroup,Monoid)
+  deriving (Eq,Show,Read,Ord,Generic,ToJSON,FromJSON,SG.Semigroup,Monoid,TH.Lift)
 
 instance IsString Namespace where
     fromString s = Namespace [fromString s]
@@ -131,7 +132,7 @@ data Severity
     | CriticalS                -- ^ Severe situations
     | AlertS                   -- ^ Take immediate action
     | EmergencyS               -- ^ System is unusable
-  deriving (Eq, Ord, Show, Read, Generic, Enum, Bounded)
+  deriving (Eq, Ord, Show, Read, Generic, Enum, Bounded, TH.Lift)
 
 
 -------------------------------------------------------------------------------
@@ -143,7 +144,7 @@ data Severity
 -- - 'V3' implies the maximum amount of payload information.
 -- - Anything in between is left to the discretion of the developer.
 data Verbosity = V0 | V1 | V2 | V3
-  deriving (Eq, Ord, Show, Read, Generic, Enum, Bounded)
+  deriving (Eq, Ord, Show, Read, Generic, Enum, Bounded, TH.Lift)
 
 
 -------------------------------------------------------------------------------
@@ -1031,30 +1032,6 @@ logMsg
     -> LogStr
     -> m ()
 logMsg ns sev msg = logF () ns sev msg
-
-
-instance TH.Lift Namespace where
-    lift (Namespace xs) =
-      let xs' = map T.unpack xs
-      in  [| Namespace (map T.pack xs') |]
-
-
-instance TH.Lift Verbosity where
-    lift V0 = [| V0 |]
-    lift V1 = [| V1 |]
-    lift V2 = [| V2 |]
-    lift V3 = [| V3 |]
-
-
-instance TH.Lift Severity where
-    lift DebugS     = [| DebugS |]
-    lift InfoS      = [| InfoS |]
-    lift NoticeS    = [| NoticeS |]
-    lift WarningS   = [| WarningS |]
-    lift ErrorS     = [| ErrorS |]
-    lift CriticalS  = [| CriticalS |]
-    lift AlertS     = [| AlertS |]
-    lift EmergencyS = [| EmergencyS |]
 
 
 -- | Lift a location into an Exp.

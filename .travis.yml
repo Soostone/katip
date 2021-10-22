@@ -8,14 +8,15 @@ language: c
 addons:
   apt:
     packages:
-    - libgmp-dev
+      - libgmp-dev
 
 # The different configurations we want to test. You could also do things like
 # change flags or use --stack-yaml to point to a different file.
 matrix:
   include:
-    - env: ARGS="--resolver=lts-16" ESVERSION=5.5.0 ESURL=https://artifacts.elastic.co/downloads/elasticsearch ESTESTARGS="--es-version 5" ES_JAVA_OPTS="-Xms500m -Xmx750m"
-    - env: ARGS="--resolver=lts-16" ESVERSION=6.2.2 ESURL=https://artifacts.elastic.co/downloads/elasticsearch ESTESTARGS="--es-version 5" ES_JAVA_OPTS="-Xms500m -Xmx750m"
+    - env: ARGS="--resolver=lts-18" ESVERSION=5.5.0 ESURL=https://artifacts.elastic.co/downloads/elasticsearch ESTESTARGS="--es-version 5" ES_JAVA_OPTS="-Xms500m -Xmx750m"
+    - env: ARGS="--resolver=lts-18" ESVERSION=6.2.2 ESURL=https://artifacts.elastic.co/downloads/elasticsearch ESTESTARGS="--es-version 5" ES_JAVA_OPTS="-Xms500m -Xmx750m"
+    - env: ARGS="--resolver=lts-18" ESVERSION=6.2.2 ESURL=https://artifacts.elastic.co/downloads/elasticsearch ESTESTARGS="--es-version 5" ES_JAVA_OPTS="-Xms500m -Xmx750m"
     - env: ARGS="--resolver=nightly" ESVERSION=5.5.0 ESURL=https://artifacts.elastic.co/downloads/elasticsearch ESTESTARGS="--es-version 5" ES_JAVA_OPTS="-Xms500m -Xmx750m"
     - env: ARGS="--resolver=nightly" ESVERSION=6.2.2 ESURL=https://artifacts.elastic.co/downloads/elasticsearch ESTESTARGS="--es-version 5" ES_JAVA_OPTS="-Xms500m -Xmx750m"
   # nightlies may fail usually due to lagging dependencies
@@ -24,10 +25,10 @@ matrix:
     - env: ARGS="--resolver=nightly" ESVERSION=6.2.2 ESURL=https://artifacts.elastic.co/downloads/elasticsearch ESTESTARGS="--es-version 5" ES_JAVA_OPTS="-Xms500m -Xmx750m"
 
 before_install:
-# Download and unpack the stack executable
-- mkdir -p ~/.local/bin
-- export PATH=$HOME/.local/bin:$PATH
-- travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
+  # Download and unpack the stack executable
+  - mkdir -p ~/.local/bin
+  - export PATH=$HOME/.local/bin:$PATH
+  - travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
 
 install:
   - wget --no-check-certificate $ESURL/elasticsearch-$ESVERSION.tar.gz
@@ -37,7 +38,6 @@ install:
   - java -version
   - ./elasticsearch-$ESVERSION/bin/elasticsearch &
   # Bloodhound seems to take a while to build and can sometimes stall out the build when travis detects no output.
-
 
 # This line does all of the work: installs GHC if necessary, build the library,
 # executables, and test suites, and runs the test suites. --no-terminal works
@@ -57,5 +57,5 @@ script:
 # Caching so the next build will be fast too.
 cache:
   directories:
-  - $HOME/.stack
-  - .stack-work
+    - $HOME/.stack
+    - .stack-work
