@@ -1,0 +1,16 @@
+version: "3.7"
+services:
+  # https://hub.docker.com/_/elasticsearch
+  elasticsearch:
+    image: elasticsearch:6.6.2
+    ports:
+      - target: 9200
+        published: 9200
+        protocol: tcp
+        mode: host
+      - target: 9300
+        published: 9300
+        protocol: tcp
+        mode: host
+    environment:
+      "discovery.type": single-node
