@@ -1,3 +1,7 @@
+0.8.6.0
+=======
+* GHC 8.10 compatibility
+
 0.8.5.0
 =======
 * Add MonadResource instances [#121](https://github.com/Soostone/katip/pull/121)
