@@ -287,8 +287,9 @@ logTM = [|logItemM (Just $(getLocTH))|]
 --
 -- Same consideration as `logLoc` applies.
 --
--- Location will be logged from the module that invokes 'logLocM' so
--- be aware that wrapping 'logLocM' will make location reporting useless.
+-- By default, ocation will be logged from the module that invokes 'logLocM'.
+-- If you want to wrap 'logLocM' in a helper, wrap the entire helper with
+-- 'withFrozenCallStack' to retain the callsite of the helper in the logs.
 --
 -- This function does not require template-haskell. Using GHC <= 7.8 will result
 -- in the emission of a log line without any location information.
