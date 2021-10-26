@@ -73,8 +73,14 @@ import qualified Control.Monad.Trans.Writer.Strict as Strict
   )
 import Control.Monad.Writer hiding ((<>))
 import Data.Aeson
+#if MIN_VERSION_aeson(2, 0, 0)
+import qualified Data.Aeson.KeyMap as KM
+import qualified Data.Aeson.Key as K
+#endif
 import qualified Data.Foldable as FT
+#if !MIN_VERSION_aeson(2, 0, 0)
 import qualified Data.HashMap.Strict as HM
+#endif
 import Data.Semigroup as Semi
 import Data.Sequence as Seq
 import Data.Text (Text)
@@ -130,8 +136,16 @@ instance LogItem LogContexts where
       -- combined, we resolve AllKeys to its equivalent SomeKeys
       -- representation first.
       payloadKeys' (AnyLogContext v) = case payloadKeys verb v of
-        AllKeys -> SomeKeys $ HM.keys $ toObject v
+        AllKeys -> SomeKeys $ toKeys $ toObject v
         x -> x
+
+#if MIN_VERSION_aeson(2, 0, 0)
+toKeys :: KM.KeyMap v -> [Text]
+toKeys = fmap K.toText . KM.keys
+#else
+toKeys :: HM.HashMap k v -> [k]
+toKeys = HM.keys
+#endif
 
 -------------------------------------------------------------------------------
 

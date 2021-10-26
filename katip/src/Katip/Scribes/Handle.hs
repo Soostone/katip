@@ -1,11 +1,18 @@
+{-# LANGUAGE CPP #-}
+
 module Katip.Scribes.Handle where
 
 -------------------------------------------------------------------------------
-import Control.Applicative as A
 import Control.Concurrent
 import Control.Exception (bracket_, finally)
 import Data.Aeson
+#if MIN_VERSION_aeson(2, 0, 0)
+import qualified Data.Aeson.Key as K
+import qualified Data.Aeson.KeyMap as KM
+import Data.Bifunctor (Bifunctor (..))
+#else
 import qualified Data.HashMap.Strict as HM
+#endif
 import Data.Monoid as M
 import Data.Scientific as S
 import Data.Text (Text)
@@ -26,17 +33,32 @@ brackets m = fromText "[" M.<> m <> fromText "]"
 
 -------------------------------------------------------------------------------
 getKeys :: LogItem s => Verbosity -> s -> [Builder]
-getKeys verb a = concat (renderPair A.<$> HM.toList (payloadObject verb a))
+getKeys verb a = concat (toBuilders (payloadObject verb a))
+
+#if MIN_VERSION_aeson(2, 0, 0)
+toBuilders :: KM.KeyMap Value -> [[Builder]]
+toBuilders = fmap (renderPair . first K.toText) . KM.toList
+
+toTxtKeyList :: KM.KeyMap v -> [(Text, v)]
+toTxtKeyList mp = first K.toText <$> KM.toList mp
+#else
+toBuilders :: HM.HashMap Text Value -> [[Builder]]
+toBuilders = fmap renderPair . HM.toList
+
+toTxtKeyList :: HM.HashMap Text v -> [(Text, v)]
+toTxtKeyList = HM.toList
+#endif
+
+renderPair :: (Text, Value) -> [Builder]
+renderPair (k, v) =
+  case v of
+    Object o -> concat [renderPair (k <> "." <> k', v') | (k', v') <- toTxtKeyList o]
+    String t -> [fromText (k <> ":" <> t)]
+    Number n -> [fromText (k <> ":") <> fromString (formatNumber n)]
+    Bool b -> [fromText (k <> ":") <> fromString (show b)]
+    Null -> [fromText (k <> ":null")]
+    _ -> mempty -- Can't think of a sensible way to handle arrays
   where
-    renderPair :: (Text, Value) -> [Builder]
-    renderPair (k, v) =
-      case v of
-        Object o -> concat [renderPair (k <> "." <> k', v') | (k', v') <- HM.toList o]
-        String t -> [fromText (k <> ":" <> t)]
-        Number n -> [fromText (k <> ":") <> fromString (formatNumber n)]
-        Bool b -> [fromText (k <> ":") <> fromString (show b)]
-        Null -> [fromText (k <> ":null")]
-        _ -> mempty -- Can't think of a sensible way to handle arrays
     formatNumber :: Scientific -> String
     formatNumber n =
       formatScientific Generic (if isFloating n then Nothing else Just 0) n

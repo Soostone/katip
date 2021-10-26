@@ -57,8 +57,15 @@ import qualified Control.Monad.Trans.Writer.Strict as Strict (WriterT,
 import           Data.Aeson                        (FromJSON (..), ToJSON (..),
                                                     object)
 import qualified Data.Aeson                        as A
+#if MIN_VERSION_aeson(2, 0, 0)
+import qualified Data.Aeson.Key                    as K
+import qualified Data.Aeson.KeyMap                 as KM
+import           Data.Bifunctor                    (Bifunctor (..))
+#endif
 import           Data.Foldable                     as FT
+#if !MIN_VERSION_aeson(2, 0, 0)
 import qualified Data.HashMap.Strict               as HM
+#endif
 import           Data.List
 import qualified Data.Map.Strict                   as M
 import           Data.Maybe                        (fromMaybe)
@@ -489,8 +496,18 @@ newtype SimpleLogPayload = SimpleLogPayload {
 -- Construct using 'sl' and combine multiple tuples using '<>' from
 -- 'Monoid'.
 instance ToJSON SimpleLogPayload where
-    toJSON (SimpleLogPayload as) = object $ map go as
+    toJSON (SimpleLogPayload as) = object $ map go as'
       where go (k, AnyLogPayload v) = k A..= v
+            as' = toKey <$> as
+
+
+#if MIN_VERSION_aeson(2, 0, 0)
+toKey :: (Text, c) -> (K.Key, c)
+toKey = first K.fromText
+#else
+toKey :: a -> a
+toKey = id
+#endif
 
 
 instance ToObject SimpleLogPayload
@@ -522,7 +539,15 @@ sl a b = SimpleLogPayload [(a, AnyLogPayload b)]
 payloadObject :: LogItem a => Verbosity -> a -> A.Object
 payloadObject verb a = case FT.foldMap (flip payloadKeys a) [(V0)..verb] of
     AllKeys     -> toObject a
-    SomeKeys ks -> HM.filterWithKey (\ k _ -> k `FT.elem` ks) $ toObject a
+    SomeKeys ks -> filterElems ks $ toObject a
+
+#if MIN_VERSION_aeson(2, 0, 0)
+filterElems :: [Text] -> KM.KeyMap v -> KM.KeyMap v
+filterElems ks = KM.filterWithKey (\ k _ -> K.toText k `FT.elem` ks)
+#else
+filterElems :: [Text] -> HM.HashMap Text v -> HM.HashMap Text v
+filterElems ks = HM.filterWithKey (\ k _ -> k `FT.elem` ks)
+#endif
 
 
 -------------------------------------------------------------------------------

@@ -18,7 +18,12 @@ import Control.Applicative as A
 import Control.Concurrent.STM
 import Control.Exception.Safe
 import Data.Aeson
+#if MIN_VERSION_aeson(2, 0, 0)
+import qualified Data.Aeson.Key                    as K
+import qualified Data.Aeson.KeyMap                 as KM
+#else
 import qualified Data.HashMap.Strict as HM
+#endif
 import qualified Data.Map.Strict as M
 import Data.Monoid as Monoid
 import Data.Text (Text)
@@ -69,7 +74,7 @@ logContextsTests =
             l2 = liftPayload (SimpleLogPayload [("foo", AnyLogPayload ("b" :: Text))])
             l3 = liftPayload (SimpleLogPayload [("foo", AnyLogPayload ("c" :: Text))])
             both = l1 <> l2 <> l3
-        toObject both @?= HM.singleton "foo" (String "c"),
+        toObject both @?= singletonMap "foo" (String "c"),
       testCase "respects payloadKeys for each constituent payload" $ do
         let everything = liftPayload (SimpleLogPayload [("foo", AnyLogPayload ("a" :: Text))])
             conservative = liftPayload (ConservativePayload "always" "rarely")
@@ -77,6 +82,14 @@ logContextsTests =
         payloadKeys V2 both @?= SomeKeys ["often_shown", "rarely_shown", "foo"]
         payloadKeys V1 both @?= SomeKeys ["often_shown", "foo"]
     ]
+
+#if MIN_VERSION_aeson(2, 0, 0)
+singletonMap :: K.Key -> v -> KM.KeyMap v
+singletonMap = KM.singleton
+#else
+singletonMap :: Text -> v -> HM.HashMap Text v
+singletonMap = HM.singleton
+#endif
 
 -------------------------------------------------------------------------------
 closeScribeTests :: TestTree
@@ -123,12 +136,12 @@ loggingTests =
               $(logTM) InfoS "additional context"
         _ <- closeScribes le
         summary <- fmap summarizeItem <$> readTVarIO items
-        let baseCtx = HM.singleton "base_context" (Number 42)
+        let baseCtx = singletonMap "base_context" (Number 42)
         let baseNS = "tests" <> "base_namespace"
         summary
           @?= [ (baseNS, baseCtx, "basic log"),
                 (baseNS <> "added" <> "namespace", baseCtx, "with namespaces"),
-                (baseNS <> "added", HM.insert "additional" (Bool True) baseCtx, "additional context")
+                (baseNS <> "added", insertMap "additional" (Bool True) baseCtx, "additional context")
               ],
       testCase "Katip.Monadic.logLocM" $ do
         (le, items) <- recordingEnv
@@ -153,6 +166,14 @@ loggingTests =
       return (le2, items)
     summarizeItem :: Item Object -> (Namespace, Object, LogStr)
     summarizeItem Item {..} = (_itemNamespace, _itemPayload, _itemMessage)
+
+#if MIN_VERSION_aeson(2, 0, 0)
+insertMap :: K.Key -> v -> KM.KeyMap v -> KM.KeyMap v
+insertMap = KM.insert
+#else
+insertMap :: Text -> v -> HM.HashMap Text v -> HM.HashMap Text v
+insertMap = HM.insert
+#endif
 
 -------------------------------------------------------------------------------
 trivialScribe :: IO (Scribe, TVar Bool)
