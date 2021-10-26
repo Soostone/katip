@@ -1,0 +1,5 @@
+resolver: lts-18.13
+allow-newer: true
+flags:
+  katip:
+    lib-Werror: true
