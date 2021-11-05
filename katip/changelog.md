@@ -1,3 +1,7 @@
+0.8.7.0
+=======
+* Aeson 2 compatibility
+
 0.8.6.0
 =======
 * GHC 8.10 compatibility

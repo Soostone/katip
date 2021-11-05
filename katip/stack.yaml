@@ -1,0 +1,8 @@
+resolver: lts-18.13
+extra-deps:
+  - aeson-2.0.1.0@sha256:ee0847af4d1fb9ece3f24f443d8d8406431c32688a57880314ac36617da937eb,6229
+  - semialign-1.2@sha256:d3e7e3a5fe509f30bf2121d94c54b586217f2dc69a47ffede3633ddbc12cba68,2743
+allow-newer: true
+flags:
+  katip:
+    lib-Werror: true

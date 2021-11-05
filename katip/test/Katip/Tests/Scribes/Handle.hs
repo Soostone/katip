@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 
@@ -57,14 +58,27 @@ tests =
       withResource setupTempFile teardownTempFile $ \setupFn ->
         goldenVsString
           "Text-golden"
-          "test/Katip/Tests/Scribes/Handle-text.golden"
+          goldenTextPath
           (setupFn >>= writeTextLog),
       withResource setupTempFile teardownTempFile $ \setupFn ->
         goldenVsString
           "Json-golden"
-          "test/Katip/Tests/Scribes/Handle-json.golden"
+          goldenJsonPath
           (setupFn >>= writeJsonLog)
     ]
+
+#if MIN_VERSION_aeson(2, 0, 0)
+-- keys get reordered, hence different output
+goldenTextPath :: FilePath
+goldenTextPath = "test/Katip/Tests/Scribes/Handle-text-aeson2.golden"
+goldenJsonPath :: FilePath
+goldenJsonPath = "test/Katip/Tests/Scribes/Handle-json-aeson2.golden"
+#else
+goldenTextPath :: FilePath
+goldenTextPath = "test/Katip/Tests/Scribes/Handle-text.golden"
+goldenJsonPath :: FilePath
+goldenJsonPath = "test/Katip/Tests/Scribes/Handle-json.golden"
+#endif
 
 -------------------------------------------------------------------------------
 data DummyLogItem = DummyLogItem
