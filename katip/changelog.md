@@ -1,6 +1,6 @@
 0.8.7.0
 =======
-* Aeson 2 compatibility
+* Aeson 2 compatibility [#131](https://github.com/Soostone/katip/pull/131)
 
 0.8.6.0
 =======
