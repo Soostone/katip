@@ -13,6 +13,8 @@ import Data.Bifunctor (Bifunctor (..))
 #else
 import qualified Data.HashMap.Strict as HM
 #endif
+import Data.Coerce (coerce)
+import Data.Fixed(Fixed(..))
 import Data.Monoid as M
 import Data.Scientific as S
 import Data.Text (Text)
@@ -20,9 +22,13 @@ import Data.Text.Lazy (toStrict)
 import Data.Text.Lazy.Builder
 import Data.Text.Lazy.Encoding (decodeUtf8)
 import Data.Text.Lazy.IO as T
+import Data.Time (UTCTime, getCurrentTime)
+import Data.Time.Clock (nominalDiffTimeToSeconds, diffUTCTime, picosecondsToDiffTime)
+import GHC.IO.Unsafe (unsafePerformIO)
+
 -------------------------------------------------------------------------------
 import Katip.Core
-import Katip.Format.Time (formatAsLogTime)
+import Katip.Format.Time (formatAsLogTime, formatAsTime)
 import System.IO
 
 -------------------------------------------------------------------------------
@@ -159,6 +165,29 @@ bracketFormat withColor verb Item {..} =
     renderSeverity' severity =
       colorBySeverity withColor severity (renderSeverity severity)
 
+-- getProcessTimes returns process wall time,
+-- but it is not clear how to convert ClockTick to time
+firstLogAt :: UTCTime
+{-# NOINLINE firstLogAt #-}
+firstLogAt = unsafePerformIO getCurrentTime
+
+-- | 'bracketFormat' produces prefix to verbose for an interative terminal.
+-- Fields such as host, day, process, thread, etc are not relevant
+terminalFormat :: LogItem a => ItemFormatter a
+terminalFormat withColor verb Item {..} =
+  brackets sinceStartStr
+    <> brackets (fromText (renderSeverity' _itemSeverity))
+    <> mconcat ks
+    <> maybe mempty (brackets . fromString . locationToString) _itemLoc
+    <> fromText " "
+    <> unLogStr _itemMessage
+  where
+    sinceStart = nominalDiffTimeToSeconds $ diffUTCTime _itemTime firstLogAt
+    sinceStartStr = fromText (formatAsTime (picosecondsToDiffTime $ coerce sinceStart))
+    ks = map brackets $ getKeys verb _itemPayload
+    renderSeverity' severity =
+      colorBySeverity withColor severity (renderSeverity severity)
+
 -- | Logs items as JSON. This can be useful in circumstances where you already
 -- have infrastructure that is expecting JSON to be logged to a standard stream
 -- or file. For example:
@@ -199,3 +228,12 @@ ioLogEnv permit verb = do
   le <- initLogEnv "io" "io"
   lh <- mkHandleScribe ColorIfTerminal stdout permit verb
   registerScribe "stdout" lh defaultScribeSettings le
+
+-- | similar to 'ioLogEnv' but uses 'terminalFormat' instead of 'bracketFormat'
+termLogEnv :: PermitFunc -> Verbosity -> IO LogEnv
+termLogEnv permit verb = do
+  le <- initLogEnv "io" "io"
+  lh <- mkHandle ColorIfTerminal stdout permit verb
+  registerScribe "stdout" lh defaultScribeSettings le
+  where
+    mkHandle = mkHandleScribeWithFormatter terminalFormat

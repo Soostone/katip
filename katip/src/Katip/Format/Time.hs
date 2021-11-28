@@ -2,6 +2,7 @@
 module Katip.Format.Time
   ( formatAsLogTime,
     formatAsIso8601,
+    formatAsTime
   )
 where
 
@@ -35,6 +36,16 @@ formatAsLogTime (UTCTime day time) = toText $
   where
     toText (arr, len) = Text arr 0 len
 {-# INLINEABLE formatAsLogTime #-}
+
+formatAsTime :: DiffTime -> Text
+formatAsTime time = toText $
+  TA.run2 $ do
+    buf <- TA.new 8 -- length "12:34:56"
+    _ <- writeTimeOfDay False buf 0 (diffTimeOfDay64 time)
+    return (buf, 8)
+  where
+    toText (arr, len) = Text arr 0 len
+{-# INLINEABLE formatAsTime #-}
 
 -- | Format 'UTCTime' into a Iso8601 format.
 --
