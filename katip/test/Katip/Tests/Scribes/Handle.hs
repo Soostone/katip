@@ -36,16 +36,8 @@ tests :: TestTree
 tests =
   testGroup
     "Katip.Scribes.Handle"
-    [ withResource setup teardown $ \setupScribe -> testCase "logs the correct data" $ do
-        (path, h, fin, le) <- setupScribe
-        runKatipT le $ logItem dummyLogItem "test" Nothing InfoS "test message"
-        fin
-        runKatipT le $ logItem dummyLogItem "test" Nothing InfoS "wont make it in"
-        hClose h
-        res <- readFile path
-        let pat = "\\[[[:digit:]]{4}-[[:digit:]]{2}-[[:digit:]]{2} [[:digit:]]{2}:[[:digit:]]{2}:[[:digit:]]{2}\\]\\[katip-test.test\\]\\[Info\\]\\[.+\\]\\[[PID [:digit:]]+\\]\\[ThreadId [[:digit:]]+\\]\\[note.deep:some note\\] test message" :: String
-        let matches = res =~ pat
-        assertBool (show res M.<> " did not match") matches,
+    [ withResourceFormat bracketPattern bracketFormat,
+      withResourceFormat terminalPattern terminalFormat,
       withResource setupFile (const (return ())) $ \setupScribe -> testCase "logs correct data to a file" $ do
         (path, fin, le) <- setupScribe
         runKatipT le $ logItem dummyLogItem "test" Nothing InfoS "test message"
@@ -66,6 +58,20 @@ tests =
           goldenJsonPath
           (setupFn >>= writeJsonLog)
     ]
+  where
+    bracketPattern = "\\[[[:digit:]]{4}-[[:digit:]]{2}-[[:digit:]]{2} [[:digit:]]{2}:[[:digit:]]{2}:[[:digit:]]{2}\\]\\[katip-test.test\\]\\[Info\\]\\[.+\\]\\[[PID [:digit:]]+\\]\\[ThreadId [[:digit:]]+\\]\\[note.deep:some note\\] test message"
+    terminalPattern = "\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\]\\[Info\\] test message"
+    withResourceFormat :: String -> (forall a. (LogItem a => ItemFormatter a)) -> TestTree
+    withResourceFormat expectedPattern itemFormat =
+      withResource (setup itemFormat) teardown $ \setupScribe -> testCase "logs the correct data" $ do
+        (path, h, fin, le) <- setupScribe
+        runKatipT le $ logItem dummyLogItem "test" Nothing InfoS "test message"
+        fin
+        runKatipT le $ logItem dummyLogItem "test" Nothing InfoS "wont make it in"
+        hClose h
+        res <- readFile path
+        let matches = res =~ expectedPattern
+        assertBool (show res M.<> " did not match") matches
 
 #if MIN_VERSION_aeson(2, 0, 0)
 -- keys get reordered, hence different output
@@ -104,11 +110,11 @@ dummyLogItem :: DummyLogItem
 dummyLogItem = DummyLogItem "some note"
 
 -------------------------------------------------------------------------------
-setup :: IO (FilePath, Handle, IO (), LogEnv)
-setup = do
+setup :: (forall a. LogItem a => ItemFormatter a) -> IO (FilePath, Handle, IO (), LogEnv)
+setup itemFormat = do
   tempDir <- getTemporaryDirectory
   (fp, h) <- openTempFile tempDir "katip.log"
-  s <- mkHandleScribe (ColorLog False) h (permitItem DebugS) V3
+  s <- mkHandleScribeWithFormatter itemFormat (ColorLog False) h (permitItem DebugS) V3
   le <- initLogEnv "katip-test" "test"
   le' <- registerScribe "handle" s defaultScribeSettings le
   return (fp, h, void (closeScribes le'), le')
