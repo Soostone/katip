@@ -202,6 +202,7 @@ module Katip
     ItemFormatter,
     bracketFormat,
     jsonFormat,
+    terminalFormat,
 
     -- * Tools for implementing Scribes
     PermitFunc,
