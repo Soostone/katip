@@ -174,17 +174,15 @@ firstLogAt = unsafePerformIO getCurrentTime
 -- | 'bracketFormat' produces prefix to verbose for an interative terminal.
 -- Fields such as host, day, process, thread, etc are not relevant
 terminalFormat :: LogItem a => ItemFormatter a
-terminalFormat withColor verb Item {..} =
+terminalFormat withColor _verb Item {..} =
   brackets sinceStartStr
     <> brackets (fromText (renderSeverity' _itemSeverity))
-    <> mconcat ks
     <> maybe mempty (brackets . fromString . locationToString) _itemLoc
     <> fromText " "
     <> unLogStr _itemMessage
   where
     sinceStart = nominalDiffTimeToSeconds $ diffUTCTime _itemTime firstLogAt
     sinceStartStr = fromText (formatAsTime (picosecondsToDiffTime $ coerce sinceStart))
-    ks = map brackets $ getKeys verb _itemPayload
     renderSeverity' severity =
       colorBySeverity withColor severity (renderSeverity severity)
 
