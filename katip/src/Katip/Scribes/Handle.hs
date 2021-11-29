@@ -117,16 +117,25 @@ mkHandleScribeWithFormatter itemFormatter cs h permitF verb = do
 
 -------------------------------------------------------------------------------
 
+-- | 'mkFileScribe' with customizable item formatter.
+mkFileScribeWithFormatter ::
+  (forall a. LogItem a => ItemFormatter a) ->
+  FilePath ->
+  PermitFunc ->
+  Verbosity ->
+  IO Scribe
+mkFileScribeWithFormatter itmFmt f permitF verb = do
+  h <- openFile f AppendMode
+  Scribe logger finalizer permit <- mkHandleScribeWithFormatter itmFmt (ColorLog False) h permitF verb
+  return (Scribe logger (finalizer `finally` hClose h) permit)
+
 -- | A specialization of 'mkHandleScribe' that takes a 'FilePath'
 -- instead of a 'Handle'. It is responsible for opening the file in
 -- 'AppendMode' and will close the file handle on
 -- 'closeScribe'/'closeScribes'. Does not do log coloring. Sets handle
 -- to 'LineBuffering' mode.
 mkFileScribe :: FilePath -> PermitFunc -> Verbosity -> IO Scribe
-mkFileScribe f permitF verb = do
-  h <- openFile f AppendMode
-  Scribe logger finalizer permit <- mkHandleScribe (ColorLog False) h permitF verb
-  return (Scribe logger (finalizer `finally` hClose h) permit)
+mkFileScribe = mkFileScribeWithFormatter bracketFormat
 
 -------------------------------------------------------------------------------
 
