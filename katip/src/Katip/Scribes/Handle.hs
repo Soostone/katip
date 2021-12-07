@@ -117,9 +117,20 @@ mkHandleScribeWithFormatter itemFormatter cs h permitF verb = do
 -- 'closeScribe'/'closeScribes'. Does not do log coloring. Sets handle
 -- to 'LineBuffering' mode.
 mkFileScribe :: FilePath -> PermitFunc -> Verbosity -> IO Scribe
-mkFileScribe f permitF verb = do
+mkFileScribe = mkFileScribeWithFormatter bracketFormat
+
+-------------------------------------------------------------------------------
+
+-- | 'mkFileScribe' with customizable item formatter.
+mkFileScribeWithFormatter ::
+  (forall a. LogItem a => ItemFormatter a) ->
+  FilePath ->
+  PermitFunc ->
+  Verbosity ->
+  IO Scribe
+mkFileScribeWithFormatter itmFmt f permitF verb = do
   h <- openFile f AppendMode
-  Scribe logger finalizer permit <- mkHandleScribe (ColorLog False) h permitF verb
+  Scribe logger finalizer permit <- mkHandleScribeWithFormatter itmFmt (ColorLog False) h permitF verb
   return (Scribe logger (finalizer `finally` hClose h) permit)
 
 -------------------------------------------------------------------------------
