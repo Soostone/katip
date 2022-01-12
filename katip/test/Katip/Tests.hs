@@ -79,7 +79,7 @@ logContextsTests =
         let everything = liftPayload (SimpleLogPayload [("foo", AnyLogPayload ("a" :: Text))])
             conservative = liftPayload (ConservativePayload "always" "rarely")
             both = everything <> conservative
-        payloadKeys V2 both @?= SomeKeys ["often_shown", "rarely_shown", "foo"]
+        payloadKeys V2 both @?= SomeKeys somePayloadKeys
         payloadKeys V1 both @?= SomeKeys ["often_shown", "foo"]
     ]
 
@@ -89,6 +89,14 @@ singletonMap = KM.singleton
 #else
 singletonMap :: Text -> v -> HM.HashMap Text v
 singletonMap = HM.singleton
+#endif
+
+#if MIN_VERSION_unordered_containers(0, 2, 16)
+somePayloadKeys :: [Text]
+somePayloadKeys = ["rarely_shown", "often_shown", "foo"]
+#else
+somePayloadKeys :: [Text]
+somePayloadKeys = ["often_shown", "rarely_shown", "foo"]
 #endif
 
 -------------------------------------------------------------------------------

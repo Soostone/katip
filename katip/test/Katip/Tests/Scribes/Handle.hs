@@ -73,6 +73,11 @@ goldenTextPath :: FilePath
 goldenTextPath = "test/Katip/Tests/Scribes/Handle-text-aeson2.golden"
 goldenJsonPath :: FilePath
 goldenJsonPath = "test/Katip/Tests/Scribes/Handle-json-aeson2.golden"
+#elif MIN_VERSION_unordered_containers(0, 2, 16)
+goldenTextPath :: FilePath
+goldenTextPath = "test/Katip/Tests/Scribes/Handle-text-aeson2.golden"
+goldenJsonPath :: FilePath
+goldenJsonPath = "test/Katip/Tests/Scribes/Handle-json-aeson2.golden"
 #else
 goldenTextPath :: FilePath
 goldenTextPath = "test/Katip/Tests/Scribes/Handle-text.golden"
