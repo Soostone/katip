@@ -79,9 +79,18 @@ logContextsTests =
         let everything = liftPayload (SimpleLogPayload [("foo", AnyLogPayload ("a" :: Text))])
             conservative = liftPayload (ConservativePayload "always" "rarely")
             both = everything <> conservative
-        payloadKeys V2 both @?= SomeKeys somePayloadKeys
-        payloadKeys V1 both @?= SomeKeys ["often_shown", "foo"]
+        assertEquivalentPayloadSelection
+          (payloadKeys V2 both)
+          (SomeKeys somePayloadKeys)
+        assertEquivalentPayloadSelection
+          (payloadKeys V1 both)
+          (SomeKeys ["often_shown", "foo"])
     ]
+
+assertEquivalentPayloadSelection :: PayloadSelection -> PayloadSelection -> Assertion
+assertEquivalentPayloadSelection a b
+  | equivalentPayloadSelection a b = pure ()
+  | otherwise = assertFailure ("Expected " <> show a <> " =~ " <> show b)
 
 #if MIN_VERSION_aeson(2, 0, 0)
 singletonMap :: K.Key -> v -> KM.KeyMap v

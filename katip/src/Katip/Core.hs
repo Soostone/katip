@@ -70,6 +70,7 @@ import           Data.List
 import qualified Data.Map.Strict                   as M
 import           Data.Maybe                        (fromMaybe)
 import           Data.Semigroup                    as SG
+import qualified Data.Set                          as Set
 import           Data.String
 import           Data.String.Conv
 import           Data.Text                         (Text)
@@ -437,6 +438,13 @@ instance Monoid PayloadSelection where
     mempty = SomeKeys []
     mappend = (<>)
 
+
+-- | Compares two payload selections for equivalence. With SomeKeys, ordering
+-- and duplicates are ignored.
+equivalentPayloadSelection :: PayloadSelection -> PayloadSelection -> Bool
+equivalentPayloadSelection AllKeys AllKeys = True
+equivalentPayloadSelection (SomeKeys a) (SomeKeys b) = Set.fromList a == Set.fromList b
+equivalentPayloadSelection _ _ = False
 
 -------------------------------------------------------------------------------
 -- | Katip requires JSON objects to be logged as context. This
