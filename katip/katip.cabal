@@ -54,7 +54,7 @@ library
     OverloadedStrings
 
   build-depends: base >=4.9.0.0 && <5
-               , aeson >=2.1.0
+               , aeson >=1.0.0.0
                , async >= 2.0.0.0 && < 3.0.0.0
                , auto-update >= 0.1
                , bytestring >= 0.9
