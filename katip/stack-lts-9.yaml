@@ -1,0 +1,8 @@
+resolver: lts-9.21
+extra-deps:
+  - text-1.2.5.0
+  - resourcet-1.2.2
+allow-newer: true
+flags:
+  katip:
+    lib-Werror: true

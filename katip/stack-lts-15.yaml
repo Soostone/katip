@@ -1,0 +1,6 @@
+resolver: lts-15.16
+extra-deps: []
+allow-newer: true
+flags:
+  katip:
+    lib-Werror: true
