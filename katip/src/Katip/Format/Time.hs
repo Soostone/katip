@@ -1,3 +1,5 @@
+{-# LANGUAGE CPP #-}
+
 -- | Time and memory efficient time encoding helper functions.
 module Katip.Format.Time
   ( formatAsLogTime,
@@ -11,7 +13,12 @@ import Data.Text (Text)
 import qualified Data.Text.Array as TA
 import Data.Text.Internal (Text (..))
 import Data.Time (Day, DiffTime, UTCTime (..), toGregorian)
-import Data.Word (Word16)
+import Data.Word
+#if MIN_VERSION_text(2,0,0)
+  (Word8)
+#else
+  (Word16)
+#endif
 import Unsafe.Coerce (unsafeCoerce)
 
 -- Note: All functions here are optimized to never allocate anything
@@ -178,14 +185,24 @@ writeTrunc3 buf off i
 -- Copyright:   (c) 2015-2016 Bryan O'Sullivan
 -- License:     BSD3
 
-data T = T {-# UNPACK #-} !Word16 {-# UNPACK #-} !Word16
+data T = T
+#if MIN_VERSION_text(2,0,0)
+  {-# UNPACK #-} !Word8 {-# UNPACK #-} !Word8
+#else
+  {-# UNPACK #-} !Word16 {-# UNPACK #-} !Word16
+#endif
 
 twoDigits :: Int -> T
 twoDigits a = T (digit hi) (digit lo)
   where
     (hi, lo) = a `quotRem` 10
 
-digit :: Int -> Word16
+digit :: Int ->
+#if MIN_VERSION_text(2,0,0)
+  Word8
+#else
+  Word16
+#endif
 digit x = fromIntegral (x + 48)
 
 data TimeOfDay64
