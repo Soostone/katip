@@ -1,3 +1,7 @@
+0.8.7.1
+=======
+* Text 2 compatibility [#138](https://github.com/Soostone/katip/pull/138)
+
 0.8.7.0
 =======
 * Aeson 2 compatibility [#131](https://github.com/Soostone/katip/pull/131)
