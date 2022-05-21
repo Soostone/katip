@@ -43,11 +43,13 @@ where
 -------------------------------------------------------------------------------
 import Control.Applicative
 import Control.Exception.Safe
+import Control.Monad                               as CM
 import Control.Monad.Base
 import Control.Monad.Error.Class
 #if MIN_VERSION_base(4, 9, 0)
 import qualified Control.Monad.Fail                as MF
 #endif
+import Control.Monad.Fix                           as MFix
 import Control.Monad.IO.Class
 import Control.Monad.IO.Unlift
 import Control.Monad.Reader
@@ -71,7 +73,8 @@ import qualified Control.Monad.Trans.Writer.Strict as Strict
   ( WriterT,
     mapWriterT,
   )
-import Control.Monad.Writer hiding ((<>))
+import qualified Control.Monad.Writer as Lazy (WriterT, mapWriterT)
+import Control.Monad.Writer.Class as WC
 import Data.Aeson
 #if MIN_VERSION_aeson(2, 0, 0)
 import qualified Data.Aeson.KeyMap as KM
@@ -233,11 +236,11 @@ instance (Monoid w, KatipContext m, Katip (Strict.WriterT w m)) => KatipContext 
   getKatipNamespace = lift getKatipNamespace
   localKatipNamespace = Strict.mapWriterT . localKatipNamespace
 
-instance (Monoid w, KatipContext m, Katip (WriterT w m)) => KatipContext (WriterT w m) where
+instance (Monoid w, KatipContext m, Katip (Lazy.WriterT w m)) => KatipContext (Lazy.WriterT w m) where
   getKatipContext = lift getKatipContext
-  localKatipContext = mapWriterT . localKatipContext
+  localKatipContext = Lazy.mapWriterT . localKatipContext
   getKatipNamespace = lift getKatipNamespace
-  localKatipNamespace = mapWriterT . localKatipNamespace
+  localKatipNamespace = Lazy.mapWriterT . localKatipNamespace
 
 instance (Monoid w, KatipContext m, Katip (Strict.RWST r w s m)) => KatipContext (Strict.RWST r w s m) where
   getKatipContext = lift getKatipContext
@@ -367,12 +370,12 @@ newtype KatipContextT m a = KatipContextT
       MonadMask,
       MonadBase b,
       MonadState s,
-      MonadWriter w,
+      WC.MonadWriter w,
       MonadError e,
-      MonadPlus,
+      CM.MonadPlus,
       MonadResource,
       Alternative,
-      MonadFix,
+      MFix.MonadFix,
       MonadTrans
     )
 
@@ -481,11 +484,11 @@ newtype NoLoggingT m a = NoLoggingT
       MonadMask,
       MonadBase b,
       MonadState s,
-      MonadWriter w,
+      WC.MonadWriter w,
       MonadError e,
-      MonadPlus,
+      CM.MonadPlus,
       Alternative,
-      MonadFix,
+      MFix.MonadFix,
       MonadReader r
     )
 
