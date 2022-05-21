@@ -1,3 +1,7 @@
+0.8.7.2
+=======
+* MTL 2.3 compatibility [#140](https://github.com/Soostone/katip/pull/140)
+
 0.8.7.1
 =======
 * Text 2 compatibility [#138](https://github.com/Soostone/katip/pull/138)
