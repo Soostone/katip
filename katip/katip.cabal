@@ -90,7 +90,7 @@ library
     build-depends: Win32 >=2.3 && <2.9
     exposed-modules: Katip.Compat
   else
-    build-depends: unix >= 2.5 && <2.8
+    build-depends: unix >= 2.5 && <2.9
 
 
 test-suite test
