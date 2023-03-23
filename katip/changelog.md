@@ -1,3 +1,7 @@
+0.8.7.3
+=======
+* unix 2.8 compatibility [#143](https://github.com/Soostone/katip/pull/143)
+
 0.8.7.2
 =======
 * MTL 2.3 compatibility [#140](https://github.com/Soostone/katip/pull/140)
