@@ -1,3 +1,7 @@
+0.8.7.4
+=======
+* Allow up to GHC 9.6 for Windows [#145](https://github.com/Soostone/katip/pull/145)
+
 0.8.7.3
 =======
 * unix 2.8 compatibility [#143](https://github.com/Soostone/katip/pull/143)
