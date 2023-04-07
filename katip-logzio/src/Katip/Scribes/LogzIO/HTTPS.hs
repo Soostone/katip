@@ -1,9 +1,9 @@
-{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE CPP #-}
 
 -- | This is a log scribe that writes logs to logz.io's bulk
 -- <https://app.logz.io/#/dashboard/data-sources/Bulk-HTTPS HTTPS
@@ -54,7 +54,12 @@ import qualified Data.Aeson as A
 import qualified Data.ByteString.Builder as BB
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.ByteString.Lazy.Char8 as LBS8
+#if MIN_VERSION_aeson (2, 0, 0)
+import qualified Data.Aeson.Key as A
+import qualified Data.Aeson.KeyMap as A
+#else
 import qualified Data.HashMap.Strict as HM
+#endif
 import Data.Int
 import qualified Data.Scientific as Scientific
 import Data.Semigroup as Semigroup
@@ -326,7 +331,7 @@ ndtPicos = round . (* picos)
 
 -------------------------------------------------------------------------------
 ndtToMicros :: Time.NominalDiffTime -> Int
-ndtToMicros t = round (((fromIntegral (ndtPicos t)) :: Double) / picosInMicro)
+ndtToMicros t = round ((fromIntegral (ndtPicos t) :: Double) / picosInMicro)
   where
     picosInMicro = 10 ^ (3 :: Int)
 
@@ -433,7 +438,11 @@ measureJSONLine a = (BB.lazyByteString lbs, Bytes (LBS.length lbs))
 -- | Fully-rendered JSON object for an item
 fullItemObject :: K.LogItem a => K.Verbosity -> K.Item a -> A.Object
 fullItemObject verbosity item =
+#if MIN_VERSION_aeson (2, 0, 0)
+  A.fromList
+#else
   HM.fromList
+#endif
     [ "app" A..= K._itemApp item,
       "env" A..= K._itemEnv item,
       "sev" A..= K._itemSeverity item,
@@ -489,7 +498,11 @@ renderLineTruncated' customMaxLogLineLength verbosity item =
     -- item is too big
     blankObject :: A.Object
     blankObject =
+#if MIN_VERSION_aeson (2, 0, 0)
+      A.fromList
+#else
       HM.fromList
+#endif
         [ "message" A..= A.String "", -- we'll start with a blank message
           "@timestamp" A..= K._itemTime item
         ]
@@ -498,7 +511,11 @@ renderLineTruncated' customMaxLogLineLength verbosity item =
     (fallbackLine, fallbackSize) = measureJSONLine fallbackObject
     fallbackObject :: A.Object
     fallbackObject =
+#if MIN_VERSION_aeson (2, 0, 0)
+      A.fromList
+#else
       HM.fromList
+#endif
         [ "message" A..= A.toJSON (TL.take (bytes messageBytesAllowed) (TB.toLazyText (K.unLogStr (K._itemMessage item)))),
           "@timestamp" A..= A.toJSON (K._itemTime item)
         ]
@@ -599,6 +616,19 @@ annotateValue (A.Array a) = A.Array (annotateValue <$> a)
 annotateValue x = x
 
 annotateKeys :: A.Object -> A.Object
+#if MIN_VERSION_aeson (2, 0, 0)
+annotateKeys = A.fromList . map go . A.toList
+  where
+    go (k, A.Object o) = (k, A.Object (annotateKeys o))
+    go (k, A.Array a) = (k, A.Array (annotateValue <$> a))
+    go (k, s@(A.String _)) = (A.fromText (A.toText k <> stringAnn), s)
+    go (k, n@(A.Number sci)) =
+      if Scientific.isFloating sci
+        then (A.fromText (A.toText k <> doubleAnn), n)
+        else (A.fromText (A.toText k <> longAnn), n)
+    go (k, b@(A.Bool _)) = (A.fromText (A.toText k <> booleanAnn), b)
+    go (k, A.Null) = (A.fromText (A.toText k <> nullAnn), A.Null)
+#else
 annotateKeys = HM.fromList . map go . HM.toList
   where
     go (k, A.Object o) = (k, A.Object (annotateKeys o))
@@ -610,6 +640,7 @@ annotateKeys = HM.fromList . map go . HM.toList
         else (k <> longAnn, n)
     go (k, b@(A.Bool _)) = (k <> booleanAnn, b)
     go (k, A.Null) = (k <> nullAnn, A.Null)
+#endif
 
 -------------------------------------------------------------------------------
 -- Annotation Constants
