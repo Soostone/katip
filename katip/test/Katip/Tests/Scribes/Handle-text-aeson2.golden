@@ -37,4 +37,4 @@ newline][Info][example][PID 7331][ThreadId 1337][note.deep:some note] message
 [2016-06-12 12:34:56][foo][Info][example][PID 7331][ThreadId 1337][note.deep:some note][main:Some.Module path/Some/Module.hs:30:1] message
 [2016-06-12 12:34:56][foo][Info][example][PID 7331][ThreadId 1337][note.deep:some note][main:Some.Module путь/Some/Module.hs:3000:9000] message
 [2016-06-12 12:34:56][foo][Info][example][PID 7331][ThreadId 1337][float:0][num:0][sub:null][text:] message
-[2016-06-12 12:34:56][foo][Info][example][PID 7331][ThreadId 1337][float:5.5][num:10][sub.note.deep:some note][text:note] message
+[2016-06-12 12:34:56][foo][Info][example][PID 7331][ThreadId 1337][float:5.5][list.0:one][list.1:two][list.2:three][num:10][sub.note.deep:some note][text:note] message

@@ -16,10 +16,12 @@ import qualified Data.HashMap.Strict as HM
 import Data.Monoid as M
 import Data.Scientific as S
 import Data.Text (Text)
+import qualified Data.Text as T
 import Data.Text.Lazy (toStrict)
 import Data.Text.Lazy.Builder
 import Data.Text.Lazy.Encoding (decodeUtf8)
 import Data.Text.Lazy.IO as T
+import qualified Data.Vector as V
 -------------------------------------------------------------------------------
 import Katip.Core
 import Katip.Format.Time (formatAsLogTime)
@@ -53,11 +55,11 @@ renderPair :: (Text, Value) -> [Builder]
 renderPair (k, v) =
   case v of
     Object o -> concat [renderPair (k <> "." <> k', v') | (k', v') <- toTxtKeyList o]
+    Array a -> concat [renderPair (k <> "." <> T.pack (show k'), v') | (k', v') <- V.toList (V.indexed a)]
     String t -> [fromText (k <> ":" <> t)]
     Number n -> [fromText (k <> ":") <> fromString (formatNumber n)]
     Bool b -> [fromText (k <> ":") <> fromString (show b)]
     Null -> [fromText (k <> ":null")]
-    _ -> mempty -- Can't think of a sensible way to handle arrays
   where
     formatNumber :: Scientific -> String
     formatNumber n =
