@@ -137,10 +137,8 @@ setupFile = do
 
 -- Following code tests Handle scribe output against a golden file.
 -- This test will fail on non utf8 locales because golden file is in utf-8.
--- It generates all meaningfull variations of Item, and also tests
+-- It generates all meaningful variations of Item, and also tests
 -- writing of payload of different Aeson constructors
---
--- Note: currently Handle scribe does not write Array items at all
 -------------------------------------------------------------------------------
 data AllTypesLogItem = AllTypesLogItem
   { atlText :: Text,
