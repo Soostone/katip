@@ -1,3 +1,7 @@
+0.8.8.0
+=======
+* Add support for rendering arrays in the log context to the handle scribe [#150](https://github.com/Soostone/katip/pull/150)
+
 0.8.7.4
 =======
 * Allow up to GHC 9.6 for Windows [#145](https://github.com/Soostone/katip/pull/145)
