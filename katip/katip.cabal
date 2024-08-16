@@ -84,7 +84,7 @@ library
 
   hs-source-dirs:      src
   default-language:    Haskell2010
-  ghc-options:        -Wall
+  ghc-options:        -Wall -O2
   if flag(lib-Werror)
     ghc-options: -Werror
   if os(windows)
@@ -133,7 +133,7 @@ benchmark bench
   main-is: Main.hs
   hs-source-dirs: bench
   default-language:    Haskell2010
-  ghc-options: -O2 -Wall -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -O2 -Wall -threaded -rtsopts "-with-rtsopts=-N"
   if flag(lib-Werror)
     ghc-options: -Werror
   build-depends:

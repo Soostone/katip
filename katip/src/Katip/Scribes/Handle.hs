@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE CPP, OverloadedStrings #-}
 
 module Katip.Scribes.Handle where
 
@@ -31,24 +31,30 @@ import System.IO
 
 -------------------------------------------------------------------------------
 brackets :: Builder -> Builder
-brackets m = fromText "[" M.<> m <> fromText "]"
+brackets m = "[" M.<> m <> "]"
+{-# INLINE brackets #-}
 
 -------------------------------------------------------------------------------
 getKeys :: LogItem s => Verbosity -> s -> [Builder]
 getKeys verb a = concat (toBuilders (payloadObject verb a))
+{-# INLINE getKeys #-}
 
 #if MIN_VERSION_aeson(2, 0, 0)
 toBuilders :: KM.KeyMap Value -> [[Builder]]
 toBuilders = fmap (renderPair . first K.toText) . KM.toList
+{-# INLINE toBuilders #-}
 
 toTxtKeyList :: KM.KeyMap v -> [(Text, v)]
 toTxtKeyList mp = first K.toText <$> KM.toList mp
+{-# INLINE toTxtKeyList #-}
 #else
 toBuilders :: HM.HashMap Text Value -> [[Builder]]
 toBuilders = fmap renderPair . HM.toList
+{-# INLINE toBuilders #-}
 
 toTxtKeyList :: HM.HashMap Text v -> [(Text, v)]
 toTxtKeyList = HM.toList
+{-# INLINE toTxtKeyList #-}
 #endif
 
 renderPair :: (Text, Value) -> [Builder]
@@ -64,6 +70,7 @@ renderPair (k, v) =
     formatNumber :: Scientific -> String
     formatNumber n =
       formatScientific Generic (if isFloating n then Nothing else Just 0) n
+{-# INLINE renderPair #-}
 
 -------------------------------------------------------------------------------
 data ColorStrategy
@@ -87,6 +94,7 @@ data ColorStrategy
 -- handle. Handle mode is set to 'LineBuffering' automatically.
 mkHandleScribe :: ColorStrategy -> Handle -> PermitFunc -> Verbosity -> IO Scribe
 mkHandleScribe = mkHandleScribeWithFormatter bracketFormat
+{-# INLINE mkHandleScribe #-}
 
 -- | Logs to a file handle such as stdout, stderr, or a file. Takes a custom
 -- `ItemFormatter` that can be used to format `Item` as needed.
@@ -110,6 +118,7 @@ mkHandleScribeWithFormatter itemFormatter cs h permitF verb = do
         bracket_ (takeMVar lock) (putMVar lock ()) $
           T.hPutStrLn h $ toLazyText $ itemFormatter colorize verb i
   return $ Scribe logger (hFlush h) permitF
+{-# INLINE mkHandleScribeWithFormatter #-}
 
 -------------------------------------------------------------------------------
 
@@ -123,6 +132,7 @@ mkFileScribe f permitF verb = do
   h <- openFile f AppendMode
   Scribe logger finalizer permit <- mkHandleScribe (ColorLog False) h permitF verb
   return (Scribe logger (finalizer `finally` hClose h) permit)
+{-# INLINE mkFileScribe #-}
 
 -------------------------------------------------------------------------------
 
@@ -136,6 +146,7 @@ type ItemFormatter a = Bool -> Verbosity -> Item a -> Builder
 formatItem :: LogItem a => ItemFormatter a
 formatItem = bracketFormat
 {-# DEPRECATED formatItem "Use bracketFormat instead" #-}
+{-# INLINE formatItem #-}
 
 -- | A traditional 'bracketed' log format. Contexts and other information will
 -- be flattened out into bracketed fields. For example:
@@ -160,6 +171,7 @@ bracketFormat withColor verb Item {..} =
     ks = map brackets $ getKeys verb _itemPayload
     renderSeverity' severity =
       colorBySeverity withColor severity (renderSeverity severity)
+{-# INLINE bracketFormat #-}
 
 -- | Logs items as JSON. This can be useful in circumstances where you already
 -- have infrastructure that is expecting JSON to be logged to a standard stream
@@ -173,6 +185,7 @@ jsonFormat withColor verb i =
   fromText $
     colorBySeverity withColor (_itemSeverity i) $
       toStrict $ decodeUtf8 $ encode $ itemJson verb i
+{-# INLINE jsonFormat #-}
 
 -- | Color a text message based on `Severity`. `ErrorS` and more severe errors
 -- are colored red, `WarningS` is colored yellow, and all other messages are
@@ -191,6 +204,7 @@ colorBySeverity withColor severity msg = case severity of
     colorize c s
       | withColor = "\ESC[" <> c <> "m" <> s <> "\ESC[0m"
       | otherwise = s
+{-# INLINE colorBySeverity #-}
 
 -- | Provides a simple log environment with 1 scribe going to
 -- stdout. This is a decent example of how to build a LogEnv and is
@@ -201,3 +215,4 @@ ioLogEnv permit verb = do
   le <- initLogEnv "io" "io"
   lh <- mkHandleScribe ColorIfTerminal stdout permit verb
   registerScribe "stdout" lh defaultScribeSettings le
+{-# INLINE ioLogEnv #-}
