@@ -41,7 +41,7 @@ formatAsLogTime (UTCTime day time) = toText $
     return (buf, 19)
   where
     toText (arr, len) = Text arr 0 len
-{-# INLINEABLE formatAsLogTime #-}
+{-# INLINE formatAsLogTime #-}
 
 -- | Format 'UTCTime' into a Iso8601 format.
 --
@@ -68,7 +68,7 @@ formatAsIso8601 (UTCTime day time) = toText $
     return (buf, next + 1)
   where
     toText (arr, len) = Text arr 0 len
-{-# INLINEABLE formatAsIso8601 #-}
+{-# INLINE formatAsIso8601 #-}
 
 -- | Writes the @YYYY-MM-DD@ part of timestamp
 writeDay :: TA.MArray s -> Int -> Day -> ST s Int
@@ -115,6 +115,7 @@ writeTimeOfDay doSubSeconds buf off (TOD hh mm ss) =
     T s1 s2 = twoDigits (fromIntegral real)
     (real, frac) = ss `quotRem` pico
     pico = 1000000000000 -- number of picoseconds  in 1 second
+{-# INLINE writeTimeOfDay #-}
 
 writeFracSeconds :: TA.MArray s -> Int -> Int64 -> ST s Int
 writeFracSeconds buf off frac =
@@ -129,6 +130,7 @@ writeFracSeconds buf off frac =
   where
     (mics, mills) = frac `quotRem` micro
     micro = 1000000 -- number of microseconds in 1 second
+{-# INLINE writeFracSeconds #-}
 
 writeDigit6 :: TA.MArray s -> Int -> Int -> ST s ()
 writeDigit6 buf off i =

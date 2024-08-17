@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveLift #-}
+{-# LANGUAGE BangPatterns               #-}
 {-# LANGUAGE CPP                        #-}
 {-# LANGUAGE DefaultSignatures          #-}
 {-# LANGUAGE DeriveFunctor              #-}
@@ -103,6 +104,7 @@ readMay s = case [x | (x,t) <- reads s, ("","") <- lex t] of
               [x] -> Just x
               []  -> Nothing -- no parse
               _   -> Nothing -- Ambiguous parse
+{-# INLINE readMay #-}
 
 
 -------------------------------------------------------------------------------
@@ -122,6 +124,7 @@ instance IsString Namespace where
 -- | Ready namespace for emission with dots to join the segments.
 intercalateNs :: Namespace -> [Text]
 intercalateNs (Namespace xs) = intersperse "." xs
+{-# INLINE intercalateNs #-}
 
 
 -------------------------------------------------------------------------------
@@ -156,8 +159,9 @@ data Verbosity = V0 | V1 | V2 | V3
 
 
 -------------------------------------------------------------------------------
+{-# INLINE renderSeverity #-}
 renderSeverity :: Severity -> Text
-renderSeverity s = case s of
+renderSeverity !s = case s of
       DebugS     -> "Debug"
       InfoS      -> "Info"
       NoticeS    -> "Notice"
@@ -169,6 +173,7 @@ renderSeverity s = case s of
 
 
 -------------------------------------------------------------------------------
+{-# INLINE textToSeverity #-}
 textToSeverity :: Text -> Maybe Severity
 textToSeverity = go . T.toLower
   where
@@ -220,11 +225,13 @@ instance IsString LogStr where
 
 instance Semigroup LogStr where
   (LogStr a) <> (LogStr b) = LogStr (a <> b)
+  {-# INLINE (<>) #-}
 
 
 instance Monoid LogStr where
     mappend = (<>)
     mempty = LogStr mempty
+    {-# INLINE mempty #-}
 
 
 instance FromJSON LogStr where
@@ -238,18 +245,21 @@ instance FromJSON LogStr where
 -- lazy variants.
 logStr :: StringConv a Text => a -> LogStr
 logStr t = LogStr (B.fromText $ toS t)
+{-# INLINE logStr #-}
 
 
 -------------------------------------------------------------------------------
 -- | Shorthand for 'logStr'
 ls :: StringConv a Text => a -> LogStr
 ls = logStr
+{-# INLINE ls #-}
 
 
 -------------------------------------------------------------------------------
 -- | Convert any showable type into a 'LogStr'.
 showLS :: Show a => a -> LogStr
 showLS = ls . show
+{-# INLINE showLS #-}
 
 
 -------------------------------------------------------------------------------
@@ -262,14 +272,14 @@ mkThreadIdText :: ThreadId -> ThreadIdText
 mkThreadIdText = ThreadIdText . stripPrefix' "ThreadId " . T.pack . show
   where
     stripPrefix' pfx t = fromMaybe t (T.stripPrefix pfx t)
-
+{-# INLINE mkThreadIdText #-}
 
 -------------------------------------------------------------------------------
 -- | This has everything each log message will contain.
 data Item a = Item {
       _itemApp       :: Namespace
     , _itemEnv       :: Environment
-    , _itemSeverity  :: Severity
+    , _itemSeverity  :: {-# UNPACK #-} !Severity
     , _itemThread    :: ThreadIdText
     , _itemHost      :: HostName
     , _itemProcess   :: ProcessID
@@ -398,10 +408,12 @@ instance FromJSON a => FromJSON (Item a) where
 
 processIDToText :: ProcessID -> Text
 processIDToText = toS . show
+{-# INLINE processIDToText #-}
 
 
 textToProcessID :: Text -> Maybe ProcessID
 textToProcessID = readMay . toS
+{-# INLINE textToProcessID #-}
 
 
 newtype ProcessIDJs = ProcessIDJs {
@@ -445,6 +457,7 @@ equivalentPayloadSelection :: PayloadSelection -> PayloadSelection -> Bool
 equivalentPayloadSelection AllKeys AllKeys = True
 equivalentPayloadSelection (SomeKeys a) (SomeKeys b) = Set.fromList a == Set.fromList b
 equivalentPayloadSelection _ _ = False
+{-# INLINE equivalentPayloadSelection #-}
 
 -------------------------------------------------------------------------------
 -- | Katip requires JSON objects to be logged as context. This
@@ -516,6 +529,7 @@ toKey = first K.fromText
 toKey :: a -> a
 toKey = id
 #endif
+{-# INLINE toKey #-}
 
 
 instance ToObject SimpleLogPayload
@@ -539,6 +553,7 @@ instance Monoid SimpleLogPayload where
 -- | Construct a simple log from any JSON item.
 sl :: ToJSON a => Text -> a -> SimpleLogPayload
 sl a b = SimpleLogPayload [(a, AnyLogPayload b)]
+{-# INLINE sl #-}
 
 
 -------------------------------------------------------------------------------
@@ -548,6 +563,7 @@ payloadObject :: LogItem a => Verbosity -> a -> A.Object
 payloadObject verb a = case FT.foldMap (flip payloadKeys a) [(V0)..verb] of
     AllKeys     -> toObject a
     SomeKeys ks -> filterElems ks $ toObject a
+{-# INLINE payloadObject #-}
 
 #if MIN_VERSION_aeson(2, 0, 0)
 filterElems :: [Text] -> KM.KeyMap v -> KM.KeyMap v
@@ -556,6 +572,7 @@ filterElems ks = KM.filterWithKey (\ k _ -> K.toText k `FT.elem` ks)
 filterElems :: [Text] -> HM.HashMap Text v -> HM.HashMap Text v
 filterElems ks = HM.filterWithKey (\ k _ -> k `FT.elem` ks)
 #endif
+{-# INLINE filterElems #-}
 
 
 -------------------------------------------------------------------------------
@@ -564,6 +581,7 @@ filterElems ks = HM.filterWithKey (\ k _ -> k `FT.elem` ks)
 -- messages should use this to obtain their payload.
 itemJson :: LogItem a => Verbosity -> Item a -> A.Value
 itemJson verb a = toJSON $ a & itemPayload %~ payloadObject verb
+{-# INLINE itemJson #-}
 
 
 -------------------------------------------------------------------------------
@@ -611,12 +629,15 @@ type PermitFunc = forall a. Item a -> IO Bool
 
 
 -- | AND together 2 permit functions
+
 permitAND :: PermitFunc -> PermitFunc -> PermitFunc
 permitAND f1 f2 = \a -> liftA2 (&&) (f1 a) (f2 a)
+{-# INLINE permitAND #-}
 
 -- | OR together 2 permit functions
 permitOR :: PermitFunc -> PermitFunc -> PermitFunc
 permitOR f1 f2 = \a -> liftA2 (||) (f1 a) (f2 a)
+{-# INLINE permitOR #-}
 
 
 data Scribe = Scribe {
@@ -626,7 +647,7 @@ data Scribe = Scribe {
    -- ^ Provide a __blocking__ finalizer to call when your scribe is
    -- removed. All pending writes should be flushed synchronously. If
    -- this is not relevant to your scribe, return () is fine.
-   , scribePermitItem :: PermitFunc
+   , scribePermitItem :: !PermitFunc
    -- ^ Provide a filtering function to allow the item to be logged,
    --   or not.  It can check Severity or some string in item's
    --   body. The initial value of this is usually created from
@@ -637,7 +658,7 @@ data Scribe = Scribe {
 
 whenM :: Monad m => m Bool -> m () -> m ()
 whenM mbool = (>>=) mbool . flip when
-
+{-# INLINE whenM #-}
 
 -- | Combine two scribes. Publishes to the left scribe if the left
 -- would permit the item and to the right scribe if the right would
@@ -650,10 +671,12 @@ instance Semigroup Scribe where
            )
            (finA `finally` finB)
            (permitOR permitA permitB)
+  {-# INLINE (<>) #-}
 
 
 instance Monoid Scribe where
     mempty = Scribe (const (return ())) (return ()) (permitItem DebugS)
+    {-# INLINE mempty #-}
     mappend = (<>)
 
 
@@ -675,6 +698,7 @@ data WorkerMessage where
 -- Most new scribes will use this as a base for their 'PermitFunc'
 permitItem :: Monad m => Severity -> Item a -> m Bool
 permitItem sev item = return (_itemSeverity item >= sev)
+{-# INLINE permitItem #-}
 
 
 -------------------------------------------------------------------------------
@@ -716,6 +740,7 @@ initLogEnv an env = LogEnv
   <*> pure env
   <*> mkAutoUpdate defaultUpdateSettings { updateAction = getCurrentTime, updateFreq = 1000 }
   <*> pure mempty
+{-# INLINE initLogEnv#-}
 
 
 -------------------------------------------------------------------------------
@@ -742,6 +767,7 @@ registerScribe nm scribe ScribeSettings {..} le = do
 
   let sh = ScribeHandle (scribe { scribeFinalizer = fin }) queue
   return (le & logEnvScribes %~ M.insert nm sh)
+{-# INLINE registerScribe#-}
 
 
 -------------------------------------------------------------------------------
@@ -757,7 +783,7 @@ spawnScribeWorker (Scribe write _ _) queue = Async.async go
           void (tryAny (write a))
           go
         PoisonPill -> return ()
-
+{-# INLINE spawnScribeWorker #-}
 
 -------------------------------------------------------------------------------
 data ScribeSettings = ScribeSettings {
@@ -853,59 +879,81 @@ class MonadIO m => Katip m where
 
 instance Katip m => Katip (ReaderT s m) where
     getLogEnv = lift getLogEnv
+    {-# INLINE getLogEnv #-}
     localLogEnv = mapReaderT . localLogEnv
+    {-# INLINE localLogEnv #-}
 
 
 #if !MIN_VERSION_either(4, 5, 0)
 instance Katip m => Katip (EitherT s m) where
     getLogEnv = lift getLogEnv
+    {-# INLINE getLogEnv #-}
     localLogEnv = mapEitherT . localLogEnv
+    {-# INLINE localLogEnv #-}
 #endif
 
 
 instance Katip m => Katip (ExceptT s m) where
     getLogEnv = lift getLogEnv
+    {-# INLINE getLogEnv #-}
     localLogEnv = mapExceptT . localLogEnv
+    {-# INLINE localLogEnv #-}
 
 
 instance Katip m => Katip (MaybeT m) where
     getLogEnv = lift getLogEnv
+    {-# INLINE getLogEnv #-}
     localLogEnv = mapMaybeT . localLogEnv
+    {-# INLINE localLogEnv #-}
 
 
 instance Katip m => Katip (StateT s m) where
     getLogEnv = lift getLogEnv
+    {-# INLINE getLogEnv #-}
     localLogEnv = mapStateT . localLogEnv
+    {-# INLINE localLogEnv #-}
 
 
 instance (Katip m, Monoid w) => Katip (RWST r w s m) where
     getLogEnv = lift getLogEnv
+    {-# INLINE getLogEnv #-}
     localLogEnv = mapRWST . localLogEnv
+    {-# INLINE localLogEnv #-}
 
 
 instance (Katip m, Monoid w) => Katip (Strict.RWST r w s m) where
     getLogEnv = lift getLogEnv
+    {-# INLINE getLogEnv #-}
     localLogEnv = Strict.mapRWST . localLogEnv
+    {-# INLINE localLogEnv #-}
 
 
 instance Katip m => Katip (Strict.StateT s m) where
     getLogEnv = lift getLogEnv
+    {-# INLINE getLogEnv #-}
     localLogEnv = Strict.mapStateT . localLogEnv
+    {-# INLINE localLogEnv #-}
 
 
 instance (Katip m, Monoid s) => Katip (WriterT s m) where
     getLogEnv = lift getLogEnv
+    {-# INLINE getLogEnv #-}
     localLogEnv = mapWriterT . localLogEnv
+    {-# INLINE localLogEnv #-}
 
 
 instance (Katip m, Monoid s) => Katip (Strict.WriterT s m) where
     getLogEnv = lift getLogEnv
+    {-# INLINE getLogEnv #-}
     localLogEnv = Strict.mapWriterT . localLogEnv
+    {-# INLINE localLogEnv #-}
 
 
 instance (Katip m) => Katip (ResourceT m) where
     getLogEnv = lift getLogEnv
+    {-# INLINE getLogEnv #-}
     localLogEnv = transResourceT . localLogEnv
+    {-# INLINE localLogEnv #-}
 
 
 -------------------------------------------------------------------------------
@@ -956,6 +1004,7 @@ instance MF.MonadFail m => MF.MonadFail (KatipT m) where
 -- | Execute 'KatipT' on a log env.
 runKatipT :: LogEnv -> KatipT m a -> m a
 runKatipT le (KatipT f) = runReaderT f le
+{-# INLINE runKatipT #-}
 
 
 -------------------------------------------------------------------------------
@@ -994,6 +1043,7 @@ logItem a ns loc sev msg = do
             <*> _logEnvTimer
             <*> pure (_logEnvApp <> ns)
             <*> pure loc)
+{-# INLINE logItem#-}
 
 -- | Log already constructed 'Item'. This is the lowest level function that other log*
 --   functions use.
@@ -1008,6 +1058,7 @@ logKatipItem item = do
       FT.forM_ (M.elems _logEnvScribes) $ \ ScribeHandle {..} -> do
         whenM (scribePermitItem shScribe item) $
           void $ atomically (tryWriteTBQueue shChan (NewItem item))
+{-# INLINE logKatipItem#-}
 
 -------------------------------------------------------------------------------
 tryWriteTBQueue
@@ -1019,6 +1070,7 @@ tryWriteTBQueue q a = do
   full <- isFullTBQueue q
   unless full (writeTBQueue q a)
   return (not full)
+{-# INLINE tryWriteTBQueue#-}
 
 
 -------------------------------------------------------------------------------
@@ -1035,6 +1087,7 @@ logF
   -- ^ The log message
   -> m ()
 logF a ns sev msg = logItem a ns Nothing sev msg
+{-# INLINE logF#-}
 
 
 
