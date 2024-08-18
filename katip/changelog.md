@@ -1,3 +1,7 @@
+0.8.8.1
+=======
+* Improve logging performance (4x) via inlining [#151](https://github.com/Soostone/katip/pull/151)
+
 0.8.8.0
 =======
 * Add support for rendering arrays in the log context to the handle scribe [#150](https://github.com/Soostone/katip/pull/150)
