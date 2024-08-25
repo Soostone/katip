@@ -69,14 +69,15 @@ import qualified Data.HashMap.Strict               as HM
 #endif
 import           Data.List
 import qualified Data.Map.Strict                   as M
-import           Data.Maybe                        (fromMaybe)
 import           Data.Semigroup                    as SG
 import qualified Data.Set                          as Set
 import           Data.String
 import           Data.String.Conv
 import           Data.Text                         (Text)
 import qualified Data.Text                         as T
+import qualified Data.Text.Lazy                    as TL
 import qualified Data.Text.Lazy.Builder            as B
+import qualified Data.Text.Lazy.Builder.Int        as B
 import           Data.Time
 import           GHC.Generics                      hiding (to)
 #if MIN_VERSION_base(4, 8, 0)
@@ -96,6 +97,12 @@ import           Katip.Compat
 import           System.Posix
 #endif
 
+#if MIN_VERSION_base(4, 19, 0)
+import           GHC.Conc.Sync                     (fromThreadId)
+#else
+import           Data.Maybe                        (fromMaybe)
+#endif
+
 -------------------------------------------------------------------------------
 
 
@@ -106,6 +113,8 @@ readMay s = case [x | (x,t) <- reads s, ("","") <- lex t] of
               _   -> Nothing -- Ambiguous parse
 {-# INLINE readMay #-}
 
+decimalToText :: Integral a => a -> Text
+decimalToText = TL.toStrict . B.toLazyText . B.decimal
 
 -------------------------------------------------------------------------------
 -- | Represents a heirarchy of namespaces going from general to
@@ -269,9 +278,13 @@ newtype ThreadIdText = ThreadIdText {
 
 
 mkThreadIdText :: ThreadId -> ThreadIdText
+#if MIN_VERSION_base(4, 19, 0)
+mkThreadIdText = ThreadIdText . decimalToText . fromThreadId
+#else
 mkThreadIdText = ThreadIdText . stripPrefix' "ThreadId " . T.pack . show
   where
     stripPrefix' pfx t = fromMaybe t (T.stripPrefix pfx t)
+#endif
 {-# INLINE mkThreadIdText #-}
 
 -------------------------------------------------------------------------------
@@ -407,7 +420,7 @@ instance FromJSON a => FromJSON (Item a) where
 
 
 processIDToText :: ProcessID -> Text
-processIDToText = toS . show
+processIDToText = decimalToText
 {-# INLINE processIDToText #-}
 
 
