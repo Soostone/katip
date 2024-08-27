@@ -1,3 +1,7 @@
+0.8.8.2
+=======
+* Performance improvements [#152](https://github.com/Soostone/katip/pull/152)
+
 0.8.8.1
 =======
 * Improve logging performance (4x) via inlining [#151](https://github.com/Soostone/katip/pull/151)
