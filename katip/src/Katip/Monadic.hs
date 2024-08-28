@@ -85,6 +85,7 @@ import qualified Data.Foldable as FT
 import qualified Data.HashMap.Strict as HM
 #endif
 import Data.Semigroup as Semi
+import Data.Map(Map)
 import Data.Sequence as Seq
 import Data.Text (Text)
 #if MIN_VERSION_base(4, 8, 0)
@@ -123,17 +124,27 @@ data AnyLogContext where
 -- Additional note: you should not mappend LogContexts in any sort of
 -- infinite loop, as it retains all data, so that would be a memory
 -- leak.
-newtype LogContexts = LogContexts (Seq AnyLogContext) deriving (Monoid, Semigroup)
+data LogContexts = LogContexts {
+  logContextsSetContexts :: (KM.KeyMap Value),
+  logContextsAddedContexts  :: (Seq AnyLogContext)
+  }
+
+instance Semigroup LogContexts where
+  (<>) (LogContexts a1 a2) (LogContexts preffered1 b2) =
+          (LogContexts (preffered1 <> a1) (a2 <> b2))
+
+instance Monoid LogContexts where
+  mempty = LogContexts mempty mempty
 
 instance ToJSON LogContexts where
-  toJSON (LogContexts cs) =
+  toJSON (LogContexts keymap cs) =
     -- flip mappend to get right-biased merge
-    Object $ FT.foldr (flip mappend) mempty $ fmap (\(AnyLogContext v) -> toObject v) cs
+    Object $ FT.foldr (flip mappend) mempty $ keymap :<| (fmap (\(AnyLogContext v) -> toObject v) cs)
 
 instance ToObject LogContexts
 
 instance LogItem LogContexts where
-  payloadKeys verb (LogContexts vs) = FT.foldr (flip mappend) mempty $ fmap payloadKeys' vs
+  payloadKeys verb (LogContexts _keymap vs) =  FT.foldr (flip mappend) mempty $ fmap payloadKeys' vs
     where
       -- To ensure AllKeys doesn't leak keys from other values when
       -- combined, we resolve AllKeys to its equivalent SomeKeys
@@ -155,7 +166,7 @@ toKeys = HM.keys
 -- | Lift a log context into the generic wrapper so that it can
 -- combine with the existing log context.
 liftPayload :: (LogItem a) => a -> LogContexts
-liftPayload = LogContexts . Seq.singleton . AnyLogContext
+liftPayload = LogContexts mempty . Seq.singleton . AnyLogContext
 
 -------------------------------------------------------------------------------
 
