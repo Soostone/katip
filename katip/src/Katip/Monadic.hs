@@ -95,6 +95,7 @@ import           GHC.SrcLoc
 #endif
 import GHC.Stack
 #endif
+import Control.DeepSeq(force)
 
 -------------------------------------------------------------------------------
 import Katip.Core
@@ -129,7 +130,7 @@ data AnyLogContext where
 -- PPS It's perfectly safe to use 'katipSetContext' in infinite loops
 -- because it uses a map backing instead of a sequence.
 data LogContexts = LogContexts
-  { logContextsSetContexts :: (KM.KeyMap Value)
+  { logContextsSetContexts :: !(KM.KeyMap Value)
   , logContextsSetContextsKeys :: Verbosity -> KM.KeyMap Value -> PayloadSelection
   , logContextsAddedContexts  :: (Seq AnyLogContext)
   }
@@ -509,7 +510,7 @@ katipSetContext ::
   val ->
   m a ->
   m a
-katipSetContext key val = localKatipContext (\x -> x{ logContextsSetContexts = KM.insert key (toJSON val) $ logContextsSetContexts x})
+katipSetContext key val = localKatipContext (\x -> x{ logContextsSetContexts = force $ KM.insert key (toJSON val) $ logContextsSetContexts x})
 
 -- | This provides an alternative way of doing key filtering for 'katipSetContext',
 --   because it doesn't supports typeclass based filtering.
