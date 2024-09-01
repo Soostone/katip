@@ -95,7 +95,6 @@ import           GHC.SrcLoc
 #endif
 import GHC.Stack
 #endif
-import Control.DeepSeq(force)
 
 -------------------------------------------------------------------------------
 import Katip.Core
@@ -510,7 +509,7 @@ katipSetContext ::
   val ->
   m a ->
   m a
-katipSetContext key val = localKatipContext (\x -> x{ logContextsSetContexts = force $ KM.insert key (toJSON val) $ logContextsSetContexts x})
+katipSetContext key val = localKatipContext (\x -> x{ logContextsSetContexts = KM.insert key (toJSON val) $ logContextsSetContexts x})
 
 -- | This provides an alternative way of doing key filtering for 'katipSetContext',
 --   because it doesn't supports typeclass based filtering.
