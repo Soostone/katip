@@ -98,7 +98,7 @@ import           System.Posix
 #endif
 
 #if MIN_VERSION_base(4, 19, 0)
-import           GHC.Conc.Sync                     (fromThreadId)
+import           GHC.Conc.Sync                     (fromThreadId, labelThread)
 #else
 import           Data.Maybe                        (fromMaybe)
 #endif
@@ -785,7 +785,9 @@ registerScribe nm scribe ScribeSettings {..} le = do
 
 -------------------------------------------------------------------------------
 spawnScribeWorker :: Scribe -> BQ.TBQueue WorkerMessage -> IO (Async.Async ())
-spawnScribeWorker (Scribe write _ _) queue = Async.async go
+spawnScribeWorker (Scribe write _ _) queue = Async.async $ do
+    myThreadId >>= flip labelThread "Scribe worker (katip)"
+    go
   where
     go = do
       newCmd <- atomically (BQ.readTBQueue queue)
