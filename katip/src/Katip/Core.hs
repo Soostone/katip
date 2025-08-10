@@ -1152,9 +1152,7 @@ liftLoc (Loc a b c (d1, d2) (e1, e2)) = [|Loc
 -- callstacks when available (GHC > 7.8).
 #if MIN_VERSION_base(4, 8, 0)
 getLoc :: HasCallStack => Maybe Loc
-getLoc = case getCallStack callStack of
-  [] -> Nothing
-  xs -> Just . toLoc . head $ filter filterKatip xs
+getLoc = toLoc <$> listToMaybe (filter filterKatip $ getCallStack callStack)
   where
     filterKatip :: (String, SrcLoc) -> Bool
     filterKatip (_, srcloc) = not $
