@@ -136,7 +136,7 @@ closeScribeTests =
     ]
 
 -------------------------------------------------------------------------------
-loggingTests :: TestTree
+loggingTests :: HasCallStack => TestTree
 loggingTests =
   testGroup
     "logging"

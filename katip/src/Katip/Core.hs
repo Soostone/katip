@@ -69,6 +69,7 @@ import qualified Data.HashMap.Strict               as HM
 #endif
 import           Data.List
 import qualified Data.Map.Strict                   as M
+import           Data.Maybe                        (listToMaybe)
 import           Data.Semigroup                    as SG
 import qualified Data.Set                          as Set
 import           Data.String
@@ -1152,12 +1153,8 @@ liftLoc (Loc a b c (d1, d2) (e1, e2)) = [|Loc
 -- callstacks when available (GHC > 7.8).
 #if MIN_VERSION_base(4, 8, 0)
 getLoc :: HasCallStack => Maybe Loc
-getLoc = toLoc <$> listToMaybe (filter filterKatip $ getCallStack callStack)
+getLoc = withFrozenCallStack $ toLoc <$> listToMaybe (getCallStack callStack)
   where
-    filterKatip :: (String, SrcLoc) -> Bool
-    filterKatip (_, srcloc) = not $
-      "katip-" `isPrefixOf` srcLocPackage srcloc
-
     toLoc :: (String, SrcLoc) -> Loc
     toLoc (_, l) = Loc {
         loc_filename = srcLocFile l
@@ -1208,7 +1205,7 @@ logLoc :: (Applicative m, LogItem a, Katip m)
        -> Severity
        -> LogStr
        -> m ()
-logLoc a ns = logItem a ns getLoc
+logLoc a ns = withFrozenCallStack $ logItem a ns getLoc
 
 
 -- taken from the file-location package
