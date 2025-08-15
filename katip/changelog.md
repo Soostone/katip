@@ -1,3 +1,7 @@
+0.8.8.3
+=======
+* Don't rely on package names in `getLoc` [#159](https://github.com/Soostone/katip/pull/159)
+
 0.8.8.2
 =======
 * Performance improvements [#152](https://github.com/Soostone/katip/pull/152)

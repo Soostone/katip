@@ -319,7 +319,7 @@ logLocM ::
   Severity ->
   LogStr ->
   m ()
-logLocM = logItemM getLoc
+logLocM sev item = withFrozenCallStack $ logItemM getLoc sev item
 
 -------------------------------------------------------------------------------
 
