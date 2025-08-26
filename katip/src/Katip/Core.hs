@@ -98,8 +98,9 @@ import           Katip.Compat
 import           System.Posix
 #endif
 
+import           GHC.Conc.Sync                     (labelThread)
 #if MIN_VERSION_base(4, 19, 0)
-import           GHC.Conc.Sync                     (fromThreadId, labelThread)
+import           GHC.Conc.Sync                     (fromThreadId)
 #else
 import           Data.Maybe                        (fromMaybe)
 #endif
