@@ -1,3 +1,7 @@
+0.8.8.4
+=======
+* Fix build on GHC 9.6 and below [#160](https://github.com/Soostone/katip/pull/160)
+
 0.8.8.3
 =======
 * Don't rely on package names in `getLoc` [#159](https://github.com/Soostone/katip/pull/159)
