@@ -192,6 +192,7 @@ module Katip
     -- *** Temporarily Changing Logging Behavior
     katipAddNamespace,
     katipAddContext,
+    katipSetContext,
     katipNoLogging,
 
     -- * Included Scribes

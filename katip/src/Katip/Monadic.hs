@@ -34,6 +34,8 @@ module Katip.Monadic
     runKatipContextT,
     katipAddNamespace,
     katipAddContext,
+    katipSetContext,
+    katipSetContextKeyFun,
     KatipContextTState (..),
     NoLoggingT (..),
     askLoggerIO,
@@ -123,17 +125,38 @@ data AnyLogContext where
 -- Additional note: you should not mappend LogContexts in any sort of
 -- infinite loop, as it retains all data, so that would be a memory
 -- leak.
-newtype LogContexts = LogContexts (Seq AnyLogContext) deriving (Monoid, Semigroup)
+--
+-- PPS It's perfectly safe to use 'katipSetContext' in infinite loops
+-- because it uses a map backing instead of a sequence.
+data LogContexts = LogContexts
+  { logContextsSetContexts :: !(KM.KeyMap Value)
+  , logContextsSetContextsKeys :: Verbosity -> KM.KeyMap Value -> PayloadSelection
+  , logContextsAddedContexts  :: (Seq AnyLogContext)
+  }
+
+instance Semigroup LogContexts where
+  (<>) (LogContexts a1 _ a2) (LogContexts preffered1 preferedFun b2) =
+          LogContexts { logContextsSetContexts = (preffered1 <> a1),
+                        logContextsSetContextsKeys = preferedFun,
+                        logContextsAddedContexts  = (a2 <> b2)
+                       }
+
+allKeys :: Verbosity -> KM.KeyMap Value -> PayloadSelection
+allKeys _ _ = AllKeys
+
+instance Monoid LogContexts where
+  mempty = LogContexts mempty allKeys mempty
 
 instance ToJSON LogContexts where
-  toJSON (LogContexts cs) =
+  toJSON (LogContexts keymap _ cs) =
     -- flip mappend to get right-biased merge
-    Object $ FT.foldr (flip mappend) mempty $ fmap (\(AnyLogContext v) -> toObject v) cs
+    Object $ FT.foldr (flip mappend) mempty $ keymap :<| (fmap (\(AnyLogContext v) -> toObject v) cs)
 
 instance ToObject LogContexts
 
 instance LogItem LogContexts where
-  payloadKeys verb (LogContexts vs) = FT.foldr (flip mappend) mempty $ fmap payloadKeys' vs
+  payloadKeys verb (LogContexts keymap keyFun vs) =  FT.foldr (flip mappend) mempty $
+     firstKeys :<| fmap payloadKeys' vs
     where
       -- To ensure AllKeys doesn't leak keys from other values when
       -- combined, we resolve AllKeys to its equivalent SomeKeys
@@ -141,6 +164,11 @@ instance LogItem LogContexts where
       payloadKeys' (AnyLogContext v) = case payloadKeys verb v of
         AllKeys -> SomeKeys $ toKeys $ toObject v
         x -> x
+
+      firstKeys = case keyFun verb keymap of
+        AllKeys -> SomeKeys $ toKeys keymap
+        x -> x
+
 
 #if MIN_VERSION_aeson(2, 0, 0)
 toKeys :: KM.KeyMap v -> [Text]
@@ -155,7 +183,7 @@ toKeys = HM.keys
 -- | Lift a log context into the generic wrapper so that it can
 -- combine with the existing log context.
 liftPayload :: (LogItem a) => a -> LogContexts
-liftPayload = LogContexts . Seq.singleton . AnyLogContext
+liftPayload x = mempty {logContextsAddedContexts = Seq.singleton $ AnyLogContext x}
 
 -------------------------------------------------------------------------------
 
@@ -470,6 +498,30 @@ katipAddContext ::
   m a ->
   m a
 katipAddContext i = localKatipContext (<> (liftPayload i))
+
+
+-- | Like 'katipAddContext' but doesn't leak memory under recursion.
+katipSetContext ::
+  ( ToJSON val,
+    KatipContext m
+  ) =>
+  Key ->
+  val ->
+  m a ->
+  m a
+katipSetContext key val = localKatipContext (\x -> x{ logContextsSetContexts = KM.insert key (toJSON val) $ logContextsSetContexts x})
+
+-- | This provides an alternative way of doing key filtering for 'katipSetContext',
+--   because it doesn't supports typeclass based filtering.
+--   This is a bit more powerful however because it allows you to change
+--   the filter at runtime.
+--   It'd allow you to do more restrictive filtering for example when
+--   the system is under load.
+--
+--   this *only* works for 'katipSetContext'
+katipSetContextKeyFun :: KatipContext m => (Verbosity -> KM.KeyMap Value -> PayloadSelection) -> m a -> m a
+katipSetContextKeyFun fun =
+  localKatipContext (\x -> x{ logContextsSetContextsKeys = fun})
 
 newtype NoLoggingT m a = NoLoggingT
   { runNoLoggingT :: m a
