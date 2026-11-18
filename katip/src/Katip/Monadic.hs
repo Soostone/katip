@@ -62,6 +62,7 @@ import Control.Monad.Trans.Except (ExceptT, mapExceptT)
 import Control.Monad.Trans.Identity (IdentityT, mapIdentityT)
 import Control.Monad.Trans.Maybe (MaybeT, mapMaybeT)
 import Control.Monad.Trans.RWS (RWST, mapRWST)
+import qualified Control.Monad.Trans.RWS.CPS as CPS (RWST, mapRWST)
 import qualified Control.Monad.Trans.RWS.Strict as Strict (RWST, mapRWST)
 import Control.Monad.Trans.Resource
   ( MonadResource,
@@ -69,6 +70,10 @@ import Control.Monad.Trans.Resource
     transResourceT,
   )
 import qualified Control.Monad.Trans.State.Strict as Strict (StateT, mapStateT)
+import qualified Control.Monad.Trans.Writer.CPS as CPS
+  ( WriterT,
+    mapWriterT,
+  )
 import qualified Control.Monad.Trans.Writer.Strict as Strict
   ( WriterT,
     mapWriterT,
@@ -253,6 +258,18 @@ instance (Monoid w, KatipContext m, Katip (RWST r w s m)) => KatipContext (RWST 
   localKatipContext = mapRWST . localKatipContext
   getKatipNamespace = lift getKatipNamespace
   localKatipNamespace = mapRWST . localKatipNamespace
+
+instance (Monoid w, KatipContext m, Katip (CPS.WriterT w m)) => KatipContext (CPS.WriterT w m) where
+  getKatipContext = lift getKatipContext
+  localKatipContext = CPS.mapWriterT . localKatipContext
+  getKatipNamespace = lift getKatipNamespace
+  localKatipNamespace = CPS.mapWriterT . localKatipNamespace
+
+instance (Monoid w, KatipContext m, Katip (CPS.RWST r w s m)) => KatipContext (CPS.RWST r w s m) where
+  getKatipContext = lift getKatipContext
+  localKatipContext = CPS.mapRWST . localKatipContext
+  getKatipNamespace = lift getKatipNamespace
+  localKatipNamespace = CPS.mapRWST . localKatipNamespace
 
 deriving instance (Monad m, KatipContext m) => KatipContext (KatipT m)
 
