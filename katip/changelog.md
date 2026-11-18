@@ -1,3 +1,7 @@
+Unreleased
+==========
+* Add `Katip` and `KatipContext` instances for the CPS `WriterT` and `RWST` transformers. Bumps the `transformers` lower bound to 0.5.6.
+
 0.8.8.4
 =======
 * Fix build on GHC 9.6 and below [#160](https://github.com/Soostone/katip/pull/160)

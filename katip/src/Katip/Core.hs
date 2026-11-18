@@ -49,10 +49,12 @@ import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.Resource      (MonadResource, ResourceT,
                                                     transResourceT)
 import           Control.Monad.Trans.RWS.Lazy      (RWST, mapRWST)
+import qualified Control.Monad.Trans.RWS.CPS       as CPS (RWST, mapRWST)
 import qualified Control.Monad.Trans.RWS.Strict    as Strict (RWST, mapRWST)
 import           Control.Monad.Trans.State.Lazy    (StateT, mapStateT)
 import qualified Control.Monad.Trans.State.Strict  as Strict (StateT, mapStateT)
 import           Control.Monad.Trans.Writer.Lazy   (WriterT, mapWriterT)
+import qualified Control.Monad.Trans.Writer.CPS    as CPS (WriterT, mapWriterT)
 import qualified Control.Monad.Trans.Writer.Strict as Strict (WriterT,
                                                               mapWriterT)
 import           Data.Aeson                        (FromJSON (..), ToJSON (..),
@@ -945,6 +947,13 @@ instance (Katip m, Monoid w) => Katip (Strict.RWST r w s m) where
     {-# INLINE localLogEnv #-}
 
 
+instance (Katip m, Monoid w) => Katip (CPS.RWST r w s m) where
+    getLogEnv = lift getLogEnv
+    {-# INLINE getLogEnv #-}
+    localLogEnv = CPS.mapRWST . localLogEnv
+    {-# INLINE localLogEnv #-}
+
+
 instance Katip m => Katip (Strict.StateT s m) where
     getLogEnv = lift getLogEnv
     {-# INLINE getLogEnv #-}
@@ -963,6 +972,13 @@ instance (Katip m, Monoid s) => Katip (Strict.WriterT s m) where
     getLogEnv = lift getLogEnv
     {-# INLINE getLogEnv #-}
     localLogEnv = Strict.mapWriterT . localLogEnv
+    {-# INLINE localLogEnv #-}
+
+
+instance (Katip m, Monoid s) => Katip (CPS.WriterT s m) where
+    getLogEnv = lift getLogEnv
+    {-# INLINE getLogEnv #-}
+    localLogEnv = CPS.mapWriterT . localLogEnv
     {-# INLINE localLogEnv #-}
 
 
